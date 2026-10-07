@@ -22,7 +22,7 @@
   pipewire,
   vulkan-loader,
   release ? lib.importJSON ./release.json,
-  src ? fetchurl {
+  archive ? fetchurl {
     url = "https://github.com/CodeByDylan/Talesmith/releases/download/v${release.version}/talesmith-${release.version}-linux-x64.tar.gz";
     hash = release.hash or (throw "No Talesmith release is packaged for Nix yet");
   },
@@ -31,7 +31,7 @@
 stdenv.mkDerivation {
   pname = "talesmith";
   version = release.version or (throw "No Talesmith release is packaged for Nix yet");
-  inherit src;
+  src = archive;
 
   nativeBuildInputs = [
     autoPatchelfHook

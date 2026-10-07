@@ -158,7 +158,7 @@ jobs:
           nix build --impure --print-build-logs --expr "
             (builtins.getFlake \"path:$PWD\").inputs.nixpkgs.legacyPackages.x86_64-linux.callPackage ./packaging/nix/package.nix {
               release.version = \"$version\";
-              src = $archive;
+              archive = $archive;
             }"
 
       - name: Start the editor
