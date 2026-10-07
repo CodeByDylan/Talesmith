@@ -1,0 +1,39 @@
+---
+title: "Fonts"
+description: "Import TrueType and OpenType fonts, preview them, and use them in game UI."
+---
+
+Font files in the project's assets let your game's menus and HUD use the typeface you chose, the same on every player's machine. This page covers importing fonts, the preview and settings in the asset inspector, using a font in game UI, and fonts in builds.
+
+## Import a font
+
+Drop `.ttf`, `.otf` or `.ttc` files into the Assets panel, usually into a `fonts` folder. A font's thumbnail shows "Aa" in the font itself. Check the font's license allows you to ship it with a game.
+
+## The font inspector
+
+Select a font to see it in the Inspector.
+
+<Screenshot name="guide/asset-font" caption="Inter Bold with its sample text at five sizes." priority />
+
+The preview shows a line of sample text at 12, 16, 24, 36 and 56 pixels. Click the text to type your own, such as your game's title, to see how it looks.
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| **Family** | from the file | The name game UI uses for the font. Empty uses the family name stored in the file, such as *Inter*. |
+| **Default size** | 16 px | The size text uses when it does not choose one, from 1 to 512 |
+| **Fallback fonts** | none | Fonts tried in order for characters this font does not have, such as a font with Japanese characters or one with symbols. Choose a font of the project and click **Add**; reorder with **Move up**, remove with **Remove**. |
+
+Click **Apply** to keep your changes.
+
+## Use a font in game UI
+
+Game UI in Talesmith is made of Avalonia controls, drawn above the game; see [Game UI](/scripting/concepts/game-ui). The engine does not draw text into the game world itself. A font asset gives game code the font's file data, its family name and its settings, so UI code can load it into its controls. The samples' menus use Avalonia's built-in Inter font, which every game has without importing anything.
+
+## Fonts in builds
+
+An exported game ships a font when something refers to it, or when a script or plugin names its path in a string. A font that your UI loads in another way needs to be added under **Always include** in the Build dialog; see [Exporting a game](../exporting.mdx). Font files are packed with the game's other content.
+
+## Related
+
+- [Importing assets](./importing.mdx)
+- [Localization](./localization.mdx), when your text comes in several languages.

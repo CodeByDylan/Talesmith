@@ -1,0 +1,283 @@
+---
+title: "A simple UI overlay"
+description: "Show a score and health on top of the game with an Avalonia overlay updated from a script, or with a HUD drawn by a system."
+---
+
+A recipe for a heads-up display with the score and a health bar. The main version is an Avalonia overlay in a small plugin that a script feeds with snapshots, so the UI thread never touches game state. The second version draws the HUD with the renderer from the script assembly itself, as Lantern Grove does, for when you want no plugin at all.
+
+## Why the overlay lives in a plugin
+
+Game UI in Talesmith is ordinary Avalonia controls stacked above the game view. Scripts compile against the engine's assemblies only, not Avalonia, so a script cannot create a `TextBlock`. A plugin can: it references Avalonia, registers an `IGameOverlay`, and exposes a service that scripts call. Scripts compile against the project's enabled plugins, so they see that service's type like any engine type.
+
+The game runs on its own thread and the overlay on the UI thread. The two never share mutable objects. The game publishes immutable snapshots through a `ViewState<T>`, and the overlay shows the newest one. See [The game loop and threads](../concepts/game-loop.mdx) and [Game UI](../concepts/game-ui.mdx).
+
+```text
+PlayerStats (script, game thread)
+  -> ScoreHud.Show(...)            plugin service
+     -> ViewState<HudView>.Publish  immutable snapshot
+        -> Changed (UI thread)     ScoreOverlay updates its controls
+```
+
+## The plugin
+
+Create a plugin project as described in [Your first plugin](/plugins/first-plugin), with references to `Talesmith.Runtime`, `Talesmith.Avalonia` and `Talesmith.Plugins`. It holds three classes and a manifest.
+
+### The HUD state
+
+```csharp title="ScoreHud/ScoreHud.cs"
+using Talesmith.Runtime.Hosting;
+
+namespace MyGame.Hud;
+
+/// <summary>What the HUD shows: one immutable snapshot, replaced whenever a value changes.</summary>
+public sealed record HudView(int Score, int Health, int MaxHealth);
+
+/// <summary>The HUD's state. Game code calls it on the game thread; the overlay reads <see cref="View"/> on the UI thread.</summary>
+public sealed class ScoreHud(IGameUi ui)
+{
+    public ViewState<HudView> View { get; } = new(ui, new HudView(0, 3, 3));
+
+    public void Show(int score, int health, int maxHealth) => View.Publish(new HudView(score, health, maxHealth));
+}
+```
+
+`HudView` is a record, so it is immutable and compares by value. `ViewState<T>.Publish` ignores a snapshot equal to the current one and raises `Changed` on the UI thread at most once per UI update, however often the game publishes. Calling `Show` every frame would still be cheap, but the script below only calls it when a value changes, which also avoids allocating a record per frame.
+
+`IGameUi` is the engine's handle on the UI thread. In headless runs and tests, where there is no UI, it runs actions immediately, so the same code works everywhere.
+
+### The overlay
+
+```csharp title="ScoreHud/ScoreOverlay.cs"
+using System.Globalization;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Microsoft.Extensions.DependencyInjection;
+using Talesmith.Avalonia.Overlays;
+
+namespace MyGame.Hud;
+
+/// <summary>A card in the top-left corner with the score and a health bar.</summary>
+public sealed class ScoreOverlay : IGameOverlay
+{
+    private static readonly IBrush Card = new SolidColorBrush(Color.FromArgb(190, 8, 10, 28));
+    private static readonly IBrush Gold = new SolidColorBrush(Color.FromRgb(255, 214, 102));
+    private static readonly IBrush BarBack = new SolidColorBrush(Color.FromArgb(120, 255, 255, 255));
+    private static readonly IBrush BarFill = new SolidColorBrush(Color.FromRgb(239, 83, 80));
+
+    private const double BarWidth = 160;
+
+    public Control Create(IServiceProvider services)
+    {
+        var hud = services.GetRequiredService<ScoreHud>();
+
+        var score = new TextBlock { FontSize = 22, FontWeight = FontWeight.Bold, Foreground = Gold };
+        var fill = new Border { Background = BarFill, CornerRadius = new CornerRadius(4), HorizontalAlignment = HorizontalAlignment.Left };
+        var bar = new Border
+        {
+            Width = BarWidth,
+            Height = 10,
+            Margin = new Thickness(0, 8, 0, 0),
+            Background = BarBack,
+            CornerRadius = new CornerRadius(4),
+            Child = fill
+        };
+
+        void Show(HudView view)
+        {
+            score.Text = view.Score.ToString("N0", CultureInfo.CurrentCulture);
+            fill.Width = view.MaxHealth > 0 ? BarWidth * Math.Clamp(view.Health, 0, view.MaxHealth) / view.MaxHealth : 0;
+        }
+
+        hud.View.Changed += Show;
+        Show(hud.View.Value);
+        return new Border
+        {
+            IsHitTestVisible = false,
+            Background = Card,
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(16, 12),
+            Margin = new Thickness(20),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+            Child = new StackPanel { Children = { score, bar } }
+        };
+    }
+}
+```
+
+`Create` runs once on the UI thread when the game view is shown. It builds the controls, subscribes to `Changed` and shows the current value right away, because the game may have published before the overlay existed. `View.Value` is safe to read from any thread.
+
+### Registering it
+
+```csharp title="ScoreHud/ScoreHudPlugin.cs"
+using Microsoft.Extensions.DependencyInjection;
+using Talesmith.Avalonia.Overlays;
+using Talesmith.Plugins;
+
+namespace MyGame.Hud;
+
+/// <summary>Registers the HUD state and its overlay.</summary>
+public sealed class ScoreHudPlugin : IPlugin
+{
+    public void Configure(IPluginBuilder builder)
+    {
+        builder.Services.AddSingleton<ScoreHud>();
+        builder.Services.AddSingleton<IGameOverlay, ScoreOverlay>();
+    }
+}
+```
+
+```json title="ScoreHud/plugin.json"
+{
+  "id": "mygame.hud",
+  "name": "Score HUD",
+  "version": "1.0.0",
+  "description": "The score and health overlay.",
+  "assembly": "ScoreHud.dll",
+  "contractVersion": 1,
+  "minEngineVersion": "0.1.0",
+  "permissions": [],
+  "extensions": [ "overlays", "services" ]
+}
+```
+
+`ScoreHud` is a singleton: one instance for the whole game, shared by the script that publishes and the overlay that shows. Overlays and services need no permissions. Build the plugin into the game's `assets/plugins/hud` folder and switch it on in the **Plugins** panel, which offers to reload the project. After the reload the plugin is loaded, the scripts compile against it and the C# project your IDE opens references it. See [Game overlays](/plugins/runtime/overlays) for overlay ordering and focus, and [Services](/plugins/runtime/services) for service lifetimes.
+
+## The script that feeds it
+
+```csharp title="assets/scripts/PlayerStats.cs"
+using MyGame.Hud;
+
+namespace LanternGrove;
+
+/// <summary>Keeps the player's score and health and shows them in the HUD whenever they change.</summary>
+public sealed class PlayerStats : Script
+{
+    [Range(1, 20)]
+    public int MaxHealth = 3;
+
+    private ScoreHud? _hud;
+    private int _score;
+    private int _health;
+
+    public int Health => _health;
+
+    protected override void OnStart()
+    {
+        _health = MaxHealth;
+        _hud = GetService<ScoreHud>();
+        Events.Subscribe((ref CoinCollected coin) => AddScore(coin.Value));
+        Publish();
+    }
+
+    public void AddScore(int points)
+    {
+        _score += points;
+        Publish();
+    }
+
+    public void Damage(int amount)
+    {
+        _health = Math.Max(0, _health - amount);
+        Publish();
+    }
+
+    private void Publish() => _hud!.Show(_score, _health, MaxHealth);
+}
+```
+
+Add it to the player. It looks the service up once with `GetService`, which throws a clear error if the plugin is not enabled, adds points for every `CoinCollected` event from the [pickups recipe](./pickups.mdx), and publishes only from the methods that change a value. Enemies or hazards call `Damage` on it: `GetScript<PlayerStats>(contact.Other)?.Damage(1)`.
+
+### Crossing threads safely
+
+The rules are short:
+
+- Game code (scripts, systems) never touches a control. It publishes snapshots.
+- The overlay never reads the world, components or scripts. It reads `ViewState.Value` and handles `Changed`.
+- To send something back, such as a click on a pause button, the overlay posts it to the game thread with `Game.Post`, which runs it at the start of the next frame:
+
+```csharp
+var game = services.GetRequiredService<Game>();
+var pause = new Button { Content = "Pause" };
+pause.Click += (_, _) => game.Post(() => game.IsPaused = !game.IsPaused);
+```
+
+Breaking these rules works most of the time and fails rarely, with torn values or exceptions from Avalonia about the wrong thread, which is the worst kind of bug to track down. `ViewState` and `Game.Post` make the right way the easy way.
+
+### Styling to match the game
+
+- **Hit testing.** `IsHitTestVisible = false` lets clicks pass through the HUD to the game, which matters for click-to-move games. Leave it on only for controls the player clicks.
+- **Focus.** Input reaches the game only while the game view has keyboard focus. A HUD without text boxes or buttons never takes focus; a menu that does should give it back when it closes. See [Game UI](../concepts/game-ui.mdx).
+- **Colors.** Take them from the game's art, as the brushes above take Lantern Grove's night blue and lantern gold, and use some transparency on panels so the game shows through.
+- **Fonts.** Set `FontFamily` on the controls, with a font file embedded in the plugin as an Avalonia resource for a pixel or display font that every player's machine has. The [Avalonia documentation](https://docs.avaloniaui.net/) covers embedding fonts.
+- **Scale.** Avalonia lays out in device-independent pixels, so the HUD keeps its size on high-density displays without extra code.
+
+## A HUD drawn without a plugin
+
+When a few shapes and icons are enough, draw the HUD with the renderer from the script assembly, as Lantern Grove's `LanternHudSystem` draws its row of lanterns. A system in the `PreRender` phase draws into the frame in screen space:
+
+```csharp title="assets/scripts/HealthBarSystem.cs"
+using Talesmith.Rendering;
+using Talesmith.Runtime.Rendering;
+
+namespace MyGame;
+
+/// <summary>The player's health, drawn by <see cref="HealthBarSystem"/>.</summary>
+[Component(Category = "Gameplay")]
+public struct Health
+{
+    [Range(0, 20)]
+    public int Current;
+
+    [Range(1, 20)]
+    public int Maximum;
+}
+
+/// <summary>Draws the health of the one entity with <see cref="Health"/> as a row of pips in the top-left corner of the screen.</summary>
+[UpdateIn(SystemPhase.PreRender)]
+[ExecuteIn(ExecutionModes.Play)]
+public sealed class HealthBarSystem(RenderContext render) : ISystem
+{
+    private static readonly Color Panel = new(8, 10, 28, 160);
+    private static readonly Color Full = new(239, 83, 80);
+    private static readonly Color Lost = new(70, 70, 90, 200);
+    private const float Pip = 18;
+    private const float Gap = 6;
+    private const float Margin = 20;
+    private const float Padding = 10;
+
+    public void Update(in SystemContext context)
+    {
+        if (!context.World.Query<Health>().TryGetSingle(out var entity))
+            return;
+        var health = context.World.Get<Health>(entity);
+
+        var frame = render.Frame;
+        var width = health.Maximum * Pip + Math.Max(0, health.Maximum - 1) * Gap + Padding * 2;
+        frame.FillRect(new Rect2(Margin, Margin, width, Pip + Padding * 2), Panel, RenderLayers.Overlay, RenderSpace.Screen);
+        for (var i = 0; i < health.Maximum; i++)
+        {
+            var x = Margin + Padding + i * (Pip + Gap);
+            frame.FillRect(new Rect2(x, Margin + Padding, Pip, Pip), i < health.Current ? Full : Lost, RenderLayers.Overlay + 1, RenderSpace.Screen);
+        }
+    }
+}
+```
+
+- The game registers every system and `[Component]` type in the script assembly when it starts, so the system runs without any registration code. **Health** also appears under **Gameplay** in the inspector's **Add component** popup, so you can add it to the player there and set its values. A script can add it too, such as `AddComponent(new Health { Current = 5, Maximum = 5 })` in `OnStart`, the way Lantern Grove's shrine adds its `LanternTally`.
+- `[ExecuteIn(ExecutionModes.Play)]` keeps the HUD out of the editor's scene view; `PreRender` systems otherwise run in every mode.
+- `RenderSpace.Screen` draws in view units, ignoring the camera. The sizes are in the units of the game's design size from the `view` section of `game.json`, so the HUD covers the same part of the game at any window size. For a 640 × 360 pixel-art view, halve them. To anchor to the right or bottom edge, use `render.View.ViewSize`.
+- `RenderLayers.Overlay` and above are not lit, so the HUD stays readable in a dark scene.
+- A script changes the health with `GetComponent<Health>().Current--`, and the next frame shows it. There is no thread to cross, because systems run on the game thread.
+
+The renderer draws sprites, rectangles, lines and outlines but not text, so numbers need a sprite font of digit images or the Avalonia overlay. Declaring a system or component in the script assembly also means script changes during play mode ask for a restart instead of hot reloading. See [Systems](../concepts/systems.mdx) and [Rendering, cameras and materials](../concepts/rendering.mdx).
+
+## Related
+
+- [Game UI](../concepts/game-ui.mdx)
+- [The game loop and threads](../concepts/game-loop.mdx)
+- [Game overlays](/plugins/runtime/overlays)
+- [Your first plugin](/plugins/first-plugin)
+- [Pickups](./pickups.mdx)

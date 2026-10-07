@@ -1,0 +1,135 @@
+---
+title: "Services"
+description: "Register shared services, and replace engine services with your own."
+---
+
+`builder.Services` is the game's dependency injection container (`Microsoft.Extensions.DependencyInjection`). Everything a plugin adds is a registration in it, and everything a plugin's code needs comes out of it. This page covers when registration happens, service lifetimes, using services from systems, overlays and scripts, the engine services you can ask for, and replacing an engine service.
+
+## Configure only registers
+
+The engine creates a new instance of your `IPlugin` class each time it builds a game and calls `Configure` before the game's service provider exists. In the editor that happens for the edit game when the project opens and again for every play session; the player and exported games build one game. So:
+
+- Register types and factories; do not create game objects or start work in `Configure`. Nothing can be resolved yet.
+- Read [settings](../package/settings.mdx) and `builder.Plugin` freely; they are ready.
+- Do the work that needs other services in a system, a scene listener, or a service the game creates.
+- Expect `Configure` to run more often than you think, sometimes for a service collection that never becomes a game, and keep it free of side effects.
+
+Each game gets its own singletons. A play session never shares a singleton instance with the edit game or with the previous session.
+
+## Lifetimes
+
+| Register with | One instance per | Use for |
+| --- | --- | --- |
+| `AddSingleton<T>()` | game | state that outlives scenes, caches, services other code calls |
+| `AddScoped<T>()` | scene | state of one scene or level; see [Scenes](./scenes.mdx#state-for-one-scene) |
+| `AddTransient<T>()` | resolution | small helpers without state |
+
+```csharp title="SpinnersPlugin.cs"
+using Microsoft.Extensions.DependencyInjection;
+using Talesmith.Authoring;
+using Talesmith.Plugins;
+using Talesmith.Systems;
+
+namespace Spinners;
+
+public sealed class SpinnersPlugin : IPlugin
+{
+    public void Configure(IPluginBuilder builder)
+    {
+        var services = builder.Services;
+        services.AddComponent<Spinner>();
+        services.AddSystem<SpinSystem>();
+        services.AddSingleton<SpinnerStats>();
+    }
+}
+
+/// <summary>Counts full turns across every scene of the game.</summary>
+public sealed class SpinnerStats
+{
+    public int Turns { get; set; }
+}
+```
+
+Registering ordinary services needs no permission.
+
+## Use services
+
+Systems, scene listeners and your own services get services through their constructors:
+
+```csharp
+public sealed class TurnCounterSystem(SpinnerStats stats, ILogger<TurnCounterSystem> logger) : ISystem
+```
+
+Overlays receive the game's `IServiceProvider` in `Create`, and scripts call `GetService<T>()`:
+
+```csharp title="assets/scripts/TurnDisplay.cs"
+using Spinners;
+
+namespace CoralCove;
+
+/// <summary>Logs the number of turns every frame.</summary>
+public sealed class TurnDisplay : Script
+{
+    private SpinnerStats _stats = null!;
+
+    protected override void OnStart() => _stats = GetService<SpinnerStats>();
+
+    protected override void Update() => Log.Info($"{_stats.Turns} turns");
+}
+```
+
+Scripts compile against every plugin that loads, so they can use `Spinners` types directly. Other plugins use your services through a [dependency](../package/dependencies.mdx).
+
+### Engine services
+
+The services plugins use most:
+
+| Service | What it does |
+| --- | --- |
+| `Game` | The running game: `Post` and `InvokeAsync` to run code on the game thread, `IsPaused`, `Scenes` |
+| `ISceneManager` | Loads scenes; `Current` is the active scene |
+| `World` (scoped) | The current scene's world |
+| `IEventBus` | Publishes and subscribes to events such as `TriggerEntered` |
+| `IInputService` | Keys, mouse, and input actions from `config/input.json` |
+| `IAssetManager` | Loads assets by path, through the importers |
+| `IAudioService` | Sounds and music |
+| `ITweenService`, `IGameScheduler` | Tweens, and waiting for time or frames |
+| `IGameUi` | Runs code on the UI thread; used with `ViewState<T>` for [overlays](./overlays.mdx) |
+| `PlayerControl` | Suspends player input, such as during a cutscene |
+| `ILocalization` | Translated text from `.tloc` string tables |
+| `ILogger<T>` | Logging; in the editor it goes to the console |
+| `PluginLoadReport` | Which plugins loaded, with their states, reasons and warnings |
+| `IPluginPermissions` | [Permission checks](../package/permissions.mdx#check-a-permission-from-engine-code) |
+| `IPluginSettings`, keyed by plugin id | A plugin's [settings](../package/settings.mdx#use-settings-at-run-time) |
+
+## Replace an engine service
+
+The engine registers most of its services after the plugins, and only when nothing else was registered for them. Register your own implementation and the engine keeps it:
+
+```csharp
+builder.Services.AddSingleton(new LocalizationOptions(Language: builder.Settings.Get("language", "en")));
+```
+
+This plugin chooses the game's language from its settings. `LocalizationOptions` is in `Talesmith.Assets.Localization`.
+
+A few modules register their services before the plugins: physics, particles, lighting, audio output, the renderer and, in a window, the UI dispatcher (`IGameUi`). Code that asks for one service gets the last registration, which is yours. Code that asks for all registrations of a type (`IEnumerable<T>`) gets the engine's too; for those, remove the engine's with `Replace`:
+
+```csharp
+builder.Services.Replace(ServiceDescriptor.Singleton<IMyService, MyService>());
+```
+
+`Replace` is in `Microsoft.Extensions.DependencyInjection.Extensions`. Importers, overlays, particle modules, scene listeners and the other extension points are meant to be added alongside the engine's, so add them as their pages show.
+
+## React to plugins loading
+
+Each game publishes a `PluginLoaded` event for every loaded plugin on its first frame, and a `PluginUnloaded` event for each when the game shuts down. Both carry the plugin's `PluginInfo`:
+
+```csharp
+events.Subscribe((ref PluginLoaded e) => logger.LogInformation("{Plugin} {Version} is here", e.Plugin.Id, e.Plugin.Version));
+```
+
+## Related
+
+- [Scenes and scene listeners](./scenes.mdx)
+- [Plugin settings](../package/settings.mdx)
+- [Game overlays](./overlays.mdx)

@@ -1,0 +1,538 @@
+[
+  {
+    "id": "file",
+    "title": "File",
+    "shortcuts": [
+      {
+        "action": "New scene",
+        "keys": [
+          "Ctrl+N"
+        ]
+      },
+      {
+        "action": "Open scene…",
+        "keys": [
+          "Ctrl+O"
+        ]
+      },
+      {
+        "action": "Save scene",
+        "keys": [
+          "Ctrl+S"
+        ]
+      },
+      {
+        "action": "Save scene as…",
+        "keys": [
+          "Ctrl+Shift+S"
+        ]
+      },
+      {
+        "action": "Open project…",
+        "keys": [
+          "Ctrl+Shift+O"
+        ]
+      },
+      {
+        "action": "Exit",
+        "keys": [
+          "Ctrl+Q"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "edit",
+    "title": "Edit",
+    "shortcuts": [
+      {
+        "action": "Undo",
+        "keys": [
+          "Ctrl+Z"
+        ]
+      },
+      {
+        "action": "Redo",
+        "keys": [
+          "Ctrl+Shift+Z"
+        ]
+      },
+      {
+        "action": "Command palette…",
+        "keys": [
+          "Ctrl+K"
+        ]
+      },
+      {
+        "action": "Settings…",
+        "keys": [
+          "Ctrl+,"
+        ]
+      },
+      {
+        "action": "Toggle light/dark theme",
+        "keys": [
+          "Ctrl+Shift+T"
+        ]
+      },
+      {
+        "action": "Delete",
+        "keys": [
+          "Del"
+        ]
+      },
+      {
+        "action": "Duplicate",
+        "keys": [
+          "Ctrl+D"
+        ]
+      },
+      {
+        "action": "Select all",
+        "keys": [
+          "Ctrl+A"
+        ]
+      },
+      {
+        "action": "Deselect",
+        "keys": [
+          "Esc"
+        ]
+      },
+      {
+        "action": "Copy",
+        "keys": [
+          "Ctrl+C"
+        ]
+      },
+      {
+        "action": "Paste",
+        "keys": [
+          "Ctrl+V"
+        ]
+      },
+      {
+        "action": "Rename",
+        "keys": [
+          "F2"
+        ]
+      },
+      {
+        "action": "Project Settings…",
+        "keys": [
+          "Ctrl+Shift+,"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "assets",
+    "title": "Assets",
+    "shortcuts": [
+      {
+        "action": "Find asset…",
+        "keys": [
+          "Ctrl+Shift+F"
+        ]
+      },
+      {
+        "action": "Go to entity…",
+        "keys": [
+          "Ctrl+Shift+K"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "window",
+    "title": "Window",
+    "shortcuts": [
+      {
+        "action": "Inspector",
+        "keys": [
+          "Ctrl+Shift+I"
+        ]
+      },
+      {
+        "action": "History",
+        "keys": [
+          "Ctrl+Shift+H"
+        ]
+      },
+      {
+        "action": "Assets",
+        "keys": [
+          "Ctrl+Shift+A"
+        ]
+      },
+      {
+        "action": "Console",
+        "keys": [
+          "Ctrl+Shift+C"
+        ]
+      },
+      {
+        "action": "Tile Map",
+        "keys": [
+          "Ctrl+Shift+M"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "help",
+    "title": "Help",
+    "shortcuts": [
+      {
+        "action": "Keyboard shortcuts",
+        "keys": [
+          "F1"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "gameobject",
+    "title": "GameObject",
+    "shortcuts": [
+      {
+        "action": "Create empty",
+        "keys": [
+          "Ctrl+Shift+N"
+        ]
+      },
+      {
+        "action": "Create empty child",
+        "keys": [
+          "Alt+Shift+N"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "tools",
+    "title": "Tools",
+    "shortcuts": [
+      {
+        "action": "Select",
+        "keys": [
+          "Q"
+        ]
+      },
+      {
+        "action": "Hand",
+        "keys": [
+          "H"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "tools-tile-map",
+    "title": "Tools · Tile map",
+    "shortcuts": [
+      {
+        "action": "Brush",
+        "keys": [
+          "B"
+        ]
+      },
+      {
+        "action": "Random Brush",
+        "keys": [
+          "N"
+        ]
+      },
+      {
+        "action": "Eraser",
+        "keys": [
+          "E"
+        ]
+      },
+      {
+        "action": "Fill",
+        "keys": [
+          "G"
+        ]
+      },
+      {
+        "action": "Rectangle",
+        "keys": [
+          "R"
+        ]
+      },
+      {
+        "action": "Line",
+        "keys": [
+          "L"
+        ]
+      },
+      {
+        "action": "Circle",
+        "keys": [
+          "C"
+        ]
+      },
+      {
+        "action": "Tile Picker",
+        "keys": [
+          "I"
+        ]
+      },
+      {
+        "action": "Stamp",
+        "keys": [
+          "S"
+        ]
+      },
+      {
+        "action": "Terrain",
+        "keys": [
+          "T"
+        ]
+      },
+      {
+        "action": "Collision",
+        "keys": [
+          "K"
+        ]
+      },
+      {
+        "action": "Select Tiles",
+        "keys": [
+          "M"
+        ]
+      },
+      {
+        "action": "Objects",
+        "keys": [
+          "O"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "tools-transform",
+    "title": "Tools · Transform",
+    "shortcuts": [
+      {
+        "action": "Move",
+        "keys": [
+          "W"
+        ]
+      },
+      {
+        "action": "Rotate",
+        "keys": [
+          "E"
+        ]
+      },
+      {
+        "action": "Scale",
+        "keys": [
+          "R"
+        ]
+      },
+      {
+        "action": "Rect",
+        "keys": [
+          "T"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "view",
+    "title": "View",
+    "shortcuts": [
+      {
+        "action": "Frame selection",
+        "keys": [
+          "F"
+        ]
+      },
+      {
+        "action": "Frame scene",
+        "keys": [
+          "Shift+F"
+        ]
+      },
+      {
+        "action": "Zoom in",
+        "keys": [
+          "Ctrl+="
+        ]
+      },
+      {
+        "action": "Zoom out",
+        "keys": [
+          "Ctrl+-"
+        ]
+      },
+      {
+        "action": "Actual size (100%)",
+        "keys": [
+          "Ctrl+1"
+        ]
+      },
+      {
+        "action": "Go to origin",
+        "keys": [
+          "Home"
+        ]
+      },
+      {
+        "action": "Toggle snapping",
+        "keys": [
+          "Ctrl+Shift+G"
+        ]
+      },
+      {
+        "action": "Toggle preview",
+        "keys": [
+          "Ctrl+Alt+P"
+        ]
+      },
+      {
+        "action": "Toggle pivot or center handles",
+        "keys": [
+          "Z"
+        ]
+      },
+      {
+        "action": "Toggle local or global handles",
+        "keys": [
+          "X"
+        ]
+      },
+      {
+        "action": "Toggle grid",
+        "keys": [
+          "Ctrl+G"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "play",
+    "title": "Play",
+    "shortcuts": [
+      {
+        "action": "Play",
+        "keys": [
+          "Ctrl+P"
+        ]
+      },
+      {
+        "action": "Play from start scene",
+        "keys": [
+          "Ctrl+Alt+Shift+P"
+        ]
+      },
+      {
+        "action": "Pause",
+        "keys": [
+          "Ctrl+Shift+P"
+        ]
+      },
+      {
+        "action": "Step one frame",
+        "keys": [
+          "F10"
+        ]
+      },
+      {
+        "action": "Stop",
+        "keys": [
+          "Shift+F5"
+        ]
+      },
+      {
+        "action": "Restart play mode",
+        "keys": [
+          "Ctrl+Shift+F5"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "tile-map",
+    "title": "Tile map",
+    "shortcuts": [
+      {
+        "action": "Save tile maps",
+        "keys": [
+          "Ctrl+Alt+S"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "build",
+    "title": "Build",
+    "shortcuts": [
+      {
+        "action": "Build",
+        "keys": [
+          "Ctrl+Shift+B"
+        ]
+      },
+      {
+        "action": "Build and Run",
+        "keys": [
+          "Ctrl+Alt+B"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "mouse",
+    "title": "Mouse",
+    "shortcuts": [
+      {
+        "action": "Pan the view",
+        "keys": [
+          "Middle Drag",
+          "Right Drag",
+          "Space+Drag"
+        ]
+      },
+      {
+        "action": "Zoom around the pointer",
+        "keys": [
+          "Wheel"
+        ]
+      },
+      {
+        "action": "Pan horizontally",
+        "keys": [
+          "Shift+Wheel"
+        ]
+      },
+      {
+        "action": "Add to the selection",
+        "keys": [
+          "Shift+Click"
+        ]
+      },
+      {
+        "action": "Toggle in the selection",
+        "keys": [
+          "Ctrl+Click"
+        ]
+      },
+      {
+        "action": "Select an area",
+        "keys": [
+          "Drag"
+        ]
+      },
+      {
+        "action": "Move with grid snapping",
+        "keys": [
+          "Ctrl+Drag"
+        ]
+      }
+    ]
+  }
+]

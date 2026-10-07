@@ -1,0 +1,143 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Assets.Inspectors"
+             x:Class="Talesmith.Editor.Assets.Inspectors.AssetInspectorView"
+             x:DataType="vm:AssetInspectorViewModel">
+  <UserControl.Styles>
+    <Style Selector="Border.label-chip">
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="8,1,3,1" />
+      <Setter Property="Margin" Value="0,0,4,4" />
+      <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+    </Style>
+    <Style Selector="Button.link">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Padding" Value="6,3" />
+      <Setter Property="MinHeight" Value="0" />
+    </Style>
+    <Style Selector="ui|SegmentedControlItem">
+      <Setter Property="Padding" Value="8,0" />
+    </Style>
+    <Style Selector="TextBlock.value">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+  </UserControl.Styles>
+
+  <UserControl.Resources>
+    <DataTemplate x:Key="LinkTemplate" x:DataType="vm:AssetLinkViewModel">
+      <Button Classes="subtle link" Command="{Binding $parent[UserControl].((vm:AssetInspectorViewModel)DataContext).GoToCommand}" CommandParameter="{Binding}">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+          <ui:SymbolIcon Data="{Binding Icon}" Size="13" Foreground="{Binding Brush}" VerticalAlignment="Center" />
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            <TextBlock Text="{Binding Folder}" Classes="caption muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+          <ui:SymbolIcon Grid.Column="2" Data="{x:Static ui:Icons.ArrowRight}" Size="11" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+        </Grid>
+      </Button>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Panel>
+    <DockPanel IsVisible="{Binding HasAsset}">
+      <Border DockPanel.Dock="Bottom" IsVisible="{Binding HasSettings}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,1,0,0"
+              Background="{DynamicResource SurfaceBrush}" Padding="12,8">
+        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" IsVisible="{Binding Inspection.IsDirty, FallbackValue=False}">
+            <Border Width="7" Height="7" CornerRadius="4" Background="{DynamicResource WarningBrush}" VerticalAlignment="Center" />
+            <TextBlock Text="Unapplied changes" Classes="caption" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+          </StackPanel>
+          <Button Grid.Column="1" Content="Revert" MinWidth="72" Command="{Binding RevertCommand}" IsEnabled="{Binding Inspection.IsDirty, FallbackValue=False}" />
+          <Button Grid.Column="2" Classes="accent" Content="Apply" MinWidth="72" Command="{Binding ApplyCommand}" IsEnabled="{Binding Inspection.CanApply, FallbackValue=False}" />
+        </Grid>
+      </Border>
+
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Name="Body" ui:PropertyGrid.LabelWidth="104">
+          <!-- Header -->
+          <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,12,10,10" ColumnSpacing="10">
+            <Border Width="44" Height="44" CornerRadius="10" Background="{Binding SubtleBrush}" ClipToBounds="True">
+              <Panel>
+                <ui:SymbolIcon Data="{Binding Icon}" Size="20" Foreground="{Binding Brush}" IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNull}}" />
+                <Image Source="{Binding Thumbnail}" Margin="4" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="MediumQuality" />
+              </Panel>
+            </Border>
+            <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+              <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <Border CornerRadius="4" Padding="5,0,5,1" Background="{Binding SubtleBrush}">
+                  <TextBlock Text="{Binding KindText}" FontSize="10" FontWeight="SemiBold" Foreground="{Binding Brush}" />
+                </Border>
+                <TextBlock Text="{Binding PathText}" Classes="caption muted" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+              </StackPanel>
+            </StackPanel>
+            <Button Grid.Column="2" Classes="icon small" Command="{Binding OpenCommand}" IsVisible="{Binding CanOpen}" ToolTip.Tip="Open" VerticalAlignment="Center">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.FolderOpen}" Size="14" />
+            </Button>
+          </Grid>
+          <TextBlock Text="{Binding MultipleText}" IsVisible="{Binding HasMultiple}" Classes="caption muted" Margin="12,0,12,8" />
+          <Border Classes="divider-h" />
+
+          <ContentControl Content="{Binding InspectionView}" />
+
+          <ui:PropertyGroup Header="Labels" Icon="{x:Static ui:Icons.Tag}">
+            <StackPanel Spacing="6">
+              <ItemsControl ItemsSource="{Binding Labels}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="x:String">
+                    <Border Classes="label-chip">
+                      <StackPanel Orientation="Horizontal" Spacing="2">
+                        <TextBlock Text="{Binding}" FontSize="11" FontWeight="Medium" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
+                        <Button Classes="icon small" Width="16" Height="16" MinHeight="0" Padding="0"
+                                Command="{Binding $parent[UserControl].((vm:AssetInspectorViewModel)DataContext).RemoveLabelCommand}" CommandParameter="{Binding}"
+                                ToolTip.Tip="Remove the label">
+                          <ui:SymbolIcon Data="{x:Static ui:Icons.X}" Size="10" />
+                        </Button>
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBox Name="NewLabel" Text="{Binding NewLabel}" PlaceholderText="Add a label and press Enter" FontSize="12" />
+            </StackPanel>
+          </ui:PropertyGroup>
+
+          <ui:PropertyGroup Header="Details" Icon="{x:Static ui:Icons.Info}">
+            <StackPanel Spacing="2">
+              <ui:PropertyRow Label="Guid">
+                <SelectableTextBlock Text="{Binding GuidText}" Classes="mono" FontSize="11" VerticalAlignment="Center" />
+              </ui:PropertyRow>
+              <ui:PropertyRow Label="Size">
+                <TextBlock Classes="value" Text="{Binding SizeText}" />
+              </ui:PropertyRow>
+              <ui:PropertyRow Label="Modified">
+                <TextBlock Classes="value" Text="{Binding ModifiedText}" />
+              </ui:PropertyRow>
+              <ui:PropertyRow Label="Importer">
+                <TextBlock Classes="value mono" Text="{Binding ImporterText}" FontSize="11" />
+              </ui:PropertyRow>
+            </StackPanel>
+          </ui:PropertyGroup>
+
+          <ui:PropertyGroup Header="Uses" Icon="{x:Static ui:Icons.Link}" IsVisible="{Binding HasDependencies}">
+            <ItemsControl ItemsSource="{Binding Dependencies}" ItemTemplate="{StaticResource LinkTemplate}" />
+          </ui:PropertyGroup>
+          <ui:PropertyGroup Header="Used by" Icon="{x:Static ui:Icons.Layers}" IsVisible="{Binding HasDependents}">
+            <ItemsControl ItemsSource="{Binding Dependents}" ItemTemplate="{StaticResource LinkTemplate}" />
+          </ui:PropertyGroup>
+        </StackPanel>
+      </ScrollViewer>
+    </DockPanel>
+    <ui:EmptyState IsVisible="{Binding IsEmpty}" Icon="{x:Static ui:Icons.FolderOpen}" Title="No asset selected"
+                   Hint="Select an asset in the Assets panel to see its import settings." />
+  </Panel>
+</UserControl>

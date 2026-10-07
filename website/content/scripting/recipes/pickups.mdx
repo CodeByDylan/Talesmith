@@ -1,0 +1,146 @@
+---
+title: "Pickups"
+description: "Collectibles that disappear on touch, play a sound, show particles and update a score through an event."
+---
+
+A recipe for coins, gems and power-ups: a prefab with a trigger collider, a pickup script that reacts when the player touches it, a burst of particles, a sound, and an event that a score keeper listens to. It is the pattern behind Lantern Grove's lanterns, and it assumes a player with the [platformer controller](./platformer.mdx).
+
+## Build the prefab
+
+Make one coin entity, set it up, and turn it into a prefab so every coin in the level shares the same components. See [Prefabs](/guide/scenes/prefabs).
+
+| Component | Settings |
+| --- | --- |
+| **Sprite** | The coin's image. |
+| **Sprite Animator** | Optional, for a spinning animation from the texture's import settings. |
+| **Collider 2D** | **Circle** with a radius a little larger than the art, **Is Trigger** on. A trigger reports overlaps instead of blocking, so the player runs through it. |
+| **Particle Emitter** | A burst preset with **Play On Start** off, **Looping** off and an emission rate of 0, so it emits only when the script asks. Lantern Grove's `particles/lantern-burst.tparticles` is set up this way. |
+| **Tags** | `coin`, so the score keeper can count the coins in the level. |
+| **Scripts** | **Coin**, with the sound picked in its **Sound** field. |
+
+The coin needs no rigid body. A collider without one is static, and the player's character controller is a kinematic body, which enters triggers as it moves.
+
+## The pickup script
+
+```csharp title="assets/scripts/Coin.cs"
+using Talesmith.VFX;
+
+namespace LanternGrove;
+
+/// <summary>Raised when the player picks up a coin.</summary>
+public readonly record struct CoinCollected(int Value, Vector2 Position);
+
+/// <summary>Waits for the player to touch it, then bursts into sparks, plays a sound and disappears.</summary>
+public sealed class Coin : Script
+{
+    [Range(1, 100)]
+    public int Value = 1;
+
+    [Range(0, 200)]
+    [Tooltip("Particles emitted by the coin's Particle Emitter when it is picked up.")]
+    public int Sparks = 24;
+
+    [AssetFilter(".wav", ".ogg")]
+    public SoundClip? Sound;
+
+    private bool _taken;
+
+    protected override void OnTriggerEnter(in ContactInfo contact)
+    {
+        if (_taken || GetScript<PlayerController>(contact.Other) is null)
+            return;
+        _taken = true;
+
+        Events.Publish(new CoinCollected(Value, Position));
+        if (Sound is not null)
+            Audio.Play(Sound, new SoundOptions(Volume: 0.6f, Pitch: 0.95f + Random.Shared.NextSingle() * 0.1f));
+        if (TryGetComponent<ParticleEmitter>(out var sparks))
+            sparks.Emit(Sparks);
+        GetComponent<Sprite>().Visible = false;
+        RemoveComponent<Collider2D>();
+        Run(RemoveWhenSparksEndAsync);
+    }
+
+    private async Task RemoveWhenSparksEndAsync()
+    {
+        await Wait(1.5);
+        Destroy();
+    }
+}
+```
+
+### Who touched it
+
+`OnTriggerEnter` runs when any collider starts overlapping the trigger: the player, an enemy, a thrown crate. `contact.Other` is the other entity, and `GetScript<PlayerController>(contact.Other)` returns its controller or null, so only the player collects coins. Checking for a script is the simplest test when the player has one. A tag check (`TryGetComponent<Tags>(contact.Other, out var tags) && tags.Has("player")`) or a collision layer that only the player is on work as well; layers have the advantage that the physics never reports the other overlaps at all. See [Physics from scripts](../scripts/physics.mdx).
+
+`_taken` makes sure one coin is counted once, even if the trigger reports another enter before the collider is gone.
+
+### Taking it away in the right order
+
+The coin cannot be destroyed straight away. Its particles live in its own `ParticleEmitter`, so destroying the entity would end the sparks the moment they start. Instead the script:
+
+1. hides the sprite and removes the collider, so the coin looks and acts collected at once;
+2. emits the burst, which plays even though the emitter is not playing, because `Emit` adds particles on the next update regardless;
+3. starts a routine that waits a little longer than the particles live, then destroys the entity.
+
+`Run` starts the routine on the game thread. If the scene unloads during the wait, the routine never resumes, so there is no stray `Destroy` on a dead entity. See [Waiting, routines and tweens](../scripts/waiting.mdx).
+
+`ParticleEmitter` is a class, so `TryGetComponent` hands out the same emitter the entity holds and `Emit` reaches it. For struct components such as `Sprite`, use `GetComponent`, which returns a reference you change in place.
+
+### Sound
+
+`Sound` is a `SoundClip` field. The inspector shows an asset picker limited to `.wav` and `.ogg` files, the clip loads with the scene, and a coin without one stays silent. A random pitch between 0.95 and 1.05 keeps a row of coins from sounding mechanical. To play by path instead, use `Audio.Play("audio/coin.wav")`, which loads the clip on first use and caches it. See [Playing sounds](../scripts/audio.mdx).
+
+## Keep score with an event
+
+The coin does not know what a score is. It publishes a `CoinCollected` event, and whatever cares subscribes: a score keeper, a HUD, an achievement. A `readonly record struct` is the usual shape for an event: small, immutable and delivered by reference without boxing.
+
+```csharp title="assets/scripts/ScoreKeeper.cs"
+namespace LanternGrove;
+
+/// <summary>Adds up collected coins and notices when the last one is taken.</summary>
+public sealed class ScoreKeeper : Script
+{
+    [Tooltip("Entities with this tag count as coins left to collect.")]
+    public string CoinTag = "coin";
+
+    public int Score { get; private set; }
+
+    public int CoinsLeft { get; private set; }
+
+    protected override void OnStart()
+    {
+        var coins = new List<Entity>();
+        CoinsLeft = FindAllWithTag(CoinTag, coins);
+        Events.Subscribe((ref CoinCollected coin) => OnCoinCollected(coin));
+    }
+
+    private void OnCoinCollected(in CoinCollected coin)
+    {
+        Score += coin.Value;
+        CoinsLeft--;
+        if (CoinsLeft == 0)
+            Log.Info($"Every coin collected, final score {Score}.");
+    }
+}
+```
+
+Put it on any entity in the scene, such as the player or an empty entity named Game. `Publish` calls every handler immediately, inside the coin's `OnTriggerEnter`, so the score is already updated when the coin's next line runs. The subscription ends when the score keeper is destroyed, so you never unsubscribe by hand. `FindAllWithTag` searches every entity, which is why it runs once in `OnStart` rather than every frame. See [Events](../scripts/events.mdx).
+
+`Score` and `CoinsLeft` have private setters, so they are runtime state: not saved and not shown in the inspector.
+
+### Showing the score
+
+Two ways to put the score on screen are in [A simple UI overlay](./ui-overlay.mdx): an Avalonia HUD in a small plugin, which a script updates through a service, or a HUD drawn by an ECS system in the script assembly, as Lantern Grove does. Lantern Grove's `Shrine` script also shows a third use of the event: it brightens its light with every lantern collected and opens once the count reaches the total.
+
+## Variations
+
+- **Lanterns.** Lantern Grove's `Lantern` script bobs the pickup with `MathF.Sin` in `Update` until it is taken, then flares its `Light2D` with two chained tweens before going out: `await Tweens.To(glow, glow * 2.2f, 0.12f, SetGlow, Easing.QuadOut)` and back to 0. It also switches off its `Emissive` component. Open `samples/LanternGrove/assets/scripts/Lantern.cs` to see it.
+- **Power-ups.** Instead of a score, look up the player's script and change it: `GetScript<PlayerController>(contact.Other)!.RunSpeed *= 1.5f`, then use `await Wait(seconds)` in a routine on the player to undo it.
+
+## Related
+
+- [Events](../scripts/events.mdx)
+- [Physics from scripts](../scripts/physics.mdx)
+- [Particles](../concepts/particles.mdx)
+- [Spawners](./spawners.mdx)

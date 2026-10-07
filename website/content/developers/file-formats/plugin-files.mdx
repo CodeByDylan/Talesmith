@@ -1,0 +1,70 @@
+---
+title: "Plugin files"
+sidebar_label: "plugin.json, plugins.json"
+description: "The plugin manifest and the per-project plugins.json that switches plugins on and off."
+---
+
+Two files describe plugins. `plugin.json` sits in each plugin's folder and says what the plugin is; the plugins section has its full reference. `plugins.json` sits in a project's `assets/config/` and says which installed plugins the game loads, with each plugin's settings. This page summarizes the first and describes the second.
+
+## plugin.json
+
+Every plugin folder under `assets/plugins/` has a manifest next to the plugin's assembly. Hex Quest's gameplay plugin:
+
+```json title="samples/HexQuest/assets/plugins/hexquest/plugin.json"
+{
+  "id": "samples.hexquest",
+  "name": "Hex Quest gameplay",
+  "version": "1.0.0",
+  "description": "The hero, movement across hexes, camera zoom, music and the HUD of the Hex Quest sample.",
+  "authors": [ "Talesmith" ],
+  "assembly": "Talesmith.Samples.HexQuest.dll",
+  "contractVersion": 1,
+  "minEngineVersion": "0.1.0",
+  "permissions": [ "runtimeScene", "fileSystem" ],
+  "extensions": [ "systems", "scene.listeners", "overlays", "services" ]
+}
+```
+
+Only `id`, `assembly` and `contractVersion` are required. Unknown properties are errors, and every problem in a manifest is reported at once. Every field, its type and its default are in the [plugin.json reference](/plugins/reference/plugin-json); [The manifest](/plugins/package/manifest) explains them with examples.
+
+## plugins.json
+
+The samples run every installed plugin, so none of them has a `plugins.json`. This is the example from `PluginConfiguration` and the plugins documentation:
+
+```json title="assets/config/plugins.json"
+{
+  "disabled": [ "samples.cutscenes" ],
+  "enabled": [ "tools.debug-console" ],
+  "settings": { "samples.hexquest": { "difficulty": "hard" } }
+}
+```
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `disabled` | array of plugin ids | `[]` | Installed plugins the game does not load. |
+| `enabled` | array of plugin ids | `[]` | Plugins to load even though their manifest says `"enabled": false`. |
+| `settings` | object | `{}` | Each plugin's settings object, by plugin id. Each value must be a JSON object. |
+
+- A plugin in neither list follows its manifest's `enabled` field, which defaults to true.
+- An id in both lists fails to load with a message naming it. So does any other property than these three.
+- A host can also switch plugins off with `PluginLoadOptions.Disabled`, which wins over both lists.
+- A missing file means no plugin is switched on or off and no plugin has settings.
+
+### Who writes it
+
+The editor's **Plugins** panel writes the file when you switch a plugin on or off, and plugins write their own `settings` entry when they call `Save` on their `IPluginSettings`. The writer always writes `disabled`, writes `enabled` and `settings` only when they are not empty, sorts ids, and replaces the file atomically. Comments and trailing commas are accepted when reading.
+
+### Settings values
+
+A plugin reads its settings in `Configure` through `builder.Settings`, with a fallback for missing keys:
+
+```csharp
+var difficulty = builder.Settings.Get("difficulty", "normal");
+```
+
+Values are any type System.Text.Json can serialize, written with camelCase names. A value that does not convert to the requested type returns the fallback. See [Plugin settings](/plugins/package/settings).
+
+## Related
+
+- [Installing and managing plugins](/plugins/installing) explains the Plugins panel and plugin folders.
+- [Project configuration](./project-config.mdx) describes the other files in `assets/config/`.

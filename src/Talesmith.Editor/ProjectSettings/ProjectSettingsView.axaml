@@ -1,0 +1,371 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.ProjectSettings"
+             xmlns:dialogs="using:Talesmith.Editor.Dialogs"
+             x:Class="Talesmith.Editor.ProjectSettings.ProjectSettingsView"
+             x:DataType="vm:ProjectSettingsViewModel">
+  <UserControl.Styles>
+    <Style Selector="StackPanel.page">
+      <Setter Property="Spacing" Value="8" />
+    </Style>
+    <Style Selector="StackPanel.page > TextBlock.section">
+      <Setter Property="Margin" Value="0,12,0,2" />
+    </Style>
+    <Style Selector="NumericUpDown.setting">
+      <Setter Property="Width" Value="128" />
+    </Style>
+    <Style Selector="Button.binding">
+      <Setter Property="MinWidth" Value="92" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="Padding" Value="8,2" />
+      <Setter Property="MinHeight" Value="26" />
+      <Setter Property="FontFamily" Value="{DynamicResource MonoFontFamily}" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="Button.binding.recording">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+    </Style>
+    <Style Selector="Border.binding-card">
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusLarge}" />
+      <Setter Property="Padding" Value="12,10" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+    <Style Selector="TextBlock.slot">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="0,0,0,3" />
+    </Style>
+    <Style Selector="ListBox.actions ListBoxItem">
+      <Setter Property="Padding" Value="10,6" />
+    </Style>
+  </UserControl.Styles>
+
+  <ui:Dialog Header="Project Settings" Description="{Binding Project.Project.Name}" Width="960" Height="680" Padding="0">
+    <Grid ColumnDefinitions="200,Auto,*">
+      <ListBox Classes="sidebar" Margin="12,8,8,12" ItemsSource="{Binding Sections}" SelectedIndex="{Binding SelectedSectionIndex}">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="dialogs:SettingsSection">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <ui:SymbolIcon Data="{Binding Icon}" Size="16" />
+              <TextBlock Text="{Binding Title}" VerticalAlignment="Center" />
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <Border Grid.Column="1" Classes="divider-v" Margin="0" />
+
+      <Panel Grid.Column="2">
+        <!-- Game -->
+        <ScrollViewer Padding="20,4,20,20" IsVisible="{Binding IsGameSection}">
+          <StackPanel Classes="page" DataContext="{Binding Game}" x:DataType="vm:GameSettingsPage">
+            <TextBlock Classes="section" Text="Game" />
+            <ui:SettingRow Icon="{x:Static ui:Icons.Tag}" Title="Title" Description="The window title and the name of exported executables.">
+              <TextBox Text="{Binding Title}" Width="240" />
+            </ui:SettingRow>
+            <ui:SettingRow Icon="{x:Static ui:Icons.Clapperboard}" Title="Start scene" Description="The scene the game opens with.">
+              <ComboBox ItemsSource="{Binding Scenes}" SelectedItem="{Binding StartScene}" Width="240" />
+            </ui:SettingRow>
+            <TextBlock Classes="section" Text="Window and rendering" />
+            <ui:SettingRow Icon="{x:Static ui:Icons.Maximize}" Title="Window size" Description="The window's size when the game starts, in pixels.">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <NumericUpDown Value="{Binding WindowWidth}" Minimum="320" Maximum="7680" Increment="10" FormatString="0" Width="104" />
+                <TextBlock Text="×" VerticalAlignment="Center" Classes="muted" />
+                <NumericUpDown Value="{Binding WindowHeight}" Minimum="240" Maximum="4320" Increment="10" FormatString="0" Width="104" />
+              </StackPanel>
+            </ui:SettingRow>
+            <ui:SettingRow Icon="{x:Static ui:Icons.Cpu}" Title="Renderer" Description="Automatic uses Vulkan where a GPU supports it and Skia elsewhere.">
+              <ComboBox ItemsSource="{Binding Renderers}" SelectedIndex="{Binding RendererIndex}" MinWidth="160" />
+            </ui:SettingRow>
+            <ui:SettingRow Icon="{x:Static ui:Icons.Image}" Title="Texture filter" Description="Nearest keeps pixel art crisp; linear smooths scaled images.">
+              <ui:SegmentedControl SelectedIndex="{Binding TextureFilterIndex}">
+                <ui:SegmentedControlItem Content="Nearest" />
+                <ui:SegmentedControlItem Content="Linear" />
+              </ui:SegmentedControl>
+            </ui:SettingRow>
+            <ui:SettingRow Icon="{x:Static ui:Icons.Palette}" Title="Clear color" Description="Behind everything when a scene sets no color of its own.">
+              <ui:ColorPickerButton Color="{Binding ClearColor}" />
+            </ui:SettingRow>
+            <TextBlock Classes="section" Text="View" />
+            <ui:SettingRow Icon="{x:Static ui:Icons.Scale}" Title="Scale mode" Description="{Binding ScaleModeDescription}">
+              <ui:SegmentedControl SelectedIndex="{Binding ScaleModeIndex}">
+                <ui:SegmentedControlItem Content="Fit" ToolTip.Tip="Exactly the design size, with bars" />
+                <ui:SegmentedControlItem Content="Expand" ToolTip.Tip="At least the design size, more on the longer side" />
+                <ui:SegmentedControlItem Content="Crop" ToolTip.Tip="At most the design size, filling the window" />
+                <ui:SegmentedControlItem Content="Off" ToolTip.Tip="No scaling: larger windows show more" />
+              </ui:SegmentedControl>
+            </ui:SettingRow>
+            <ui:SettingRow Icon="{x:Static ui:Icons.SquareDashed}" Title="Design size" IsEnabled="{Binding IsViewScaled}"
+                           Description="What a camera at zoom 1 shows, in view units; overlays use the same units unless they have an overlay size.">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <NumericUpDown Value="{Binding ViewWidth}" Minimum="1" Maximum="7680" Increment="10" FormatString="0" Width="104" />
+                <TextBlock Text="×" VerticalAlignment="Center" Classes="muted" />
+                <NumericUpDown Value="{Binding ViewHeight}" Minimum="1" Maximum="4320" Increment="10" FormatString="0" Width="104" />
+              </StackPanel>
+            </ui:SettingRow>
+            <ui:SettingRow Icon="{x:Static ui:Icons.Grid}" Title="Integer scale"
+                           Description="Scale by whole numbers only, which keeps pixel art crisp. With fit, the pixels left over become bars.">
+              <ToggleSwitch IsChecked="{Binding IntegerScale}" OnContent="" OffContent="" />
+            </ui:SettingRow>
+            <ui:SettingRow Icon="{x:Static ui:Icons.Layers}" Title="Overlay size" IsEnabled="{Binding IsViewScaled}"
+                           Description="The size HUDs and menus are designed for; they scale with the view, so UI made at 1280×720 suits a 640×360 design.">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <CheckBox IsChecked="{Binding HasOverlaySize}" ToolTip.Tip="Lay overlays out at their own size instead of in view units" />
+                <NumericUpDown Value="{Binding OverlayWidth}" IsEnabled="{Binding HasOverlaySize}" Minimum="1" Maximum="7680" Increment="10" FormatString="0" Width="104" />
+                <TextBlock Text="×" VerticalAlignment="Center" Classes="muted" />
+                <NumericUpDown Value="{Binding OverlayHeight}" IsEnabled="{Binding HasOverlaySize}" Minimum="1" Maximum="4320" Increment="10" FormatString="0" Width="104" />
+              </StackPanel>
+            </ui:SettingRow>
+            <ui:SettingRow Icon="{x:Static ui:Icons.PaintBucket}" Title="Border color" IsEnabled="{Binding HasBorders}"
+                           Description="The bars around the view when the window's shape differs from the design.">
+              <ui:ColorPickerButton Color="{Binding BorderColor}" />
+            </ui:SettingRow>
+            <TextBlock Classes="caption muted" Text="{Binding ViewPreview}" TextWrapping="Wrap" Margin="2,0,0,0" IsVisible="{Binding ViewPreview, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <TextBlock Classes="caption" Text="{Binding ViewError}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" Margin="2,0,0,0"
+                       IsVisible="{Binding ViewError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <TextBlock Classes="section" Text="Timing" />
+            <ui:SettingRow Icon="{x:Static ui:Icons.Activity}" Title="Fixed update rate" Description="Physics and FixedUpdate steps per second.">
+              <NumericUpDown Classes="setting" Value="{Binding FixedUpdateRate}" Minimum="10" Maximum="480" Increment="1" FormatString="0 /s" />
+            </ui:SettingRow>
+            <ui:SettingRow Icon="{x:Static ui:Icons.Layers}" Title="Most fixed steps per frame" Description="Above this, a slow frame drops time instead of catching up.">
+              <NumericUpDown Classes="setting" Value="{Binding MaxFixedSteps}" Minimum="1" Maximum="20" Increment="1" FormatString="0" />
+            </ui:SettingRow>
+            <ui:SettingRow Icon="{x:Static ui:Icons.Monitor}" Title="VSync" Description="One frame per display refresh, without tearing.">
+              <ToggleSwitch IsChecked="{Binding VSync}" OnContent="" OffContent="" />
+            </ui:SettingRow>
+            <ui:SettingRow Icon="{x:Static ui:Icons.Gauge}" Title="Frame cap" Description="The most frames per second without VSync; 0 means no limit.">
+              <NumericUpDown Classes="setting" Value="{Binding MaxFramesPerSecond}" Minimum="0" Maximum="1000" Increment="10" FormatString="0 fps" />
+            </ui:SettingRow>
+            <ui:SettingRow Icon="{x:Static ui:Icons.Pause}" Title="Pause when inactive" Description="Stop game time while the window is in the background.">
+              <ToggleSwitch IsChecked="{Binding PauseWhenInactive}" OnContent="" OffContent="" />
+            </ui:SettingRow>
+            <TextBlock Classes="section" Text="Loading screen" />
+            <Border Width="320" Height="180" HorizontalAlignment="Left" CornerRadius="{DynamicResource CornerRadiusLarge}" ClipToBounds="True"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" Margin="0,2,0,4">
+              <vm:LoadingScreenPreview Settings="{Binding LoadingPreview}" Assets="{Binding PreviewAssets}" />
+            </Border>
+            <ui:SettingRow Icon="{x:Static ui:Icons.Image}" Title="Image" Description="Such as the game's logo; without one, its title is shown.">
+              <ComboBox ItemsSource="{Binding LoadingImages}" SelectedItem="{Binding LoadingImage}" Width="240" />
+            </ui:SettingRow>
+            <ui:SettingRow Icon="{x:Static ui:Icons.Palette}" Title="Background" Description="Behind the image; the clear color unless you pick one.">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <CheckBox IsChecked="{Binding HasLoadingBackground}" Content="Own color" VerticalAlignment="Center" />
+                <ui:ColorPickerButton Color="{Binding LoadingBackground}" IsEnabled="{Binding HasLoadingBackground}" />
+              </StackPanel>
+            </ui:SettingRow>
+            <ui:SettingRow Icon="{x:Static ui:Icons.Palette}" Title="Title and bar" Description="White or near-black, whichever stands out, unless you pick one.">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <CheckBox IsChecked="{Binding HasLoadingForeground}" Content="Own color" VerticalAlignment="Center" />
+                <ui:ColorPickerButton Color="{Binding LoadingForeground}" IsEnabled="{Binding HasLoadingForeground}" />
+              </StackPanel>
+            </ui:SettingRow>
+            <ui:SettingRow Icon="{x:Static ui:Icons.Clapperboard}" Title="Between scenes" Description="Also shown when a scene change takes more than a moment.">
+              <ToggleSwitch IsChecked="{Binding LoadingBetweenScenes}" OnContent="" OffContent="" />
+            </ui:SettingRow>
+          </StackPanel>
+        </ScrollViewer>
+
+        <!-- Input -->
+        <Panel IsVisible="{Binding IsInputSection}">
+          <Grid ColumnDefinitions="240,*" Margin="20,12,20,16" DataContext="{Binding Input}" x:DataType="vm:InputSettingsPage">
+            <DockPanel Margin="0,0,16,0">
+              <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,8">
+                <TextBlock Classes="section" Text="Actions" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Classes="icon small" Command="{Binding AddActionCommand}" ToolTip.Tip="Add an action">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Plus}" Size="14" />
+                </Button>
+                <Button Grid.Column="2" Classes="icon small" Command="{Binding ResetCommand}" ToolTip.Tip="Discard changes and read input.json again">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.RotateCcw}" Size="14" />
+                </Button>
+              </Grid>
+              <TextBlock DockPanel.Dock="Bottom" Classes="caption muted" Text="Saved to config/input.json" Margin="2,8,0,0" />
+              <Border Background="{DynamicResource SurfaceSunkenBrush}" CornerRadius="{DynamicResource CornerRadiusLarge}" Padding="4">
+                <ListBox Classes="actions" ItemsSource="{Binding Actions}" SelectedItem="{Binding SelectedAction}" Background="Transparent">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:InputActionItem">
+                      <StackPanel Spacing="1">
+                        <Grid ColumnDefinitions="*,Auto">
+                          <TextBlock Text="{Binding Name}" FontWeight="Medium" TextTrimming="CharacterEllipsis" />
+                          <ui:Badge Grid.Column="1" Content="{Binding KindName}" FontSize="10" Padding="5,0,5,1" />
+                        </Grid>
+                        <TextBlock Classes="caption muted mono" Text="{Binding Summary}" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </Border>
+            </DockPanel>
+  
+            <Panel Grid.Column="1">
+              <ui:EmptyState IsVisible="{Binding !HasSelection}" Icon="{x:Static ui:Icons.Keyboard}" Title="No action selected"
+                             Hint="Add an action such as Jump or Move, then bind keys to it." />
+              <ScrollViewer IsVisible="{Binding HasSelection}">
+                <StackPanel Spacing="14" DataContext="{Binding SelectedAction}" x:DataType="vm:InputActionItem">
+                  <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                    <TextBox Text="{Binding Name}" FontSize="15" FontWeight="SemiBold" />
+                    <ui:SegmentedControl Grid.Column="1" SelectedIndex="{Binding KindIndex}">
+                      <ui:SegmentedControlItem Content="Button" ToolTip.Tip="On or off, such as Jump" />
+                      <ui:SegmentedControlItem Content="Axis" ToolTip.Tip="From -1 to 1, such as Zoom" />
+                      <ui:SegmentedControlItem Content="Vector" ToolTip.Tip="A direction, such as Move" />
+                    </ui:SegmentedControl>
+                    <Button Grid.Column="2" Classes="icon" ToolTip.Tip="Remove the action"
+                            Command="{Binding $parent[ScrollViewer].((vm:InputSettingsPage)DataContext).RemoveActionCommand}" CommandParameter="{Binding}">
+                      <ui:SymbolIcon Data="{x:Static ui:Icons.Trash}" Size="15" />
+                    </Button>
+                  </Grid>
+  
+                  <StackPanel>
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                      <TextBlock Classes="section" Text="Bindings" VerticalAlignment="Center" />
+                      <Button Grid.Column="1" Classes="subtle small">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <ui:SymbolIcon Data="{x:Static ui:Icons.Plus}" Size="13" />
+                          <TextBlock Text="Add binding" />
+                          <ui:SymbolIcon Data="{x:Static ui:Icons.ChevronDown}" Size="12" />
+                        </StackPanel>
+                        <Button.Flyout>
+                          <MenuFlyout Placement="BottomEdgeAlignedRight">
+                            <MenuItem Header="Key" Command="{Binding $parent[ScrollViewer].((vm:InputSettingsPage)DataContext).AddBindingCommand}" CommandParameter="{x:Static vm:BindingType.Key}" />
+                            <MenuItem Header="Mouse button" Command="{Binding $parent[ScrollViewer].((vm:InputSettingsPage)DataContext).AddBindingCommand}" CommandParameter="{x:Static vm:BindingType.Mouse}" />
+                            <MenuItem Header="Axis (two keys)" Command="{Binding $parent[ScrollViewer].((vm:InputSettingsPage)DataContext).AddBindingCommand}" CommandParameter="{x:Static vm:BindingType.Axis}" />
+                            <MenuItem Header="Vector (four keys)" Command="{Binding $parent[ScrollViewer].((vm:InputSettingsPage)DataContext).AddBindingCommand}" CommandParameter="{x:Static vm:BindingType.Vector}" />
+                          </MenuFlyout>
+                        </Button.Flyout>
+                      </Button>
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding Bindings}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:BindingItem">
+                          <Border Classes="binding-card">
+                            <Grid ColumnDefinitions="76,*,Auto" ColumnSpacing="12">
+                              <ui:Badge Content="{Binding TypeName}" VerticalAlignment="Center" />
+                              <ItemsControl Grid.Column="1" ItemsSource="{Binding Slots}" IsVisible="{Binding HasSlots}">
+                                <ItemsControl.ItemsPanel>
+                                  <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="8" />
+                                  </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                  <DataTemplate x:DataType="vm:KeySlot">
+                                    <StackPanel>
+                                      <TextBlock Classes="slot" Text="{Binding Label}" />
+                                      <Button Classes="binding" Classes.recording="{Binding IsRecording}" Content="{Binding Text}"
+                                              Command="{Binding $parent[ScrollViewer].((vm:InputSettingsPage)DataContext).StartRecordingCommand}" CommandParameter="{Binding}"
+                                              ToolTip.Tip="Click, then press a key. Escape cancels." />
+                                    </StackPanel>
+                                  </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                              </ItemsControl>
+                              <ComboBox Grid.Column="1" ItemsSource="{Binding MouseButtons}" SelectedIndex="{Binding MouseButtonIndex}" IsVisible="{Binding IsMouse}"
+                                        Width="160" HorizontalAlignment="Left" />
+                              <Button Grid.Column="2" Classes="icon small" VerticalAlignment="Center" ToolTip.Tip="Remove the binding"
+                                      Command="{Binding $parent[ScrollViewer].((vm:InputSettingsPage)DataContext).RemoveBindingCommand}" CommandParameter="{Binding}">
+                                <ui:SymbolIcon Data="{x:Static ui:Icons.X}" Size="13" />
+                              </Button>
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="2,4,0,0">
+                      <ui:SymbolIcon Data="{x:Static ui:Icons.Info}" Size="13" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Top" Margin="0,1,0,0" />
+                      <TextBlock Grid.Column="1" Classes="caption muted" TextWrapping="Wrap"
+                                 Text="Scripts read actions by name: Input.WasPressed(&quot;Jump&quot;), Input.Axis(&quot;Zoom&quot;) or Input.Vector(&quot;Move&quot;). Any binding of an action triggers it." />
+                    </Grid>
+                  </StackPanel>
+                </StackPanel>
+              </ScrollViewer>
+              <TextBlock Text="{Binding Error}" Foreground="{DynamicResource DangerBrush}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
+            </Panel>
+          </Grid>
+        </Panel>
+
+        <!-- Physics -->
+        <ScrollViewer Padding="20,4,20,20" IsVisible="{Binding IsPhysicsSection}">
+          <StackPanel Classes="page" DataContext="{Binding Physics}" x:DataType="vm:PhysicsSettingsPage">
+            <TextBlock Classes="section" Text="World" />
+            <ui:SettingRow Icon="{x:Static ui:Icons.ArrowDown}" Title="Default gravity" Description="World units per second squared, Y down. New scenes start with it; each scene's environment can change it.">
+              <ui:Vector2Field Value="{Binding Gravity}" Width="220" />
+            </ui:SettingRow>
+            <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,2">
+              <TextBlock Classes="section" Text="Layers and collisions" VerticalAlignment="Center" />
+              <CheckBox Grid.Column="1" Content="Show all 32 layers" IsChecked="{Binding ShowAllLayers}" />
+            </Grid>
+            <TextBlock Classes="caption muted" TextWrapping="Wrap"
+                       Text="Name the layers colliders are on, then uncheck the pairs that pass through each other. Colliders also choose which layers they hit with their mask." />
+            <Grid ColumnDefinitions="250,*" ColumnSpacing="24" Margin="0,8,0,0">
+              <Border Background="{DynamicResource SurfaceSunkenBrush}" CornerRadius="{DynamicResource CornerRadiusLarge}" Padding="10,8" VerticalAlignment="Top">
+                <ItemsControl ItemsSource="{Binding MatrixLayers}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:PhysicsLayerItem">
+                      <Grid ColumnDefinitions="26,*" Margin="0,2">
+                        <TextBlock Classes="caption muted mono" Text="{Binding Index}" VerticalAlignment="Center" />
+                        <TextBox Grid.Column="1" Text="{Binding Name}" PlaceholderText="{Binding Placeholder}" MinHeight="26" Padding="8,2" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </Border>
+              <Border Grid.Column="1" Classes="card" Padding="16" HorizontalAlignment="Left" VerticalAlignment="Top">
+                <vm:CollisionMatrix Page="{Binding}" Layers="{Binding MatrixLayers}" />
+              </Border>
+            </Grid>
+            <TextBlock Classes="caption muted" Text="Saved to config/physics.json" Margin="0,8,0,0" />
+          </StackPanel>
+        </ScrollViewer>
+
+        <!-- Build -->
+        <StackPanel Classes="page" Margin="20,4,20,20" IsVisible="{Binding IsBuildSection}">
+          <TextBlock Classes="section" Text="Build" />
+          <Border Classes="card" Padding="16,14">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.PackageExport}" Size="22" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Top" />
+              <StackPanel Grid.Column="1" Spacing="3">
+                <TextBlock Text="Build settings" FontWeight="SemiBold" />
+                <TextBlock Classes="caption muted" TextWrapping="Wrap"
+                           Text="Target platform, profile, output folder, the scenes in the build and content that always ships. Stored in build.json next to the assets folder." />
+              </StackPanel>
+              <Button Grid.Column="2" Classes="accent" Content="Open build settings" Command="{Binding OpenBuildCommand}" VerticalAlignment="Center" />
+            </Grid>
+          </Border>
+        </StackPanel>
+
+        <!-- Plugins -->
+        <StackPanel Classes="page" Margin="20,4,20,20" IsVisible="{Binding IsPluginsSection}">
+          <TextBlock Classes="section" Text="Plugins" />
+          <Border Classes="card" Padding="16,14">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Plug}" Size="22" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Top" />
+              <StackPanel Grid.Column="1" Spacing="3">
+                <TextBlock Text="{Binding PluginSummary}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock Classes="caption muted" TextWrapping="Wrap"
+                           Text="Switch plugins on and off, check their permissions and dependencies, and read their settings in the Plugins panel." />
+              </StackPanel>
+              <Button Grid.Column="2" Classes="accent" Content="Open Plugins panel" Command="{Binding OpenPluginsCommand}" VerticalAlignment="Center" />
+            </Grid>
+          </Border>
+        </StackPanel>
+      </Panel>
+    </Grid>
+
+    <ui:Dialog.Footer>
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" IsVisible="{Binding IsDirty}">
+          <Ellipse Width="7" Height="7" Fill="{DynamicResource WarningBrush}" />
+          <TextBlock Classes="caption secondary" Text="Unsaved changes" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+          <Button Content="Revert" MinWidth="84" Command="{Binding RevertCommand}" IsEnabled="{Binding IsDirty}" />
+          <Button Content="Close" MinWidth="84" IsCancel="True" Command="{Binding CloseCommand}" />
+          <Button Classes="accent" Content="Save" MinWidth="84" IsDefault="True" Command="{Binding SaveCommand}" IsEnabled="{Binding IsDirty}" />
+        </StackPanel>
+      </Grid>
+    </ui:Dialog.Footer>
+  </ui:Dialog>
+</UserControl>

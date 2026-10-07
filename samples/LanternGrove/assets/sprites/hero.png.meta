@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "guid": "d7fd74e2279440d2af1c6b47254f1130",
+  "importer": "texture",
+  "importerVersion": 1,
+  "settings": {
+    "filter": "nearest",
+    "wrap": "clamp",
+    "mipmaps": false,
+    "premultipliedAlpha": false,
+    "maxSize": 0,
+    "compression": "none",
+    "spriteMode": "multiple",
+    "grid": {
+      "cellWidth": 64,
+      "cellHeight": 80,
+      "offsetX": 0,
+      "offsetY": 0,
+      "spacingX": 0,
+      "spacingY": 0,
+      "columns": 0,
+      "rows": 0,
+      "namePrefix": "hero-",
+      "pivot": [
+        0.5,
+        0.95
+      ],
+      "skipEmpty": true
+    },
+    "slices": [],
+    "animations": [
+      {
+        "name": "idle",
+        "frames": [
+          "hero-0",
+          "hero-1"
+        ],
+        "framesPerSecond": 2.2,
+        "loop": true
+      },
+      {
+        "name": "run",
+        "frames": [
+          "hero-2",
+          "hero-3",
+          "hero-4",
+          "hero-5",
+          "hero-6",
+          "hero-7"
+        ],
+        "framesPerSecond": 13,
+        "loop": true
+      },
+      {
+        "name": "jump",
+        "frames": [
+          "hero-8"
+        ],
+        "framesPerSecond": 1,
+        "loop": true
+      },
+      {
+        "name": "fall",
+        "frames": [
+          "hero-9"
+        ],
+        "framesPerSecond": 1,
+        "loop": true
+      }
+    ]
+  }
+}

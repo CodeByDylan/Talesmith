@@ -1,0 +1,113 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.TileMaps.Dialogs"
+             xmlns:controls="using:Talesmith.Editor.TileMaps.Controls"
+             x:Class="Talesmith.Editor.TileMaps.Dialogs.TilesetImportDialogView"
+             x:DataType="vm:TilesetImportDialogViewModel">
+  <ui:Dialog Header="Import tileset" Description="Slice an image into tiles. Check the grid overlay to confirm the slicing." Width="800">
+    <Grid ColumnDefinitions="272,20,*">
+      <StackPanel Spacing="14">
+        <StackPanel Spacing="6">
+          <TextBlock Classes="section" Text="Image" />
+          <ComboBox ItemsSource="{Binding ProjectImages}" SelectedItem="{Binding SelectedProjectImage}" PlaceholderText="From the project's assets"
+                    HorizontalAlignment="Stretch" IsVisible="{Binding HasProjectImages}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="x:String">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Image}" Size="13" Foreground="{DynamicResource TextMutedBrush}" />
+                  <TextBlock Text="{Binding}" Classes="mono" FontSize="12" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <Grid ColumnDefinitions="*,8,Auto">
+            <TextBox Text="{Binding ImageName}" IsReadOnly="True" Focusable="False" PlaceholderText="No image selected" ToolTip.Tip="{Binding ImagePath}" />
+            <Button Grid.Column="2" Command="{Binding BrowseCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.FolderOpen}" Size="14" />
+                <TextBlock Text="Browse" />
+              </StackPanel>
+            </Button>
+          </Grid>
+        </StackPanel>
+
+        <StackPanel Spacing="6">
+          <TextBlock Classes="section" Text="Name" />
+          <TextBox Text="{Binding Name}" PlaceholderText="Tileset name" />
+        </StackPanel>
+
+        <StackPanel Spacing="6">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="section" Text="Slicing" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Classes="caption muted" Text="{Binding CellSizeText}" VerticalAlignment="Center" />
+          </Grid>
+          <Grid ColumnDefinitions="*,8,*" RowDefinitions="Auto,4,Auto,10,Auto,4,Auto">
+            <TextBlock Classes="caption muted" Text="Tile width" />
+            <TextBlock Grid.Column="2" Classes="caption muted" Text="Tile height" />
+            <ui:NumberField Grid.Row="2" Value="{Binding TileWidth}" Minimum="1" Maximum="4096" Step="1" IsInteger="True" Suffix="px" />
+            <ui:NumberField Grid.Row="2" Grid.Column="2" Value="{Binding TileHeight}" Minimum="1" Maximum="4096" Step="1" IsInteger="True" Suffix="px" />
+            <TextBlock Grid.Row="4" Classes="caption muted" Text="Margin" />
+            <TextBlock Grid.Row="4" Grid.Column="2" Classes="caption muted" Text="Spacing" />
+            <ui:NumberField Grid.Row="6" Value="{Binding Margin}" Minimum="0" Maximum="1024" Step="1" IsInteger="True" Suffix="px" />
+            <ui:NumberField Grid.Row="6" Grid.Column="2" Value="{Binding Spacing}" Minimum="0" Maximum="1024" Step="1" IsInteger="True" Suffix="px" />
+          </Grid>
+        </StackPanel>
+
+        <Border Classes="card" Padding="12,10">
+          <StackPanel Spacing="4">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Grid}" Size="14" Foreground="{DynamicResource AccentBrush}" />
+              <TextBlock Text="{Binding Summary}" FontWeight="SemiBold" />
+            </StackPanel>
+            <TextBlock Classes="caption mono muted" Text="{Binding ImageSizeText}" IsVisible="{Binding HasImage}" />
+          </StackPanel>
+        </Border>
+
+        <Border Background="{DynamicResource AccentSubtleBrush}" CornerRadius="{DynamicResource CornerRadiusMedium}" Padding="12,10">
+          <Grid ColumnDefinitions="Auto,10,*" RowDefinitions="Auto,Auto">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.Hexagon}" Size="15" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Top" Margin="0,1,0,0" />
+            <StackPanel Grid.Column="2" Spacing="3">
+              <TextBlock Text="Made with Hexy Forge?" FontWeight="SemiBold" FontSize="12" />
+              <TextBlock Classes="caption" TextWrapping="Wrap" Text="Copy its Hexy import settings, then paste them here to fill in the tile size, margin and spacing."
+                         IsVisible="{Binding !HasForgeSettings}" />
+              <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding ForgeMessage}" IsVisible="{Binding HasForgeSettings}" />
+              <Button x:Name="PasteForge" Classes="small" Margin="0,4,0,0" HorizontalAlignment="Left" Click="OnPasteForgeSettings">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Paste}" Size="13" />
+                  <TextBlock Text="Paste settings" />
+                </StackPanel>
+              </Button>
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ValidationMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.AlertCircle}" Size="14" Foreground="{DynamicResource DangerBrush}" VerticalAlignment="Top" Margin="0,2,0,0" />
+          <TextBlock Text="{Binding ValidationMessage}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" MaxWidth="244" FontSize="12" />
+        </StackPanel>
+      </StackPanel>
+
+      <Border Grid.Column="2" Background="{DynamicResource SurfaceSunkenBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+              CornerRadius="{DynamicResource CornerRadiusLarge}" MinHeight="380" ClipToBounds="True">
+        <Panel>
+          <controls:AtlasPreview Margin="12" Source="{Binding Image}" TileWidth="{Binding TileWidth}" TileHeight="{Binding TileHeight}"
+                                 TileMargin="{Binding Margin}" TileSpacing="{Binding Spacing}" />
+          <StackPanel Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasImage}">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.Image}" Size="32" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center" />
+            <TextBlock Text="Choose an image to preview its tiles" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center" />
+            <Button Classes="accent small" HorizontalAlignment="Center" Content="Browse…" Command="{Binding BrowseCommand}" />
+          </StackPanel>
+          <ProgressBar IsIndeterminate="True" Width="90" IsVisible="{Binding IsLoading}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+        </Panel>
+      </Border>
+    </Grid>
+
+    <ui:Dialog.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="Cancel" MinWidth="84" IsCancel="True" Command="{Binding CancelCommand}" />
+        <Button Classes="accent" Content="Import tileset" MinWidth="110" IsDefault="True" Command="{Binding ImportCommand}" />
+      </StackPanel>
+    </ui:Dialog.Footer>
+  </ui:Dialog>
+</UserControl>

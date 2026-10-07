@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>The Talesmith editor: workspace, scene editing, inspectors, asset management, tile, particle and lighting editors, play mode and build.</Description>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Talesmith.UI\Talesmith.UI.csproj" />
+    <ProjectReference Include="..\Talesmith.Avalonia\Talesmith.Avalonia.csproj" />
+    <ProjectReference Include="..\Talesmith.Build\Talesmith.Build.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Talesmith.Editor.Tests" />
+    <InternalsVisibleTo Include="Talesmith.Screenshots" />
+  </ItemGroup>
+</Project>

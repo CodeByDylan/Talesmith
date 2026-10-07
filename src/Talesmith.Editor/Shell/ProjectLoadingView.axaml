@@ -1,0 +1,80 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:loading="using:Talesmith.Avalonia.Loading"
+             xmlns:vm="using:Talesmith.Editor.Shell"
+             x:Class="Talesmith.Editor.Shell.ProjectLoadingView"
+             x:DataType="vm:ProjectLoadingViewModel"
+             Background="{DynamicResource BackgroundBrush}">
+  <UserControl.Styles>
+    <Style Selector="ui|SymbolIcon.step">
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+    </Style>
+    <Style Selector="ui|SymbolIcon.step.active">
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="ui|SymbolIcon.step.done">
+      <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+    </Style>
+    <Style Selector="ui|SymbolIcon.step.failed">
+      <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+    </Style>
+    <Style Selector="TextBlock.step.pending">
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Border Classes="card" Width="440" Padding="0" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+    <StackPanel>
+      <Border Height="196" CornerRadius="9,9,0,0" Background="{Binding Artwork}" ClipToBounds="True">
+        <Panel>
+          <TextBlock Text="{Binding Initials}" FontSize="44" FontWeight="Bold" Foreground="#E6FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"
+                     IsVisible="{Binding !HasThumbnail}" />
+          <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" IsVisible="{Binding HasThumbnail}" />
+        </Panel>
+      </Border>
+
+      <StackPanel Margin="20,16,20,20" Spacing="16">
+        <StackPanel Spacing="3">
+          <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+          <TextBlock Text="{Binding DisplayPath}" Classes="caption muted" TextTrimming="PathSegmentEllipsis" />
+        </StackPanel>
+
+        <ItemsControl ItemsSource="{Binding Steps}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="12" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:LoadingStepViewModel">
+              <StackPanel Spacing="7">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                  <ui:SymbolIcon Classes="step" Classes.active="{Binding IsActive}" Classes.done="{Binding IsDone}" Classes.failed="{Binding IsFailed}"
+                                 Data="{Binding Icon}" Size="15" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Classes="step" Classes.pending="{Binding IsPending}" Text="{Binding Title}" Margin="10,0"
+                             TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="2" Classes="caption muted" Text="{Binding Detail}" VerticalAlignment="Center" />
+                </Grid>
+                <loading:LoadingBar Value="{Binding Progress}" IsVisible="{Binding IsActive}" Height="3" Margin="25,0,0,0"
+                                    Foreground="{DynamicResource AccentBrush}" Background="{DynamicResource BorderSubtleBrush}" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <StackPanel Spacing="12" IsVisible="{Binding HasFailed}">
+          <Border Classes="divider-h" Margin="0" />
+          <StackPanel Spacing="4">
+            <TextBlock Text="The project could not open" FontWeight="SemiBold" Foreground="{DynamicResource DangerBrush}" />
+            <SelectableTextBlock Text="{Binding Error}" Classes="caption" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button Content="Show console" Command="{Binding ShowConsoleCommand}" />
+            <Button Classes="accent" Content="Close project" Command="{Binding CloseProjectCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</UserControl>

@@ -1,0 +1,194 @@
+---
+title: "Installation"
+description: "Install Talesmith on Windows, Ubuntu, Debian, other Linux distributions or NixOS, or build it from source, and start the editor, a sample or the standalone player."
+---
+
+Talesmith runs on Windows and Linux. Install a release to make games, or build it from source to work on the engine itself. This page covers both, the ways to start the editor, opening the samples and running a game without the editor.
+
+## Install a release
+
+Every release on the [releases page](https://github.com/CodeByDylan/Talesmith/releases) has a package for each system. Each one carries the .NET runtime, so .NET does not have to be installed. `SHA256SUMS.txt` lists the checksum of every download, and `gh attestation verify <file> --repo CodeByDylan/Talesmith` shows that a download was built from the release's tag.
+
+### Windows
+
+Download `talesmith-<version>-win-x64-setup.exe` and run it. It installs Talesmith for your user without administrator rights, or for everyone when you choose that in its first dialog, and adds it to the Start menu. Uninstall it from **Settings › Apps**. The `.zip` holds the same files to unpack and run anywhere. Both carry the Visual C++ runtime that sound needs, and so does every game the editor exports.
+
+The installer is not signed yet, so SmartScreen asks before it runs: choose **More info**, then **Run anyway**.
+
+### Ubuntu and Debian
+
+Download `talesmith_<version>_amd64.deb` and install it with apt, which also installs the system libraries the editor loads:
+
+```bash
+sudo apt install ./talesmith_<version>_amd64.deb
+```
+
+Talesmith then starts from the application menu, or with `talesmith` in a terminal. Releases are tested on Ubuntu 22.04, 24.04 and 26.04 and on Debian 13.
+
+### Other Linux distributions
+
+Download `talesmith-<version>-linux-x64.tar.gz`, unpack it anywhere and start `talesmith` in the folder it creates:
+
+```bash
+tar -xzf talesmith-<version>-linux-x64.tar.gz
+./talesmith-<version>-linux-x64/talesmith
+```
+
+Before it starts the editor, `talesmith` checks for the system libraries the editor loads. When one is missing, it names the package that provides it and the command that installs it, for apt, dnf, pacman and zypper, and does not start:
+
+```text
+Talesmith cannot start, because these libraries are not installed: libXi.so.6, libXcursor.so.1.
+Install what is missing with:
+  sudo dnf install libXi libXcursor
+```
+
+`talesmith --check` prints the whole list, with the optional libraries and what works without them. Releases are tested on Fedora and Arch Linux.
+
+### NixOS
+
+The repository is a flake, so Nix runs the latest release directly:
+
+```bash
+nix run github:CodeByDylan/Talesmith
+```
+
+`nix profile add github:CodeByDylan/Talesmith` installs it, and the flake's `overlays.default` adds `pkgs.talesmith` to a NixOS configuration. Exported Linux games run on any distribution; on NixOS itself, start them through `steam-run` or [nix-ld](https://github.com/nix-community/nix-ld).
+
+### Export for the other system
+
+An installed editor exports games for the system it runs on, with the players in its `players` folder. To export for the other system as well, copy the folders inside the `players` folder of that system's `.zip` or `.tar.gz` into your editor's `players` folder.
+
+## Build from source
+
+| Requirement | Notes |
+| --- | --- |
+| [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) | Builds the editor, compiles your scripts and publishes exported games. |
+| Git | To clone the repository. |
+
+Check the SDK from a terminal:
+
+```bash
+dotnet --version
+```
+
+The version must start with `10.`.
+
+<Steps>
+
+1. Clone the repository and change into it:
+
+   ```bash
+   git clone https://github.com/CodeByDylan/Talesmith.git
+   cd Talesmith
+   ```
+
+2. Build the solution:
+
+   ```bash
+   dotnet build Talesmith.slnx
+   ```
+
+   The first build restores NuGet packages and takes a few minutes. Later builds only compile what changed.
+
+</Steps>
+
+Building the solution also builds the sample games' plugins into their `assets/plugins` folders and Lantern Grove's scripts into `assets/scripts/bin`, so the samples run straight away.
+
+## Start the editor
+
+An installed editor starts from the Start menu or the application menu, or with `talesmith` in a terminal. From a source checkout:
+
+```bash
+dotnet run --project src/Talesmith.App
+```
+
+The editor opens on the [project hub](./project-hub.mdx), where you open a recent project or create a new one. The examples below start the editor as `talesmith`; from a source checkout, put `dotnet run --project src/Talesmith.App --` in front of the arguments instead.
+
+### Open a project directly
+
+Pass a project to skip the hub. Any of these work:
+
+```bash
+talesmith path/to/MyGame                         # the project folder
+talesmith path/to/MyGame/assets                  # its assets folder
+talesmith path/to/MyGame/assets/config/game.json # its game settings
+```
+
+A folder without `assets/config/game.json` is not a project: the editor opens the hub and shows *Not a Talesmith project*.
+
+### Create a project from the command line
+
+```bash
+talesmith --new platformer ~/Games "Coin Run"
+```
+
+`--new` takes a template, the folder to create the project in, and the project's name. It creates the project and opens it. The templates are:
+
+| Template | Id |
+| --- | --- |
+| Empty | `empty` |
+| Top-down hex adventure | `hex-adventure` |
+| Side-scrolling platformer | `platformer` |
+
+An unknown template opens the hub with a message that lists the valid ids.
+
+## Open a sample
+
+The repository has three sample games in `samples/`. Open one in the editor and press <Keys>Ctrl+P</Keys> to play it:
+
+```bash
+dotnet run --project src/Talesmith.App -- samples/LanternGrove
+```
+
+| Sample | What it shows | Controls |
+| --- | --- | --- |
+| Lantern Grove (`samples/LanternGrove`) | A night platformer made only of a map, a scene, a prefab, particle presets, sounds and C# scripts, without a plugin. Collect the paper lanterns and light the shrine. | Arrows or A and D run, Space jumps, Shift dashes, R starts over |
+| Isle Hopper (`samples/IsleHopper`) | A platformer on a rectangular map with a second map scrolling behind it as a parallax backdrop, written as a plugin. | Arrows or A and D run, Space jumps, R restarts, Escape opens the pause menu |
+| Hex Quest (`samples/HexQuest`) | A hex adventure written as two plugins, one for gameplay and one for cutscenes and dialogue. | WASD or a click on a hex walks, the wheel zooms, Escape opens the pause menu |
+
+Lantern Grove is the closest to how you make a game in the editor: open its scene and scripts to see how the pieces connect. When you run the editor from a source checkout, the hub also lists the samples on its Projects page.
+
+## Run a game without the editor
+
+The player runs any game folder, whether a project or an exported game:
+
+```bash
+dotnet run --project src/Talesmith.Player -- samples/IsleHopper
+```
+
+The player runs scripts from their compiled assembly, `assets/scripts/bin/Game.Scripts.dll`. Exported games contain it, and so does Lantern Grove after a build of the solution. To run your own project with scripts in the player, [export it](../exporting.mdx) first, or play it in the editor, which compiles scripts itself.
+
+Useful player options:
+
+| Option | Effect |
+| --- | --- |
+| `--renderer auto`, `vulkan` or `skia` | Overrides the renderer from `config/game.json`. |
+| `--mute` | Starts without sound. |
+| `--captures <folder>` | Where F9 reports and F12 screenshots go. The default is `./captures`. |
+| `--no-dev-tools` | Turns off the F3, F4, F9 and F12 developer keys. |
+| `--log-level <level>` | `trace`, `debug`, `information` (the default), `warning`, `error` or `critical`. |
+| `--benchmark` | Runs the game without a window for a number of frames and prints a performance report. See [Performance](../performance.mdx). |
+| `--help` | Lists every option. |
+
+## Troubleshooting
+
+**A library is missing on Linux.** Start the editor from a terminal, or run `talesmith --check`, to see which libraries are missing and the command that installs them. The Debian package and the Nix package bring them along.
+
+**No Vulkan device.** Nothing to do: the editor and games fall back to Skia, and the log says why. To force a renderer, set `renderer` in [Project Settings › Game](../workflow/project-settings.mdx) or pass `--renderer skia` to the player.
+
+**No sound.** Talesmith plays through OpenAL Soft. When no audio device is available, the game keeps running without sound. Check that your system has an output device and that it is not muted.
+
+**Choppy frames on Linux.** Run the player with `--log-level debug` to see how fast the window's compositor runs. When it runs faster than the display, try `--opengl-compositor`.
+
+**Where captures go.** F9 profiler reports and F12 screenshots taken in the editor's Game panel go to `.talesmith/captures` in the project folder. The player saves them to a `captures` folder in the current directory, and exported games to the user's local data folder, under the game's title.
+
+## Next steps
+
+<CardGrid>
+  <Card title="The project hub" icon="box" to="/guide/getting-started/project-hub">
+    Open recent projects and create one from a template.
+  </Card>
+  <Card title="Your first game" icon="rocket" to="/guide/getting-started/first-game">
+    A platformer from a new project to an exported build.
+  </Card>
+</CardGrid>

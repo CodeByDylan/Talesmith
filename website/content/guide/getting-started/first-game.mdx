@@ -1,0 +1,299 @@
+---
+title: "Your first game"
+description: "A step-by-step tutorial from a new platformer project to a level with collision, a scripted hero, coins to collect, a campfire and an exported build."
+---
+
+This tutorial builds Coin Run, a small platformer, from a new project to a game you can send to someone. You start from the platformer template, make its level solid and fill a gap with the tile tools, give the hero a collider and a script that runs and jumps, turn the coins into pickups, light a campfire at dusk, play it in the editor and export it. It takes about half an hour.
+
+<Screenshot name="guide/first-game-play" caption="Coin Run at the end of the tutorial." priority />
+
+## Before you start
+
+You need Talesmith built and running, as described in [Installation](./installation.mdx), and a code editor for C#, such as Visual Studio Code or Rider. You do not need to know the editor yet: each step names what to click. If you want the lay of the land first, read [The interface](./interface.mdx).
+
+## Step 1: Create the project
+
+<Steps>
+
+1. Start the editor. The [project hub](./project-hub.mdx) opens.
+2. Click **New project** in the sidebar.
+3. Click the **Side-scrolling platformer** template.
+4. Type `Coin Run` as the **Project name**, and choose a **Location** if you want the project somewhere else.
+5. Click **Create project**.
+
+</Steps>
+
+<Screenshot name="guide/first-game-new-project" />
+
+The editor opens the project on its starter scene, `scenes/main.tscene`.
+
+## Step 2: Look around
+
+<Screenshot name="guide/first-game-starter" />
+
+The template made a level and put a few things in it. The **Hierarchy** on the left lists them:
+
+| Entity | What it is |
+| --- | --- |
+| **Main Camera** | The camera the game sees through. The rectangle in the Scene panel shows what it frames. |
+| **Level** | A tile map, `maps/level.hexy`, with grass, dirt, floating platforms and gaps. |
+| **Hero** | The player: a sprite with an idle animation. |
+| **Coins** | A group with five spinning coins, one above each platform. Click the arrow to expand it. |
+
+Click **Hero**. The **Inspector** on the right shows its components: a **Transform** with its position, a **Sprite** that draws it and a **Sprite Animator** that plays its idle animation.
+
+Press <Keys>Ctrl+P</Keys> to play. The Game panel shows the scene, the hero breathes and the coins spin, but nothing else happens: nothing in the scene has any gameplay yet. Press <Keys>Ctrl+P</Keys> again to stop.
+
+To look around the scene, drag with the right or middle mouse button to pan, and use the mouse wheel to zoom. Press <Keys>Shift+F</Keys> to see the whole scene.
+
+## Step 3: Make the ground solid
+
+The level is drawn, but to the physics engine it is only a picture. Giving its layer the **Collision** role makes every tile on it solid.
+
+<Steps>
+
+1. Click **Level** in the hierarchy.
+2. In the layout picker on the right of the tool options bar, choose **Tile Mapping**. The **Tile Map** panel opens on the right, editing the Level map.
+3. In the **Layers** section, find the **Ground** layer. The caption under its name reads *Ground · 233 tiles*: its role, then how many tiles it has.
+4. Click the role icon to the left of the layer's name and choose **Collision**.
+
+</Steps>
+
+The caption now reads *Collision · 233 tiles*. Every tile on the layer, including the floating platforms, will block the hero. A collision layer also casts shadows when lights cast them; you will see that in [Lighting](../effects/lighting.mdx).
+
+<Screenshot name="guide/first-game-collision" />
+
+## Step 4: Fill a gap
+
+The level has three gaps. Fill the first one, so the start of the level is easier.
+
+<Steps>
+
+1. In the Tile Map panel, under **Tilesets**, click the first tile, the grass. The **Brush** tool becomes active and the tile shows in the tool options bar.
+2. Zoom in on the first gap in the Scene panel. Drag across the gap at the height of the grass, from one edge to the other. The brush previews the tile under the pointer and paints the two cells as you drag.
+3. Click the second tile, the dirt, and press <Keys>R</Keys> for the **Rectangle** tool.
+4. Drag from the cell under the new grass down to the bottom of the level. The rectangle previews the dirt it will paint; release to paint it.
+
+</Steps>
+
+<Screenshot name="guide/first-game-paint" caption="Dragging a rectangle of dirt under the new grass." />
+
+Each stroke is one step you can undo with <Keys>Ctrl+Z</Keys>. If you paint a cell by mistake, drag over it with the right mouse button to erase it.
+
+Press <Keys>Ctrl+S</Keys> to save. Saving the scene also saves the maps it shows; the **Unsaved** badge in the Tile Map panel goes away.
+
+See [Painting tools](../tile-maps/painting.mdx) for every tile tool.
+
+## Step 5: Give the hero a body
+
+The hero needs a shape that collides with the level, and a character controller that moves that shape by sliding along floors and walls.
+
+<Steps>
+
+1. Click **Hero** in the hierarchy. If the Tile Map panel still shows, choose **Default** in the layout picker for more room in the Inspector.
+2. At the bottom of the Inspector, click **Add component**. Type `collider` and press <Keys>Enter</Keys> to add a **Collider 2D**.
+3. In the **Collider 2D** section, set **Size** to `20` and `28`, and **Offset** to `0` and `-14`. The hero's position is at its feet, so the offset lifts the box to cover its body. The Scene panel outlines the collider in green.
+4. Click **Add component** again, type `character` and press <Keys>Enter</Keys> to add a **Character Controller 2D**. Leave its settings as they are.
+
+</Steps>
+
+<Screenshot name="guide/first-game-physics" />
+
+## Step 6: Write the hero's script
+
+Now the hero needs to move. Movement is gameplay, and gameplay is written as C# scripts.
+
+<Steps>
+
+1. Choose **Assets › Create › Script…**.
+2. Type `HeroController` as the **Class name**, keep the **Script** template and click **Create**. The editor writes `assets/scripts/HeroController.cs` and opens it in your code editor.
+3. Replace the contents of the file with the code below and save it.
+
+</Steps>
+
+<Screenshot name="guide/first-game-script-dialog" maxWidth={560} />
+
+```csharp title="assets/scripts/HeroController.cs"
+namespace CoinRun;
+
+/// <summary>Runs with the Run action and jumps with Jump.</summary>
+public sealed class HeroController : Script
+{
+    [Range(0, 600)]
+    public float RunSpeed = 220;
+
+    [Range(0, 1500)]
+    public float JumpSpeed = 680;
+
+    [Range(0, 4000)]
+    public float Gravity = 1600;
+
+    private Vector2 _velocity;
+    private Vector2 _start;
+    private bool _jumpPressed;
+
+    protected override void OnStart() => _start = Position;
+
+    protected override void Update()
+    {
+        if (Input.WasPressed("Jump"))
+            _jumpPressed = true;
+    }
+
+    protected override void FixedUpdate()
+    {
+        var dt = Time.DeltaTime;
+        var grounded = GetComponent<CharacterController2D>().IsGrounded;
+
+        _velocity.X = Input.Axis("Run") * RunSpeed;
+        _velocity.Y += Gravity * dt;
+        if (_jumpPressed && grounded)
+            _velocity.Y = -JumpSpeed;
+        _jumpPressed = false;
+
+        var hits = Physics.MoveCharacter(Entity, _velocity * dt);
+        if ((hits & (CharacterCollisions.Below | CharacterCollisions.Above)) != 0)
+            _velocity.Y = 0;
+
+        if (_velocity.X != 0)
+            GetComponent<Sprite>().FlipX = _velocity.X < 0;
+
+        if (Position.Y > 600)
+        {
+            Position = _start;
+            _velocity = Vector2.Zero;
+        }
+    }
+}
+```
+
+What the script does:
+
+- `Update` runs every frame and remembers a press of the **Jump** action, so a quick tap is never missed.
+- `FixedUpdate` runs at a steady 60 steps a second, which is where movement belongs. It sets the horizontal speed from the **Run** action, adds gravity, starts a jump when the hero stands on the ground, and asks the physics engine to move the character. `MoveCharacter` slides the collider along whatever it hits and reports the sides it touched; touching the ground or a ceiling stops the fall or the jump.
+- Falling into a gap below `Y` 600 puts the hero back where it started.
+- `Run` and `Jump` are input actions the template defined: <Keys>A</Keys> and <Keys>D</Keys> or the arrow keys run, <Keys>Space</Keys>, <Keys>W</Keys> or <Keys>Up</Keys> jump. You can change them in [Project Settings › Input](../workflow/project-settings.mdx).
+
+When you save the file, the editor compiles it. The status bar shows *Compiling scripts…* and then *Scripts compiled in* and the time it took. If it shows errors instead, click it: the console lists each error with its file and line.
+
+Now attach the script:
+
+<Steps>
+
+1. Click **Hero** in the hierarchy.
+2. Click **Add component**. Under **Scripts** at the bottom of the list, choose **Hero Controller**.
+
+</Steps>
+
+The script gets its own section in the Inspector with its three public fields. The `[Range]` attributes give them sliders.
+
+<Screenshot name="guide/first-game-script" />
+
+## Step 7: Play
+
+Press <Keys>Ctrl+P</Keys>. The Game panel takes the keyboard, so press <Keys>D</Keys> to run right and <Keys>Space</Keys> to jump. Run over the gap you filled, jump onto the platforms, and fall into one of the other gaps to see the hero return to the start.
+
+While the game plays, the app bar turns the accent color, and the hierarchy and inspector show the running game instead of the scene:
+
+<Steps>
+
+1. Click **Hero** in the hierarchy. The inspector shows its live values.
+2. Drag **Jump Speed** to `900` and jump. The hero jumps much higher at once.
+3. Press <Keys>Ctrl+Shift+P</Keys> to pause and <Keys>F10</Keys> to step one frame at a time. Press <Keys>Ctrl+Shift+P</Keys> again to resume.
+4. Press <Keys>Shift+F5</Keys>, or <Keys>Ctrl+P</Keys>, to stop.
+
+</Steps>
+
+Back in the editor, **Jump Speed** reads `680` again: changes made while playing end with Stop. To keep a value you found while playing, write it down and set it after stopping. See [Play mode](../play-and-test/play-mode.mdx).
+
+## Step 8: Collect the coins
+
+The coins need a trigger, an area that reports when something enters it without blocking it, and a script that removes the coin when the hero touches it.
+
+<Steps>
+
+1. Choose **Assets › Create › Script…**, type `Coin` as the **Class name** and click **Create**. Replace the file's contents with the code below and save it.
+2. In the hierarchy, expand **Coins**, click **Coin 9**, then hold <Keys>Shift</Keys> and click **Coin 38**. All five coins are selected, and the Inspector reads *Editing 5 entities*.
+3. Click **Add component** and add a **Collider 2D**. Every coin gets one.
+4. In the **Collider 2D** section, tick **Is Trigger**.
+5. Click **Add component** and choose **Coin** under **Scripts**.
+
+</Steps>
+
+```csharp title="assets/scripts/Coin.cs"
+namespace CoinRun;
+
+/// <summary>Disappears when the hero touches it.</summary>
+public sealed class Coin : Script
+{
+    public int Value = 1;
+
+    protected override void OnTriggerEnter(in ContactInfo contact)
+    {
+        if (GetScript<HeroController>(contact.Other) is null)
+            return;
+        Log.Info($"Picked up a coin worth {Value}");
+        Destroy();
+    }
+}
+```
+
+<Screenshot name="guide/first-game-coins" />
+
+`OnTriggerEnter` runs when another collider enters the coin's trigger. The script checks that it was the hero, logs a message and destroys the coin. Play again and collect a coin: it disappears, and the **Console** at the bottom shows the message, with the name of the coin that logged it.
+
+Selecting several entities and changing them at once is quicker than repeating a change five times. When you have many copies of one thing, a [prefab](../scenes/prefabs.mdx) is better still: change the prefab once and every copy follows.
+
+## Step 9: Light a campfire at dusk
+
+<Steps>
+
+1. Right-click an empty area of the hierarchy and choose **2D Object › Particle Emitter › Fire**. A **Fire** entity appears in the middle of the view, with flames.
+2. Press <Keys>F2</Keys>, type `Campfire` and press <Keys>Enter</Keys>.
+3. In the **Transform** section, set **Position** to `64` and `176`, on the grass left of the hero.
+4. Right-click **Campfire** in the hierarchy and choose **2D Object › Light › Point Light**. The light is created as a child of the campfire, at its position. Rename it `Glow`.
+5. In the **Light 2D** section, set **Color** to `#FFB45C`, **Intensity** to `1.4` and **Radius** to `220`, and under **Animation** choose **Flicker**.
+6. Open the **Lighting** tab in the bottom panels. Under **Presets**, click **Dusk**. The ambient light turns a dim violet, and the fire's light stands out.
+7. Click **Preview** in the tool options bar to watch the flames move and the light flicker in the Scene panel.
+
+</Steps>
+
+<Screenshot name="guide/first-game-campfire" />
+
+See [Particles](../effects/particles.mdx) to change the flames, and [Lighting](../effects/lighting.mdx) for shadows and the other kinds of light.
+
+Press <Keys>Ctrl+S</Keys> to save, then <Keys>Ctrl+P</Keys> to play the finished level.
+
+## Step 10: Export the game
+
+<Steps>
+
+1. Choose **File › Build settings…**. The Build dialog opens.
+2. Under **Platform**, click the card marked **This PC**.
+3. Under **Profile**, keep **Release**.
+4. Click **Build and Run**.
+
+</Steps>
+
+<Screenshot name="guide/first-game-build" />
+
+The dialog lists each step as the build runs: checking the project, compiling the scripts, collecting the assets the game uses, packing them and preparing the player. The first build for a platform publishes the player, which takes a minute or two; later builds reuse it and take seconds. When it finishes, the dialog shows a report and the game starts in its own window.
+
+The build is in the `builds` folder of the project, such as `builds/Coin Run-linux-x64`. That folder is the whole game: copy it to another computer of the same platform and run `Coin Run` (`Coin Run.exe` on Windows). Players do not need Talesmith or .NET. See [Exporting a game](../exporting.mdx) for the other platforms, profiles and the report.
+
+## Where to go next
+
+<CardGrid>
+  <Card title="Scenes and entities" icon="layers" to="/guide/scenes">
+    Scenes, the viewport, the hierarchy, the inspector and prefabs in depth.
+  </Card>
+  <Card title="Tile maps" icon="map" to="/guide/tile-maps/maps-and-grids">
+    Hex and rectangular maps, layers, tilesets, terrains and map objects.
+  </Card>
+  <Card title="Your first script" icon="code" to="/scripting/scripts/first-script">
+    How scripts work: fields, the lifecycle, input, physics and events.
+  </Card>
+  <Card title="Platformer controller" icon="rocket" to="/scripting/recipes/platformer">
+    Coyote time, variable jumps and dashing, as in the Lantern Grove sample.
+  </Card>
+</CardGrid>

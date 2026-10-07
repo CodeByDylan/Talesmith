@@ -1,0 +1,77 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Scripting"
+             x:Class="Talesmith.Editor.Scripting.CreateScriptDialogView"
+             x:DataType="vm:CreateScriptDialogViewModel">
+  <UserControl.Styles>
+    <Style Selector="ListBox.templates ListBoxItem">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0,0,0,6" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+    </Style>
+    <Style Selector="ListBox.templates ListBoxItem Border.option">
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+      <Setter Property="Padding" Value="12,9" />
+    </Style>
+    <Style Selector="ListBox.templates ListBoxItem:selected Border.option">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+    </Style>
+    <Style Selector="ListBox.templates ListBoxItem:selected ui|SymbolIcon">
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <ui:Dialog Header="Create script" Description="Adds a C# file to the scripts folder. It compiles as soon as it is saved." Width="500">
+    <StackPanel Spacing="14">
+      <StackPanel Spacing="6">
+        <TextBlock Classes="caption muted" Text="Class name" />
+        <TextBox Name="NameBox" Text="{Binding ClassName}" Classes="mono" />
+      </StackPanel>
+      <StackPanel Spacing="6">
+        <TextBlock Classes="caption muted" Text="Template" />
+        <ListBox Classes="templates" ItemsSource="{Binding Templates}" SelectedIndex="{Binding TemplateIndex}" Background="Transparent">
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Columns="2" />
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:ScriptTemplateOption">
+              <Border Classes="option" Margin="0,0,6,0">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                  <ui:SymbolIcon Data="{Binding Icon}" Size="18" VerticalAlignment="Top" Margin="0,1,0,0" Foreground="{DynamicResource TextSecondaryBrush}" />
+                  <StackPanel Grid.Column="1" Spacing="2">
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                    <TextBlock Classes="caption muted" Text="{Binding Description}" TextWrapping="Wrap" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </StackPanel>
+      <StackPanel Spacing="6">
+        <TextBlock Classes="caption muted" Text="Folder inside scripts (optional)" />
+        <TextBox Text="{Binding Folder}" PlaceholderText="Enemies/Bosses" Classes="mono" />
+      </StackPanel>
+      <Border Classes="card" Padding="12,8">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.FileCode}" Size="14" Foreground="{DynamicResource TextMutedBrush}" IsVisible="{Binding !HasError}" />
+          <ui:SymbolIcon Data="{x:Static ui:Icons.AlertCircle}" Size="14" Foreground="{DynamicResource DangerBrush}" IsVisible="{Binding HasError}" />
+          <TextBlock Grid.Column="1" Classes="caption mono" Text="{Binding TargetPath}" IsVisible="{Binding !HasError}" TextTrimming="CharacterEllipsis" />
+          <TextBlock Grid.Column="1" Classes="caption" Text="{Binding Error}" IsVisible="{Binding HasError}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" />
+        </Grid>
+      </Border>
+    </StackPanel>
+    <ui:Dialog.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="Cancel" MinWidth="84" IsCancel="True" Command="{Binding CancelCommand}" />
+        <Button Classes="accent" Content="Create" MinWidth="84" IsDefault="True" Command="{Binding CreateCommand}" />
+      </StackPanel>
+    </ui:Dialog.Footer>
+  </ui:Dialog>
+</UserControl>

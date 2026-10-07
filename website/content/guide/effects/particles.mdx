@@ -1,0 +1,134 @@
+---
+title: "Particles"
+description: "Create particle effects such as fire, smoke and sparks with the particle editor and its presets."
+---
+
+Fire, smoke, sparks, rain, snow and magic are particle effects: many small sprites that a Particle Emitter component spawns, moves and fades. Effects are built from modules, each switched on when you need it, and can be saved as `.tparticles` presets to reuse. This page covers adding an emitter, the preset gallery, the particle editor with its live preview, the modules, playback settings, presets, and how many particles a scene can afford.
+
+<Screenshot name="guide/particle-editor" caption="The Particles panel on a campfire: the live preview and statistics on the left, the modules on the right." priority />
+
+## Add an effect
+
+Any of these creates an entity with a **Particle Emitter**:
+
+- **GameObject › 2D Object › Particle Emitter** and one of the built-in effects, or the same items in the hierarchy's context menu. The emitter is created in the middle of the view, or under the entity you right-clicked.
+- With nothing selected, click an effect in the preset gallery at the bottom of the **Particles** panel.
+- Drag a `.tparticles` preset from the Assets panel into the viewport or onto the hierarchy. The emitter plays the preset.
+
+To add an emitter to an existing entity, such as a torch sprite, use **Add component › Particle Emitter**. An emitter follows its entity's position, rotation and scale, so parenting it to a moving entity makes the effect move along.
+
+The built-in effects are **Fire**, **Smoke**, **Sparks**, **Magic sparkle**, **Rain**, **Snow**, **Dust puff** and **Explosion**. They use textures the engine generates, so they work without any image assets.
+
+## The particle editor
+
+The **Particles** panel (**Window › Panels › Particles**, or the **Effects** layout) edits the emitter of the selected entity, or a preset file. Select an entity with an emitter and the panel shows it; select nothing and it shows the preset gallery.
+
+<Screenshot name="guide/particle-presets" caption="With nothing selected, the gallery plays every built-in effect. Click one to add it to the scene." />
+
+### The header
+
+| Control | What it does |
+| --- | --- |
+| Play or pause | Plays or pauses the preview |
+| Restart | Starts the effect again from the beginning |
+| Stop | Stops emitting; particles that are alive finish their lives |
+| Burst | Emits a burst now, to test effects that only burst |
+| **Loop** | Starts a new cycle when one ends |
+| **Seed** | A fixed seed plays the same way every time; 0 picks a new seed each time. The dice picks a random seed. |
+| **Live in scene** | Animates particles, sprites and lights in the Scene panel as well: the same as **Preview** in the tool options bar |
+| **⋯** | Opens, saves and links presets, collapses or expands every module, and pops out a larger preview |
+
+### The preview
+
+The preview plays the effect on its own, away from the scene, and follows it as it grows. Scroll to zoom, drag to pan and double-click to follow the effect again. The overlay buttons choose the **Background** (dark, light, checker or the scene's color) and show the **Grid**, the **Emitter shape** and the **Bounds**. The speed buttons play at ¼×, ½×, 1× or 2×. The pop-out button opens a larger preview in its own window.
+
+Changes to most values apply to the running effect, so it stays smooth while you drag a value; it restarts when you let go. Changes to playback and bursts restart it at once.
+
+### Statistics
+
+Under the preview, four readouts show the effect's cost, each with a small graph of its recent history:
+
+| Readout | Meaning |
+| --- | --- |
+| **Alive** | Particles alive now, with a bar of how much of the emitter's maximum is in use |
+| **Emitted / s** | Particles emitted per second |
+| **Simulation** | Time spent simulating this emitter per frame |
+| **Drawn** | Particles drawn in the last frame |
+
+## Modules
+
+The settings are grouped in modules, shown as cards. Each card has a switch, except **Playback** and **Initial values**, and a one-line summary when it is folded, such as *life 0.6–1 s · speed 80–140 · size 36–56*.
+
+| Module | What it does |
+| --- | --- |
+| **Playback** | Duration, looping, prewarm, play on start, start delay, simulation speed and space, maximum particles, seed and culling. See [Playback](#playback). |
+| **Emission** | Particles per second, particles per distance moved (for trails), and bursts with a time, count, number of cycles, interval and probability |
+| **Shape** | Where particles start: a point, line, rectangle, circle or ring with an arc, a cone, a hex or square cell, or a polygon; from the volume or the edge; in which direction, with spread |
+| **Initial values** | Each particle's lifetime, speed, size, rotation, spin and color when it is born, optionally aligned to its direction and inheriting the emitter's velocity |
+| **Velocity over lifetime** | Drift over the particle's life, orbiting around the emitter, pushing away from it, and a speed multiplier |
+| **Forces and gravity** | A constant push, and the scene's gravity times a scale |
+| **Drag** | Air resistance |
+| **Noise** | Swirling turbulence, for smoke and magic |
+| **Color over lifetime** | A gradient, including transparency, multiplied with the starting color |
+| **Size over lifetime** | A curve multiplied with the starting size |
+| **Rotation over lifetime** | Extra spin, scaled by a curve |
+| **Texture sheet** | Animates through a grid of frames in the texture |
+| **Collision** | A ground line below the emitter, and the world's colliders and collision tiles, with bounce, friction, lifetime loss and killing on impact |
+| **Renderer** | The texture or built-in shape (soft circle, glow, disc, smoke, sparkle, streak, square), blend mode, render layer, sort order, and whether particles face their rotation, their velocity or stretch with speed |
+
+### Values that vary
+
+The dice next to a number switches it between one value and a random range: with a lifetime of 0.6–1, every particle lives somewhere between 0.6 and 1 second. Colors work the same way, between two colors.
+
+Curves and gradients show a preview; click it to open the curve or gradient editor. A curve maps the particle's age, from birth to death, to a multiplier: a size curve from 1 down to 0 shrinks particles as they age.
+
+### The card menu
+
+Each card's **⋯** menu has **Reset**, **Copy settings** and **Paste settings**, which work between emitters and presets, so you can copy a fire's color gradient into a torch. Modules added by plugins appear as extra cards marked *Plugin module*, added with **Add plugin module** at the bottom and reordered by their grip or with **Move up** and **Move down**; see [Particle modules](/plugins/runtime/particle-modules).
+
+## Playback
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| **Duration** | 5 s | One cycle of emission. Bursts are timed within it. |
+| **Looping** | on | Starts a new cycle when one ends. Off makes a one-shot effect, such as an explosion. |
+| **Prewarm** | off | Starts a looping effect as if a full cycle had already played, so a fire is burning when the scene starts |
+| **Play on start** | on | Plays as soon as the scene starts. Turn it off for effects a script triggers. |
+| **Start delay** | 0 | Seconds to wait before emitting |
+| **Simulation speed** | 1 | Plays faster or slower than the game |
+| **Simulation space** | World | **World** leaves particles behind when the emitter moves, like a trail. **Local** carries them along. |
+| **Max particles** | 1000 | This emitter's limit |
+| **Seed** | 0 | A fixed seed plays the same effect every time |
+| **Culling** | Automatic | What happens off screen. Automatic pauses looping effects and lets one-shot effects finish. |
+
+## Presets
+
+A preset is a `.tparticles` file holding an effect's settings, to reuse across scenes and share between projects.
+
+- **⋯ › Save as preset…** writes the edited settings to `assets/effects/`, after asking for a name. **Save as preset in folder…** lets you choose the folder.
+- **⋯ › Save as preset and link emitter…** also makes the emitter play the new preset.
+- **⋯ › Open preset…**, or selecting a preset in the Assets panel, opens a preset file for editing. The header then shows *Preset* instead of *Emitter*, an **Unsaved** badge while it has changes, and **Save** writes the file.
+- **Assets › Create › Particle Preset** makes a preset file from one of the built-in effects.
+
+### Linked emitters
+
+An emitter can play a preset instead of its own settings, through its **Preset** field. Then a banner in the panel says which preset it plays, with two buttons: **Edit preset** opens the preset, and **Unlink** goes back to the emitter's own settings. Editing a linked preset changes every emitter that plays it, which keeps the torches of a whole game the same.
+
+The preset gallery lists the built-in effects, marked *Built-in*, and the project's presets, marked *Project*. Click one to copy its settings into the edited effect, as one undo step. Right-click a project preset to **Link emitter to this preset** or **Edit preset**.
+
+## Budgets and level of detail
+
+Particles are cheap: they are not entities, and each emitter is drawn as one batch. Still, a scene has a budget, 200,000 particles by default. As a scene nears it, every emitter emits a little less, smoothly, rather than late emitters getting nothing. Emitters whose particles would be smaller than a pixel or two on screen emit fewer, and emitters outside the camera's view are not drawn: looping ones pause, one-shot ones keep going so they end on time.
+
+Watch **Alive** and **Simulation** in the panel's statistics to keep effects reasonable, and lower **Max particles** on emitters that never need many. The performance overlay (<Keys>F3</Keys> in a running game) shows the particle counts of the whole scene. See [Performance](../performance.mdx).
+
+Each emitter has one texture and blend mode. For layered effects, such as fire with smoke above it, use one emitter per layer, as child entities of one parent.
+
+## Trigger effects from scripts
+
+Scripts play, stop and burst emitters: an explosion when an enemy dies, a puff of dust when the player lands. Turn off **Play on start** and **Looping** for such effects, and call them from code. See [Particles](/scripting/concepts/particles) in the scripting section.
+
+## Related
+
+- [Lighting](./lighting.mdx): give a fire a flickering light.
+- [Particle presets](/developers/file-formats/particles), the file format.

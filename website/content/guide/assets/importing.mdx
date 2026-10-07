@@ -1,0 +1,103 @@
+---
+title: "Importing assets"
+description: "Bring files into a project, change their import settings and understand .meta files, guids and hot reload."
+---
+
+Copying a file into the project's `assets` folder is all it takes to import it. The editor notices the file, gives it a `.meta` file with a guid and default import settings, and from then on you can use it anywhere. This page explains the ways to add files, the file types Talesmith understands, `.meta` files, the asset inspector where you change import settings, and how changed files reload while you work.
+
+## Add files
+
+Any of these works:
+
+- **Drop files** from your file manager onto the Assets panel, or onto a folder in it. The panel shows *Drop to import into* and the folder's name.
+- Click the **import** button in the Assets panel's toolbar, or choose **Assets › Import files…**, and pick files. They are copied into the folder the panel shows.
+- **Copy files** into the `assets` folder with your file manager or another program. The editor picks them up within a moment.
+
+Imported files keep their names; when a name is taken in that folder, the copy gets a number, as *name 1.png*. Folders can be imported whole. When the import finishes, the panel opens the folder and selects the new assets.
+
+## Supported files
+
+| Kind | Extensions | Used for |
+| --- | --- | --- |
+| Texture | `.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`, `.gif`, `.ico` | Sprites, tilesets, cookies, particle textures. See [Sprites](./sprites.mdx). |
+| Sprite atlas | `.tatlas` | Many sprites packed into one texture. See [Sprite atlases](./atlases.mdx). |
+| Audio | `.wav`, `.ogg` | Sound effects and music. See [Audio](./audio.mdx). |
+| Font | `.ttf`, `.otf`, `.ttc` | Text. See [Fonts](./fonts.mdx). |
+| Tile map | `.hexy` | Maps from Talesmith or Hexy. See [Maps and grids](../tile-maps/maps-and-grids.mdx). |
+| Scene | `.tscene` | See [Scenes](../scenes/scenes.mdx). |
+| Prefab | `.tprefab` | See [Prefabs](../scenes/prefabs.mdx). |
+| Particle preset | `.tparticles` | See [Particles](../effects/particles.mdx). |
+| Material | `.tmaterial` | See [Materials and shaders](../effects/materials.mdx). |
+| Shader | `.tshader`, `.sksl`, `.spv` | |
+| Localization table | `.tloc` | See [Localization](./localization.mdx). |
+| Script | `.cs` | C# scripts. See [Scripting](/scripting). |
+| Plugin manifest | `.tplugin` | |
+
+Other files are listed as *File*. They are kept and can ship with the game, and scripts can read them, but the editor does nothing special with them.
+
+## .meta files
+
+Every file and folder in `assets` gets a `.meta` file next to it, named after it, such as `hero.png.meta`. It holds:
+
+- The asset's **guid**, a unique id. Scenes, prefabs, maps and materials refer to assets by guid, so you can rename and move assets without breaking anything that uses them.
+- The asset's **import settings**, such as a texture's filtering and sprites.
+- Its **labels**.
+
+The editor creates, moves and renames `.meta` files along with their assets. A few rules keep them working:
+
+- **Commit them to version control** with their assets. Without its `.meta` file, an asset gets a new guid on another machine, and everything that referred to it breaks.
+- **Do not edit them by hand.** Change settings in the asset inspector.
+- **Move them with their assets** when you work outside the editor. If you forget, the editor still pairs a moved file with its `.meta` when the file's contents did not change. [Asset health](./assets-panel.mdx#asset-health) lists `.meta` files that lost their asset.
+- When you copy a file together with its `.meta` file, both copies claim the same guid. The editor keeps the guid for the file it knew first and gives the copy a new one, and reports the repair.
+
+Files and folders whose names start with a dot or end in `~`, the `bin` and `obj` folders of the scripts, and the `plugins` folder with everything in it are not assets: they do not appear in the Assets panel and get no `.meta` files. See [Meta files](/developers/file-formats/meta-files) for the format.
+
+## The asset inspector
+
+Select an asset in the Assets panel to see it in the Inspector panel.
+
+<Screenshot name="guide/asset-texture" caption="A texture: its preview with the sprites outlined, then its import settings." />
+
+Every asset shows:
+
+| Section | What it shows |
+| --- | --- |
+| Header | The asset's thumbnail, name, kind and path, with an **Open** button for assets that open, such as scenes and scripts |
+| **Labels** | Tags for searching (`tag:music`) and for including assets in builds. Type a label and press <Keys>Enter</Keys>; click × on a label to remove it. |
+| **Details** | The guid, file size, modification time and importer |
+| **Uses** | The assets this one refers to, such as a scene's textures and prefabs |
+| **Used by** | The assets that refer to this one. Check it before you delete something. |
+
+Click an entry under **Uses** or **Used by** to go to that asset. A reference to an asset that no longer exists is marked *missing*.
+
+### Import settings
+
+Textures, sounds, fonts and sprite atlases have import settings, described on their own pages:
+
+| Kind | Settings |
+| --- | --- |
+| [Textures](./sprites.mdx#texture-settings) | Filtering, wrapping, maximum size, compression, mipmaps, premultiplied alpha, and sprites |
+| [Sounds](./audio.mdx#import-settings) | Load type, mixer bus, volume and loop points |
+| [Fonts](./fonts.mdx) | Family name, default size and fallback fonts |
+| [Sprite atlases](./atlases.mdx) | Sources and packing |
+
+Changes to import settings are not applied until you click **Apply**; **Revert** discards them. The footer reads *Unapplied changes* in between. If you select another asset with unapplied changes, the editor asks whether to apply them.
+
+Scenes and prefabs show what they contain: their number of entities and prefab instances, the root entities and how many of each component they use. Other kinds, such as maps, materials and particle presets, show only the common sections.
+
+## Changes on disk
+
+The editor watches the `assets` folder. When you save a file in another program, such as an image in your paint program or a map in Hexy:
+
+- The Assets panel updates its list and thumbnail.
+- If the scene uses the asset, it is imported again and the viewport shows the new version: a repainted texture appears on every sprite that uses it. Assets that depend on it are reloaded too, such as a material whose shader changed.
+- A file deleted outside the editor stays loaded until the scene is reloaded, and [Asset health](./assets-panel.mdx#asset-health) reports what referred to it.
+
+Play mode loads assets when it starts, so changes made while the game runs show the next time you press Play. Scripts are the exception: they are recompiled and swapped into the running game. See [Play mode](../play-and-test/play-mode.mdx).
+
+**Assets › Refresh assets** scans the folder again, for the rare case that the editor missed changes, such as files changed while it was not running. **Reimport** in an asset's context menu imports that asset again.
+
+## Related
+
+- [The Assets panel](./assets-panel.mdx)
+- [Project folder layout](../reference/project-layout.mdx)

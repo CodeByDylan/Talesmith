@@ -1,0 +1,110 @@
+---
+title: "Maps and grids"
+description: "Add hexagonal or rectangular tile maps to a scene, choose a grid and understand how large maps stay fast."
+---
+
+Talesmith edits and loads tile maps in the `.hexy` format of the Hexy map editor, on hexagonal or rectangular grids of any size. A map is an asset of its own, shown in a scene by an entity with a **Tile Map Renderer**. This page covers adding a map to a scene, creating a new map, the grids, the Tile Map panel, several maps in one scene, saving, and how large maps stay fast.
+
+<Screenshot name="guide/tilemap-hex" caption="Hex Quest's island in the Tile Mapping layout, with the brush over the map." priority />
+
+## What a map is
+
+A `.hexy` file holds:
+
+- A **grid**: pointy-top hexagons, flat-top hexagons or rectangles, with a cell size in pixels.
+- **Tile layers**, each a grid of cells painted with tiles, and **object layers** with points, areas and placed images. See [Layers and roles](./layers.mdx).
+- **Tilesets**: images sliced into tiles, or flat colors. See [Tilesets](./tilesets.mdx).
+- **Terrains** that pick transition tiles as you paint. See [Terrains and auto-tiling](./terrains.mdx).
+- Custom **properties** on the map, its layers, tiles and objects, for your game to read.
+
+Maps have no fixed size. They grow as you paint, in square chunks of cells, so a map can be a single room or a continent.
+
+In the scene, a map is drawn by an entity with a **Tile Map Renderer** component. Its **Map** field points to the `.hexy` file, and its **Render Layer** sets where the map's first tile layer is drawn; each further tile layer is drawn one layer higher. The entity's position is where the center of cell `0, 0` sits. Rotation and scale do not apply to maps.
+
+## Add a map to a scene
+
+**To show an existing map**, drag the `.hexy` file from the Assets panel into the viewport or onto the hierarchy. The editor creates an entity named after the map with a Tile Map Renderer. Maps made in Hexy work the same way: copy the file into the project's `assets` folder first.
+
+**To create a new map**, choose **GameObject › New tile map…**:
+
+<Split>
+
+<Steps>
+
+1. Choose the **Grid**: **Pointy hex**, **Flat hex** or **Rectangle**.
+2. Set the cell size. With **Regular hexagon** (or **Square**) ticked, you set the **Width** and the editor works out the height for a regular shape: a pointy hex 128 pixels wide is 147.8 tall. Untick it to set both.
+3. Choose the **Folder** (`maps` by default) and the **Name** of the file.
+4. Keep **Start with the terrain color palette** ticked to get a tileset of 16 flat terrain colors, from deep water to lava, so you can block out a map before you have artwork.
+5. Click **Create map**.
+
+</Steps>
+
+<Screenshot name="guide/tilemap-new-dialog" maxWidth={480} />
+
+</Split>
+
+The editor saves the new `.hexy` file, adds an entity that shows it and selects it, ready to paint. **Chunk size** under **Storage** sets how many cells each side of a chunk has, 32 by default; larger chunks suit dense maps. You rarely need to change it.
+
+**Assets › Create › Tile Map** (or **Create › Tile Map** in the Assets panel) creates a map file without adding it to the scene. It asks for a name, the grid and the cell size, and makes an empty map with one **Ground** layer and no tileset.
+
+## Grids
+
+| Grid | Cells | Rotations |
+| --- | --- | --- |
+| **Pointy hex** | Hexagons with a corner at the top; rows are offset | 6 steps of 60° |
+| **Flat hex** | Hexagons with an edge at the top; columns are offset | 6 steps of 60° |
+| **Rectangle** | Squares or rectangles in columns and rows | 4 steps of 90° |
+
+Every tool works the same on every grid: brushes, shapes, fills, selections, stamps and terrains. Tiles are anchored at the bottom center of their cell, so tall artwork such as trees, mountains or grass on a ground tile pokes above the cell, as it does in Hexy.
+
+Hex cells are addressed by axial coordinates (q, r) and rectangular cells by column and row. The status bar shows the cell under the pointer: *q 3 r -2* on hex maps, *col 12 row 5* on rectangular ones.
+
+<Screenshot name="guide/tilemap-square" caption="Isle Hopper's rectangular level in the Tile Mapping layout." />
+
+## The Tile Map panel and the Tile Mapping layout
+
+Select an entity with a Tile Map Renderer to edit its map. The **Tile Map** panel (<Keys>Ctrl+Shift+M</Keys>) shows the map being edited; its picker at the top lists every map of the scene, so you can switch maps without looking for the entity. The editor keeps editing the map when you select other entities, until you pick another map or click **Stop editing this map** (the **×** in the panel's header).
+
+The **Tile Mapping** layout, in the layout picker or **Window › Layout**, puts the Tile Map panel in a tall column beside the viewport, which suits painting.
+
+The panel's header shows the grid and cell size, the map's file, an **Unsaved** badge when it has unsaved edits, and buttons to save the map and to create a new one. Below are:
+
+| Section | What it holds |
+| --- | --- |
+| **Layers** | The map's layers, their roles, visibility, locks and opacity. See [Layers and roles](./layers.mdx). |
+| **Tilesets** | The tileset picker and three tabs: **Tiles** (the palette), **Terrains** and **Properties**. See [Tilesets](./tilesets.mdx). |
+
+While a map is being edited, the tool rail in the viewport adds the tile tools. See [Painting tools](./painting.mdx).
+
+## Several maps in one scene
+
+A scene can show any number of maps, on any mix of grids: add one entity with a Tile Map Renderer per map. Use the **Render Layer** of each to stack them, such as a backdrop map at render layer 0, behind the level at 100. Because each map is placed at its entity's position, you can put maps side by side or on top of each other.
+
+The Isle Hopper sample scrolls a second map of large cells behind its level as a parallax backdrop. Talesmith has no parallax setting: a script moves the backdrop's entity more slowly than the camera. See [Tile maps from scripts](/scripting/scripts/tile-maps).
+
+The same map file can be shown by several entities. They share their cells, so painting one paints all of them.
+
+## Save maps
+
+Maps are saved with the scene: <Keys>Ctrl+S</Keys> saves the scene and every map with unsaved edits. **File › Save tile maps** (<Keys>Ctrl+Alt+S</Keys>), or the save button in the panel's header, saves only the maps. When you close the project with unsaved maps, the editor asks whether to save them.
+
+You do not need to save before you press Play: play mode runs maps with their unsaved edits. What the game changes in a map while you play is not kept.
+
+Talesmith saves maps the way Hexy does, so you can keep editing the same file in both. Layer roles and tile collision shapes, which Hexy has no field for, are stored as custom properties that Hexy keeps unchanged. Anything Talesmith does not understand, such as settings a newer Hexy adds, is written back as it was read. When a map file changes on disk, for example because you saved it in Hexy, the editor reloads it, unless the map has unsaved edits in the editor; those are kept, and saving replaces the file.
+
+## Large maps
+
+Maps stay fast however large they get:
+
+- Tile layers are stored in chunks that stay compressed in memory. Only the chunks near the camera are decoded, a chunk ahead of the view, on a background thread; chunks the camera has left are compressed again.
+- Each visible chunk is drawn as one cached mesh per tileset, so a frame costs one draw per chunk however many tiles are on screen. A chunk's mesh is rebuilt only when you paint on it.
+- Tiles are not entities. A map of millions of cells costs a handful of entities: one for the map and one for each of its objects.
+- Collision is built per chunk, the first time something moves near it.
+
+Editing works on the map in place, so painting on a huge map redraws only the chunks you touch. Layer summaries count chunks instead of tiles once a layer has more than 512 of them.
+
+## Related
+
+- [Layers and roles](./layers.mdx)
+- [Painting tools](./painting.mdx)
+- [Hexy maps](/developers/file-formats/hexy-maps), the file format.

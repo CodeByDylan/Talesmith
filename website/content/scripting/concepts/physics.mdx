@@ -1,0 +1,149 @@
+---
+title: "Physics"
+description: "How Talesmith's 2D physics works: bodies and colliders, the fixed step, layers, characters, tile map collision, triggers, contact events, fast bodies and debugging."
+---
+
+`Talesmith.Physics` gives every scene a 2D physics world built from the scene's `Collider2D`, `Rigidbody2D`, `CharacterController2D` and tile map entities. It steps in the fixed update while the game plays, moves bodies under gravity and forces, keeps characters out of walls, and reports collisions and triggers. This page explains how it works so you can choose the right body type, layer setup and query for your game; [Physics from scripts](../scripts/physics.mdx) covers the calls.
+
+## Bodies and colliders
+
+A `Collider2D` gives an entity a shape. What moves it depends on the other components:
+
+| Components | Body | Moved by | Pushes | Is pushed |
+| --- | --- | --- | --- | --- |
+| `Collider2D` only | Static | Your code changing its `Transform` (a teleport) | No | No |
+| `Collider2D` + `Rigidbody2D` (`Dynamic`) | Dynamic | Gravity, forces, impulses, collisions, its `Velocity` | Yes | Yes |
+| `Collider2D` + `Rigidbody2D` (`Kinematic`) | Kinematic | Its `Velocity`, or `MovePosition` and `MoveRotation` | Dynamic bodies | No |
+| `Collider2D` + `CharacterController2D` | Kinematic character | `MoveCharacter`, which slides along what it hits | Dynamic bodies resting on it | No |
+
+Shapes are a box, circle, capsule or polygon, placed at the transform's position plus `Offset`, turned by the transform's rotation plus `Rotation` and scaled by the transform's scale. Concave polygons are split into convex pieces of at most eight points. World units are pixels by default and Y points down, so gravity is `(0, 980)`.
+
+Each entity has one body. A rigid body on a child entity is moved by physics and then again by the transform hierarchy, so keep rigid bodies on root entities. Compound bodies made of several child colliders and joints are not supported.
+
+Changes to components take effect on the next fixed step: a changed collider is rebuilt, a transform moved by your code teleports the body, and a velocity you set replaces the simulated one.
+
+## The step
+
+Physics runs only in play mode, inside the fixed update. Each fixed step goes in this order:
+
+1. **Prepare.** Interpolated bodies go back to their simulated pose, and colliders added or changed since the last step are picked up. Character moves and queries in the same step see them.
+2. **Your code.** Scripts' `FixedUpdate` and your fixed-step systems set velocities, apply forces and move characters.
+3. **Step.** The world mirrors entities into bodies, finds new pairs, updates contacts, solves, sweeps fast bodies, puts resting bodies to sleep, writes poses and velocities back to the components and delivers the step's contact events, including scripts' `OnCollision` and `OnTrigger` callbacks.
+
+Interpolated bodies are then moved between their last two poses in `LateUpdate`, before cameras follow them. Code that reads an interpolated entity's `Transform` in `Update` sees the drawn pose; writing it teleports the body.
+
+The solver uses soft contacts with substeps, and contacts start just before shapes touch, so bodies stop at surfaces instead of sinking in. The simulation is deterministic: the same scene with the same input gives bit-identical results.
+
+### Settings
+
+`IPhysicsWorld.Settings` holds a scene's settings. Gravity comes from the scene's environment, set in the scene settings; the rest from the defaults:
+
+| Setting | Default | |
+| --- | --- | --- |
+| `Gravity` | `(0, 980)` | World units per second squared; positive Y falls |
+| `LengthUnitsPerMeter` | 100 | Scales the solver's tolerances, so pixel worlds behave like meter worlds |
+| `Substeps` | 4 | More gives stiffer stacks, at proportional cost |
+| `RestitutionThreshold` | 100 | Slower impacts do not bounce, so resting bodies settle |
+| `AllowSleeping`, `TimeToSleep` | on, 0.5 s | Resting bodies stop simulating |
+| `Broadphase` | `DynamicTree` | `SpatialHash` suits many similar small bodies |
+
+`config/physics.json` holds the project's default gravity, layer names and which layers ignore each other. Edit it in **Project Settings**:
+
+```json
+{ "gravity": [0, 980], "layers": { "1": "Player", "2": "Enemies" }, "ignoredCollisions": [ [1, 1], [2, 5] ] }
+```
+
+A plugin can adjust the settings every scene starts from with `services.AddTalesmithPhysics(settings => …)`.
+
+## Layers and the collision matrix
+
+Every collider is on one of 32 layers. Two colliders collide when each one's `CollisionMask` contains the other's layer and the project's collision matrix allows the pair. Name the layers in **Project Settings › Physics**, then mirror the numbers in code:
+
+```csharp
+/// <summary>Collision layers, as named in Project Settings.</summary>
+public static class Layers
+{
+    public const int Default = 0;
+    public const int Player = 1;
+    public const int Enemies = 2;
+    public const int Ground = 3;
+}
+```
+
+`PhysicsLayers.Mask(Layers.Enemies, Layers.Player)` builds a mask from layer numbers, and `PhysicsLayers.All` (-1) is every layer. Use the matrix for rules that always hold ("enemy bullets never hit enemies") and masks on colliders for exceptions. Queries take a `QueryFilter` with a layer mask, whether to include triggers and one entity to ignore, usually the one asking.
+
+## Characters
+
+`CharacterController2D` is for player characters and enemies that walk. You call `MoveCharacter(entity, motion)` from `FixedUpdate` with the distance to move this step, and the character sweeps its collider, slides along up to four surfaces, climbs steps up to `StepOffset`, walks up slopes up to `SlopeLimit`, keeps `SkinWidth` from surfaces and stays on the ground within `GroundSnapDistance` when walking down. It returns which sides touched something (`Below`, `Sides`, `Above`) and stores them with `IsGrounded`, `GroundNormal`, `Ground` and `LastMotion`. `Up` decides what counts as ground, wall and ceiling.
+
+You own the velocity: gravity, jumping and acceleration are your code, which is what makes platformer controls feel tight. Characters are kinematic, so they enter triggers and push dynamic bodies resting on them, but a crate they walk into blocks them like a wall. To push crates, apply impulses to the bodies in collision callbacks or from `GetContacts`. See the [platformer controller](../recipes/platformer.mdx) for a complete controller.
+
+## Tile maps, one-way platforms and triggers
+
+Every entity with a tile map collides through the map's layers whose role is **Collision**. A non-empty cell is solid; a tile with collision shapes uses those instead of the full cell. Collision is built per chunk the first time a body or a query comes near it, so huge maps cost only what is used. On square grids full cells merge into as few rectangles as possible; on hex grids each cell is a hexagon. Edges shared by neighboring solid cells never produce a contact normal, so bodies slide across tile seams without catching. Changing a cell with `SetCell` rebuilds that chunk on the next step. A `TileMapCollider2D` on the map entity sets friction, restitution, layer and mask, or turns collision off.
+
+**One-way platforms** block only from their up side, negative Y: set `OneWay` on a collider, or give tiles or a whole layer the bool property `oneWay`. Characters land on them from above and jump through from below.
+
+**Triggers** are colliders with `IsTrigger`. They block nothing and report overlaps instead. Pickups, doors, checkpoints and damage zones are triggers. Two separate systems use the word trigger:
+
+| | Physics triggers | Map trigger areas |
+| --- | --- | --- |
+| Made from | A `Collider2D` with `IsTrigger` | A polygon object on a map's object layer (`TriggerArea`) |
+| Detects | Any collider entering | Entities with a `TriggerActivator` component |
+| Reported as | `OnTriggerEnter`/`Stay`/`Exit` on scripts, `PhysicsTriggerEntered`/`Stayed`/`Exited` events | `TriggerEntered` and `TriggerExited` events |
+
+## Contact events
+
+After each step, the world reports what started touching, kept touching and stopped touching, in two forms.
+
+**On scripts**, for the script's own entity: `OnCollisionEnter`, `OnCollisionStay`, `OnCollisionExit` and the three `OnTrigger` methods receive a `ContactInfo` seen from that entity. `contact.Other` is what it touched (a tile map reports its map entity) and `contact.Normal` points from the other entity toward this one, so a character standing on the ground gets a normal pointing up, `(0, -1)`.
+
+**On the event bus**, for every pair: `CollisionEntered`, `CollisionStayed`, `CollisionExited` and the `PhysicsTrigger…` events carry a `PhysicsContact` with both entities, a point, the normal from `A` to `B`, the step's `NormalImpulse` and the relative velocity. `contact.For(entity)` turns it into the `ContactInfo` seen from one side. A listener for the whole scene suits effects that do not belong to one entity:
+
+```csharp title="assets/scripts/ImpactSounds.cs"
+namespace MyGame;
+
+/// <summary>Plays a thud for hard impacts anywhere in the scene.</summary>
+public sealed class ImpactSounds : Script
+{
+    [Range(0, 2000)]
+    public float MinimumImpulse = 400;
+
+    protected override void OnStart() => Events.Subscribe((ref CollisionEntered e) =>
+    {
+        if (e.Contact.NormalImpulse > MinimumImpulse)
+            Audio.Play("audio/thud.wav");
+    });
+}
+```
+
+Stay events fire every step while either body is awake, so keep their handlers cheap. Exit events also fire when an entity or its collider is removed, so the other entity may no longer be alive; check `World.IsAlive` before reading it. Delivering events allocates nothing.
+
+## Fast bodies
+
+Speculative contacts keep moderately fast bodies out of each other. A dynamic body that moves more than half its smallest size in one step is also swept against static shapes, so falling bodies never tunnel through floors or tiles. Set `CollisionDetection` to `Continuous` on bullets and other very fast bodies to sweep them against moving bodies too. Sweeps ignore rotation during the step.
+
+## Debugging
+
+The object debug view (<Keys>F4</Keys> in a game window) outlines colliders colored by body type and state (static, dynamic, sleeping, kinematic, trigger), the collision built for tile maps, and contact points with their normals. It draws colliders from their components, so it works in every execution mode. `PhysicsDebugOptions` turns each part of the view on separately.
+
+The performance overlay shows the markers `Physics/Sync`, `Physics/Broadphase`, `Physics/Narrowphase`, `Physics/Solve`, `Physics/Continuous` and `Physics/Events`, and the counters `Physics bodies`, `Physics awake bodies` and `Physics contacts`.
+
+## Performance and limitations
+
+Measured on a Ryzen 9 PRO 8945HS with every body awake, one fixed step with 1000 bodies takes 0.5 ms for a flying swarm and 1.3 ms for a resting pile; with 4000 bodies 1.5 to 7.2 ms depending on the setup. 1000 rays among 4000 shapes take 0.3 ms with the spatial hash. Steps and queries allocate nothing.
+
+- **Let bodies sleep.** Resting bodies fall asleep and cost almost nothing. Waking a pile every step, with forces on every body, turns the best case into the worst.
+- **Use triggers and queries instead of bodies** for things that only need to know about overlap.
+- **Filter queries by layer.** A ray with a narrow mask checks fewer shapes.
+- **Prefer simple shapes.** Boxes, circles and capsules are cheapest; a long polygon becomes several pieces.
+- **Keep queries allocation-free.** Pass a `stackalloc` span or a reused array for results.
+
+The solver runs on one thread, so large piles of awake bodies are bound by it. Characters do not push dynamic bodies they walk into, and there are no joints yet.
+
+## Related
+
+- [Physics from scripts](../scripts/physics.mdx)
+- [Platformer controller](../recipes/platformer.mdx)
+- [Collision and objects on tile maps](/guide/tile-maps/collision-and-objects)
+- [Project settings](/guide/workflow/project-settings)

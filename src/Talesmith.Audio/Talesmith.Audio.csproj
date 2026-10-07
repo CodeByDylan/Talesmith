@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Audio contracts and decoding: sound effects, streamed music, mixer buses, WAV and Ogg Vorbis importers and a silent fallback device.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="NVorbis" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Talesmith.Core\Talesmith.Core.csproj" />
+    <ProjectReference Include="..\Talesmith.Assets\Talesmith.Assets.csproj" />
+  </ItemGroup>
+</Project>

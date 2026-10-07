@@ -1,0 +1,160 @@
+---
+title: "Time"
+description: "Use delta time, the fixed step, total time, unscaled time, the time scale and pausing correctly in scripts."
+---
+
+Games run at whatever frame rate the player's machine and display allow, so gameplay has to be written in seconds, not frames. Scripts read timing through the `Time` property: how long the current update covers, how long the game has run, and the time scale for slow motion and pausing. This page explains each value, what changes inside `FixedUpdate`, and how to stay frame-rate independent.
+
+## The values
+
+| Member | Meaning |
+| --- | --- |
+| `Time.DeltaTime` | Seconds covered by the current update, scaled by the time scale. Inside `FixedUpdate` it is the fixed step. |
+| `Time.FixedDeltaTime` | The length of one fixed step: 1/60 s with the default 60 steps per second. |
+| `Time.TotalTime` | Scaled seconds since the game started. Inside `FixedUpdate`, the time of the fixed step. |
+| `Time.UnscaledDeltaTime` | Real seconds since the previous frame, ignoring the time scale and pauses. |
+| `Time.UnscaledTotalTime` | Real seconds since the game started. |
+| `Time.FrameCount` | Frames since the game started. |
+| `Time.TimeScale` | Multiplies game time: 1 is normal, 0.5 is half speed, 0 stops game time. |
+| `Time.IsPaused` | Whether game time is stopped. |
+
+## Delta time in Update and FixedUpdate
+
+`Update` runs once per frame, and frames vary in length. Multiply every rate by `Time.DeltaTime` so it is per second instead of per frame:
+
+```csharp
+protected override void Update() => Position += Velocity * Time.DeltaTime;
+```
+
+Without the multiplication, an entity would move twice as fast at 120 frames per second as at 60.
+
+`FixedUpdate` runs zero or more times per frame, so that game time advances in equal steps: 60 steps per second by default, set by `fixedUpdateRate` in `game.json`. Inside it, `Time.DeltaTime` is always the step length, which makes the simulation repeatable: the same inputs give the same results on a fast and a slow machine. Write the same `* Time.DeltaTime` there; it keeps the code correct if you change the step rate.
+
+```csharp title="assets/scripts/Falling.cs"
+namespace MyGame;
+
+/// <summary>Falls under its own gravity, integrated in fixed steps.</summary>
+public sealed class Falling : Script
+{
+    public float Gravity = 2000;
+
+    private Vector2 _velocity;
+
+    protected override void FixedUpdate()
+    {
+        _velocity.Y += Gravity * Time.DeltaTime;
+        Position += _velocity * Time.DeltaTime;
+    }
+}
+```
+
+Which to use:
+
+- **`FixedUpdate`** for physics and anything that integrates over time: velocities, gravity, forces, `Physics.MoveCharacter`. Physics steps right after it, and jumps reach the same height at any frame rate.
+- **`Update`** for reading input, animation choices, timers that only need to be roughly right, and visual effects.
+- **`LateUpdate`** for cameras and anything that follows another entity after it has moved.
+
+Read pressed and released input in `Update` and hand it to `FixedUpdate` through a field. A press lasts one frame, and a frame may run no fixed step at all, so `FixedUpdate` can miss it. Held input, such as `Input.Vector("Move")`, is safe to read in either.
+
+Entities moved in `FixedUpdate` change position only when a step runs. On a display faster than the step rate, some frames show no movement, which looks like judder. Character controllers and rigid bodies have an interpolation setting that draws them between their last two steps; see [Physics from scripts](./physics.mdx).
+
+## Total time and frame count
+
+`Time.TotalTime` is a `double` of scaled seconds and suits anything periodic. This lantern bobs up and down:
+
+```csharp title="assets/scripts/Bob.cs"
+namespace MyGame;
+
+/// <summary>Bobs up and down around where it started.</summary>
+public sealed class Bob : Script
+{
+    [Range(0, 50)]
+    public float Height = 8;
+
+    private Vector2 _home;
+
+    protected override void OnStart() => _home = Position;
+
+    protected override void Update() => Position = _home + new Vector2(0, MathF.Sin((float)Time.TotalTime * 3) * Height);
+}
+```
+
+Inside `FixedUpdate`, `TotalTime` counts fixed steps, so it can differ from the frame's total by up to a step. `Time.FrameCount` counts frames and is useful for spreading work, such as checking something every tenth frame with `Time.FrameCount % 10 == 0`.
+
+## Time scale and unscaled time
+
+The time scale multiplies game time for the whole game. It slows `Time.DeltaTime`, `Time.TotalTime`, the number of fixed steps per second, `Wait`, `Every`, tweens, particles and animation. At 0.5, a frame of 1/60 s advances game time by 1/120 s and a fixed step runs every other frame; each step still lasts `FixedDeltaTime`, so physics stays stable.
+
+Unscaled time ignores the scale and pauses. Use `Time.UnscaledDeltaTime` for things that must keep their real speed: menus, a slow-motion effect's own fade, and blinking prompts while paused. `WaitRealtime` and tweens with `scaled: false` are the unscaled versions of waiting.
+
+Any script sets the scale for the whole game; it takes effect on the next frame:
+
+```csharp
+Time.TimeScale = 0.5f;
+```
+
+## Pausing
+
+Setting `IsPaused` to true stops game time: `Time.DeltaTime` becomes 0, no fixed steps run, physics stops, and game-time waits and tweens hold. Input, rendering, unscaled time and real-time waits keep running, and so do `Update` and `LateUpdate`, with a delta of 0. That is what lets a script unpause the game when the player presses a key:
+
+```csharp title="assets/scripts/PauseToggle.cs"
+namespace MyGame;
+
+/// <summary>Toggles pause with the Pause action and blinks the sprite while paused.</summary>
+public sealed class PauseToggle : Script
+{
+    protected override void Update()
+    {
+        if (Input.WasPressed("Pause"))
+            Time.IsPaused = !Time.IsPaused;
+
+        GetComponent<Sprite>().Visible = !Time.IsPaused || Time.UnscaledTotalTime % 1 < 0.5;
+    }
+}
+```
+
+Code in `Update` that should not act while paused can check `Time.IsPaused`, or rely on `DeltaTime` being 0. With `pauseWhenInactive` set in `game.json`, game time also stops while the window is in the background; `IsPaused` stays false in that case, but `DeltaTime` is 0 all the same.
+
+## Example: slow motion
+
+Holding **Focus** slows the game to 30 percent. The scale follows the button smoothly, and because the easing uses unscaled time, it takes the same real time to slow down as to speed up:
+
+```csharp title="assets/scripts/SlowMotion.cs"
+namespace MyGame;
+
+/// <summary>Slows the game down while the Focus action is held, easing in and out of slow motion in real time.</summary>
+public sealed class SlowMotion : Script
+{
+    [Range(0.05, 1)]
+    public float SlowScale = 0.3f;
+
+    [Range(0.1, 20)]
+    [Tooltip("How quickly the time scale follows the button, per real second.")]
+    public float Sharpness = 8;
+
+    protected override void Update()
+    {
+        var target = Input.IsDown("Focus") ? SlowScale : 1;
+        Time.TimeScale = MathHelper.Damp(Time.TimeScale, target, Sharpness, Time.UnscaledDeltaTime);
+    }
+
+    protected override void OnDisable() => Time.TimeScale = 1;
+}
+```
+
+`OnDisable` puts the scale back, so the game does not stay slow if the script is disabled or destroyed mid-effect. The time scale belongs to the game, not the scene, so it also carries over when another scene loads.
+
+## Long frames and dropped time
+
+A frame longer than a quarter of a second, such as one interrupted by a debugger or a slow load, counts as 0.25 seconds, so the game does not jump ahead. Fixed steps are capped too: at most `maxFixedStepsPerFrame` steps run in one frame (5 by default), and game time beyond that is dropped. A game that cannot keep up therefore slows down instead of freezing while it catches up. Frame rate, VSync and the step rate are set in `game.json`; see [The game loop and threads](../concepts/game-loop.mdx).
+
+## Time after an await
+
+A routine that awaits `Wait`, `NextFrame` or a tween resumes near the start of a frame, before that frame's first update. At that point `Time` still describes the previous frame: `FrameCount` is one lower and `DeltaTime` is the previous frame's. Code that needs this frame's values should wait for an update method, or measure intervals itself. See [Waiting, routines and tweens](./waiting.mdx).
+
+## Related
+
+- [The script lifecycle](./lifecycle.mdx)
+- [Waiting, routines and tweens](./waiting.mdx)
+- [The game loop and threads](../concepts/game-loop.mdx)
+- [Game settings](/developers/file-formats/project-config)

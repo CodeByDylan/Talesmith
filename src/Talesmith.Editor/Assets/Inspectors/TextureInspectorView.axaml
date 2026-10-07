@@ -1,0 +1,59 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Assets.Inspectors"
+             xmlns:controls="using:Talesmith.Editor.Assets.Controls"
+             x:Class="Talesmith.Editor.Assets.Inspectors.TextureInspectorView"
+             x:DataType="vm:TextureInspection">
+  <StackPanel>
+    <Border Height="220" Margin="12,10,12,4" CornerRadius="8" ClipToBounds="True" Background="{DynamicResource SurfaceSunkenBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+      <Panel>
+        <controls:PixelCanvas Name="Canvas" Source="{Binding Preview}" Regions="{Binding Regions}" Accent="{DynamicResource AccentBrush}" />
+        <controls:CanvasZoomBar Target="{Binding #Canvas}" Margin="6" />
+        <ToggleButton Classes="icon small" IsChecked="{Binding ShowSprites}" IsVisible="{Binding IsMultiple}" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                      Margin="8" ToolTip.Tip="Show sprites">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.SquareDashed}" Size="14" />
+        </ToggleButton>
+      </Panel>
+    </Border>
+    <TextBlock Text="{Binding Info}" Classes="caption muted mono" HorizontalAlignment="Center" Margin="12,2,12,8" />
+
+    <ui:PropertyGroup Header="Texture" Icon="{x:Static ui:Icons.Image}">
+      <StackPanel Spacing="2">
+        <ui:PropertyRow Label="Filter" Description="How the texture is sampled when scaled; nearest keeps pixel art sharp.">
+          <ComboBox ItemsSource="{Binding Filters}" SelectedIndex="{Binding FilterIndex}" HorizontalAlignment="Stretch" />
+        </ui:PropertyRow>
+        <ui:PropertyRow Label="Wrap">
+          <ui:SegmentedControl ItemsSource="{Binding WrapModes}" SelectedIndex="{Binding WrapIndex}" HorizontalAlignment="Left" />
+        </ui:PropertyRow>
+        <ui:PropertyRow Label="Max size" Description="Larger images are scaled down, with their sprites.">
+          <ComboBox ItemsSource="{Binding MaxSizeNames}" SelectedIndex="{Binding MaxSizeIndex}" HorizontalAlignment="Stretch" />
+        </ui:PropertyRow>
+        <ui:PropertyRow Label="Compression" Description="How strongly builds may compress the texture.">
+          <ComboBox ItemsSource="{Binding Compressions}" SelectedIndex="{Binding CompressionIndex}" HorizontalAlignment="Stretch" />
+        </ui:PropertyRow>
+        <ui:PropertyRow Label="Mipmaps">
+          <CheckBox IsChecked="{Binding Mipmaps}" Content="Generate mipmaps" />
+        </ui:PropertyRow>
+        <ui:PropertyRow Label="Alpha" Description="Whether the file's colors are already multiplied by alpha.">
+          <CheckBox IsChecked="{Binding PremultipliedAlpha}" Content="Premultiplied" />
+        </ui:PropertyRow>
+      </StackPanel>
+    </ui:PropertyGroup>
+
+    <ui:PropertyGroup Header="Sprites" Icon="{x:Static ui:Icons.Grid}">
+      <StackPanel Spacing="8">
+        <ui:PropertyRow Label="Mode">
+          <ui:SegmentedControl ItemsSource="{Binding SpriteModes}" SelectedIndex="{Binding SpriteModeIndex}" HorizontalAlignment="Left" />
+        </ui:PropertyRow>
+        <Button Command="{Binding OpenSpriteEditorCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,2,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.Cut}" Size="14" />
+            <TextBlock Text="Open sprite editor" />
+          </StackPanel>
+        </Button>
+      </StackPanel>
+    </ui:PropertyGroup>
+  </StackPanel>
+</UserControl>

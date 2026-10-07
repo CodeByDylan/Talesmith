@@ -1,0 +1,37 @@
+{
+  "scripting/analyzer-warnings": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "Game-loop analyzer warnings in the console for a script that allocates, blocks and uses async void, with the status bar counting the warnings"
+  },
+  "scripting/create-script": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The Create script dialog with the class name Coin, the Script template selected and the file path it will write"
+  },
+  "scripting/hot-reload": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "Play mode with the Scripts reloaded toast after a script was saved"
+  },
+  "scripting/hot-reload-restart": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "Lantern Grove in play mode with the Restart play mode toast and status bar item after a script was saved"
+  },
+  "scripting/lantern-grove-play": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "Lantern Grove running in the Game panel, the player in a dark grove lit by lanterns and a campfire, with the Player Controller's live values in the Inspector"
+  },
+  "scripting/script-errors": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "A script compile error in the console, filtered to scripts, with the status bar item"
+  },
+  "scripting/script-fields": {
+    "width": 690,
+    "height": 1646,
+    "alt": "The Inspector with Lantern Grove's Player Controller script, its fields grouped under Running, Jumping, Dash and Falling headers with sliders for ranges"
+  }
+}

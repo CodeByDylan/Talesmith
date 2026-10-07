@@ -1,0 +1,19 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Dialogs"
+             x:Class="Talesmith.Editor.Dialogs.TextInputDialogView"
+             x:DataType="vm:TextInputDialogViewModel">
+  <ui:Dialog Header="{Binding Title}" Description="{Binding Message}" Width="440">
+    <StackPanel Spacing="6">
+      <TextBlock Classes="caption muted" Text="{Binding Label}" />
+      <TextBox Name="Input" Text="{Binding Text}" />
+    </StackPanel>
+    <ui:Dialog.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="Cancel" MinWidth="84" IsCancel="True" Command="{Binding CancelCommand}" />
+        <Button Classes="accent" Content="{Binding ConfirmText}" MinWidth="84" IsDefault="True" Command="{Binding ConfirmCommand}" />
+      </StackPanel>
+    </ui:Dialog.Footer>
+  </ui:Dialog>
+</UserControl>

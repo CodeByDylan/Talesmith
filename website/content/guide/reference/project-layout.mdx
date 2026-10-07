@@ -1,0 +1,93 @@
+---
+title: "Project folder layout"
+description: "What each file and folder in a Talesmith project is for, and which ones belong in version control."
+---
+
+A Talesmith project is an ordinary folder. Everything the game uses lives in `assets/`; the editor keeps its own state in `.talesmith/`. This page lists what each part is for and what to commit.
+
+## A typical project
+
+```text
+Coin Run/
+  .gitignore                 written with the project: ignores .talesmith/, bin/ and obj/
+  build.json                 the Build dialog's settings
+  Coin Run.Scripts.csproj    the scripts' project for your IDE, kept up to date by the editor
+  assets/
+    config/
+      game.json              title, window, renderer, start scene, timing
+      input.json             input actions and their bindings
+      physics.json           gravity, collision layer names and matrix (when you change them)
+      plugins.json           plugins you switched off and their settings (when you change them)
+    scenes/                  .tscene scenes
+    prefabs/                 .tprefab prefabs
+    sprites/                 textures and .tatlas sprite atlases
+    maps/                    .hexy tile maps
+    audio/                   .wav and .ogg sounds and music
+    scripts/                 C# scripts
+      bin/                   compiled scripts, rebuilt by the editor
+    plugins/                 one folder per plugin; not assets, so no .meta files
+    effects/                 particle presets saved from the Particles panel
+    lighting/                lighting presets saved from the Lighting panel
+  .talesmith/                the editor's state for this project
+  builds/                    exported games, by default
+```
+
+New projects start with `config`, `scenes`, `sprites`, `audio`, `maps`, `prefabs` and `scripts`. The other folders appear when something is saved into them. Apart from `config`, the folder names are a convention: assets can live anywhere under `assets/`, and you can move them in the [Assets panel](../assets/assets-panel.mdx) without breaking anything.
+
+## The config folder
+
+| File | Written by | Holds |
+| --- | --- | --- |
+| `game.json` | **Project Settings › Game** | The title, window size, renderer, start scene, update rate, texture filtering, background color, frame rate limits and whether the game pauses in the background |
+| `input.json` | **Project Settings › Input** | The input actions scripts read by name, such as `Jump`, with their bindings |
+| `physics.json` | **Project Settings › Physics** | Default gravity, names of the 32 collision layers and which layers collide |
+| `plugins.json` | The Plugins panel | Plugins that are switched off, and plugin settings |
+
+See [Project settings](../workflow/project-settings.mdx). The formats are described in [Project configuration](/developers/file-formats/project-config).
+
+## .meta files
+
+Every file and folder in `assets/` has a `.meta` file beside it, such as `hero.png.meta`. It holds the asset's guid, which scenes and prefabs use to refer to it, and its import settings. The editor creates and moves `.meta` files along with their assets.
+
+- Commit `.meta` files with their assets. Without them, a fresh checkout gets new guids and every reference to the asset breaks.
+- Do not edit them by hand. Change import settings in the [asset inspector](../assets/importing.mdx) instead.
+- When you move or rename files outside the editor, move the `.meta` file too. If you forget, the editor pairs them up again when the file's contents are unchanged.
+
+See [.meta files](/developers/file-formats/meta-files) for the format.
+
+## The .talesmith folder
+
+| Entry | Holds |
+| --- | --- |
+| `layout.json` | The panel layout and your saved layouts |
+| `editor.json` | Per-project editor state: viewport cameras per scene, recent scenes, recent components |
+| `thumbnail.png` | The picture of the project in the hub |
+| `thumbnails/` | Asset thumbnails for the Assets panel |
+| `cache/` | The asset database's cache of file hashes |
+| `trash/` | Assets you deleted in the editor, in a folder per deletion |
+| `captures/` | Screenshots and profiler reports taken in the Game panel |
+
+All of it is safe to delete while the editor is closed. You lose your layout, cameras and the trash; the editor rebuilds the rest.
+
+## What to commit
+
+Commit:
+
+- `assets/`, including every `.meta` file and `config/`.
+- `build.json`, so everyone builds with the same settings.
+- `.gitignore`.
+
+Leave out:
+
+- `.talesmith/`, which is personal editor state.
+- `bin/` and `obj/` folders, including `assets/scripts/bin`.
+- `builds/`, or wherever your builds go.
+- The `.Scripts.csproj` file is optional. The editor writes it again whenever the project opens.
+
+The `.gitignore` every new project gets covers `.talesmith/`, `bin/` and `obj/`. Add `builds/` yourself if you keep builds in the project folder.
+
+## Related
+
+- [Importing assets](../assets/importing.mdx)
+- [Scene and prefab files](/developers/file-formats/scenes-and-prefabs)
+- [Build output](../exporting.mdx#the-output-folder)

@@ -1,0 +1,224 @@
+---
+title: "Working with components"
+description: "Read and change the components of an entity from a script, add and remove them, and find and talk to other scripts, including through interfaces."
+---
+
+Everything an entity is, its position, sprite, collider, light or particle emitter, is a component, and scripts reach all of it through a small set of methods. This page covers reading and changing components in place, adding and removing them, the `Transform` shortcuts, and finding other scripts by type or interface. The [built-in components](/guide/scenes/components) are described in the guide.
+
+## Read and change a component
+
+`GetComponent<T>()` returns a reference to the component stored in the world, not a copy. Change a field on the result and the entity changes:
+
+```csharp
+GetComponent<Sprite>().FlipX = true;
+```
+
+To change several fields, keep the reference in a `ref` local. Without `ref`, `var` copies the struct, and changes to the copy go nowhere:
+
+```csharp
+ref var sprite = ref GetComponent<Sprite>();
+sprite.FlipX = Input.Vector("Move").X < 0;
+sprite.Tint = Color.White;
+
+var copy = GetComponent<Sprite>();
+copy.Visible = false; // changes only the local copy
+```
+
+Most components are structs, so this distinction matters. A few, such as `ParticleEmitter`, are classes; for those `GetComponent` returns a reference to the object, and calling its methods works either way, as in `GetComponent<ParticleEmitter>().Emit(20)`.
+
+`GetComponent<T>()` throws when the entity has no such component, with a message naming the entity and the type. Use it for components the script depends on, and the other methods when a component is optional:
+
+| Method | Returns |
+| --- | --- |
+| `GetComponent<T>()` | A reference to the component; throws when it is missing |
+| `TryGetComponent<T>(out T component)` | Whether the entity has it, with a copy of its value |
+| `HasComponent<T>()` | Whether the entity has it |
+| `AddComponent<T>(in T component)` | Adds the component, or replaces an existing one, and returns a reference to the stored value |
+| `RemoveComponent<T>()` | Removes it; returns false when the entity had none |
+
+Each method has an overload that takes an `Entity` first, for working on other entities:
+
+```csharp
+if (TryGetComponent<Rigidbody2D>(out var body) && body.Velocity.Y > 0)
+    Log.Debug("Falling");
+
+if (HasComponent<Collider2D>(Door))
+    GetComponent<Collider2D>(Door).IsTrigger = true;
+```
+
+`TryGetComponent` hands out a copy, which is right for reading. To change an optional component, check with `HasComponent` and then use `GetComponent`. `HasComponent` and `TryGetComponent` return false for entities that are no longer alive, while `GetComponent` throws.
+
+## Add and remove components
+
+`AddComponent` sets every field of the component from the value you pass. Build it with an initializer, or take the returned reference and set fields on it:
+
+```csharp
+AddComponent(Collider2D.Circle(12) with { IsTrigger = true });
+
+ref var light = ref AddComponent(new Light2D());
+light.Radius = 128;
+light.Color = new Color(255, 200, 140);
+```
+
+Adding or removing a component moves the entity to another storage table, because the world keeps entities with the same set of components together (see [Entities and components](../concepts/ecs.mdx)). A reference you got before the change then points at the old table. Get the component again after any `AddComponent`, `RemoveComponent`, `CreateEntity` or `Destroy`:
+
+```csharp
+ref var transform = ref GetComponent<Transform>();
+AddComponent(new Inactive());
+transform = ref GetComponent<Transform>();
+transform.Position = Vector2.Zero;
+```
+
+Components added from scripts take effect at once: a new collider takes part in the next physics step, a new sprite is drawn this frame. Adding `Inactive` switches the whole entity off, which also disables its scripts, as described in [The script lifecycle](./lifecycle.mdx).
+
+## Transform and Position
+
+Two shortcuts cover the component every entity has:
+
+- `Transform` is `ref GetComponent<Transform>()`: position, rotation in radians (clockwise) and scale, in world space.
+- `Position` reads and writes `Transform.Position`.
+
+```csharp
+Transform.Rotation += 2 * Time.DeltaTime;
+Position += new Vector2(10, 0) * Time.DeltaTime;
+```
+
+For a child entity, the world `Transform` is computed from its parent and its `LocalTransform` once per frame, at the start of the LateUpdate phase. Writing `Position` on a child moves it until that update puts it back. Move children by changing their `LocalTransform`, or move the parent:
+
+```csharp
+GetComponent<LocalTransform>().Position = new Vector2(0, -24);
+```
+
+Rigid bodies and character controllers own their entity's position while physics runs. Move a body by setting `Rigidbody2D.Velocity` or with forces, and a character with `Physics.MoveCharacter`; writing `Position` teleports them. See [Physics from scripts](./physics.mdx).
+
+## Other scripts
+
+Scripts are found by type, base class or interface. `T` can be any of them:
+
+| Method | Returns |
+| --- | --- |
+| `GetScript<T>()` | The first script on this entity that is, derives from or implements `T`, or null |
+| `GetScript<T>(entity)` | The same on another entity; null when it is not alive or has no scripts |
+| `TryGetScript<T>(out T script)`, `TryGetScript<T>(entity, out T script)` | Whether one was found |
+| `AddScript<T>()`, `AddScript<T>(entity)` | A new script attached to the entity; created at the start of the next update phase |
+| `RemoveScript<T>()` | Removes the first matching script, calling `OnDisable` and `OnDestroy` |
+| `RemoveScript(script)` | Removes that instance |
+
+Scripts are classes, so the result is the instance itself. Call its methods and read its properties directly:
+
+```csharp
+var health = AddScript<Health>();
+health.Maximum = 3;
+```
+
+Fields you set right after `AddScript` are in place before the new script's `OnCreate` runs. To reach every script of a type on an entity, use `GetComponent<ScriptComponent>().GetAll(results)` with a list you keep.
+
+### Talk through interfaces
+
+Looking scripts up by interface keeps them independent of each other. Spikes do not need to know whether they hit the player, an enemy or a crate, only that it can take damage:
+
+```csharp title="assets/scripts/Damage.cs"
+namespace MyGame;
+
+public interface IDamageable
+{
+    void TakeDamage(int amount);
+}
+
+/// <summary>Counts hit points and destroys the entity when they run out.</summary>
+public sealed class Health : Script, IDamageable
+{
+    [Range(1, 100)]
+    public int Maximum = 10;
+
+    public int Current { get; private set; }
+
+    protected override void OnCreate() => Current = Maximum;
+
+    public void TakeDamage(int amount)
+    {
+        Current = Math.Max(0, Current - amount);
+        if (Current == 0)
+            Destroy();
+    }
+}
+
+/// <summary>Hurts anything that can take damage when it enters the trigger.</summary>
+public sealed class Spikes : Script
+{
+    public int Damage = 1;
+
+    protected override void OnTriggerEnter(in ContactInfo contact)
+    {
+        if (TryGetScript<IDamageable>(contact.Other, out var target))
+            target.TakeDamage(Damage);
+    }
+}
+```
+
+For one-to-many messages, where the sender should not know who listens, use [events](./events.mdx) instead.
+
+## Example: flash a sprite when hit
+
+This script tints its sprite red when anything collides with it and fades back over a quarter of a second. It reads the normal tint once in `OnStart`, and the tween writes the sprite's tint through `GetComponent` every frame:
+
+```csharp title="assets/scripts/HitFlash.cs"
+using Talesmith.Runtime.Tweens;
+
+namespace MyGame;
+
+/// <summary>Turns the sprite red when something hits the entity, then fades back.</summary>
+public sealed class HitFlash : Script
+{
+    public Color FlashColor = new(255, 80, 80);
+
+    [Range(0, 2)]
+    public float FadeTime = 0.25f;
+
+    private Color _normal;
+
+    protected override void OnStart() => _normal = GetComponent<Sprite>().Tint;
+
+    protected override void OnCollisionEnter(in ContactInfo contact) =>
+        Run(async () => await Tweens.To(FlashColor, _normal, FadeTime, tint => GetComponent<Sprite>().Tint = tint, Easing.QuadOut));
+}
+```
+
+The tween stops by itself if the entity is destroyed during the fade. [Waiting, routines and tweens](./waiting.mdx) covers tweens and easing.
+
+## Cache lookups
+
+Component lookups are fast, but not free: `GetComponent` finds the entity's record and the column for the type on every call. Calling it a few times per frame in a handful of scripts costs nothing measurable; calling it thousands of times per frame does. Script lookups (`GetScript`) walk the entity's script list, and `Find` and `FindWithTag` walk every entity.
+
+What you can keep between frames:
+
+- **Entities and scripts.** Store an `Entity` handle or a script reference in a field, found once in `OnStart`. Check `World.IsAlive(entity)` or the script's `IsDestroyed` before using it later.
+- **Assets and class components**, such as a loaded `SoundClip` or a `ParticleEmitter`, which are objects that do not move.
+
+What you cannot keep: a `ref` to a struct component. C# does not allow `ref` fields in scripts, and the storage moves when components are added or removed, so get struct components again each frame.
+
+```csharp
+private Entity _player;
+private PlayerStats? _stats;
+
+protected override void OnStart()
+{
+    _player = FindWithTag("player");
+    _stats = GetScript<PlayerStats>(_player);
+}
+
+protected override void Update()
+{
+    if (_stats is not null && World.IsAlive(_player))
+        _stats.Score++;
+}
+```
+
+When a single behavior runs on thousands of entities, a [system](../concepts/systems.mdx) that iterates the components directly is faster than a script per entity.
+
+## Related
+
+- [Built-in components](/guide/scenes/components)
+- [Spawning and finding entities](./spawning.mdx)
+- [Entities and components](../concepts/ecs.mdx)
+- [Events](./events.mdx)

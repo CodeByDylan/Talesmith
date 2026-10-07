@@ -1,0 +1,83 @@
+---
+title: "Scripting overview"
+sidebar_label: "Overview"
+description: "Write gameplay in C# with scripts on entities, systems over many entities, and the engine services they share."
+slug: /
+---
+
+Talesmith games are written in C#. This section starts with scripts, classes you attach to entities in the editor, then explains the engine concepts underneath them and ends with recipes for common gameplay. It also helps you decide between a script, a system and a plugin.
+
+## What a script is
+
+A script is a C# class that derives from `Script`. You attach it to an entity in the inspector, and while the game plays, Talesmith calls the methods you override: `Update` every frame, `FixedUpdate` every physics step, `OnTriggerEnter` when something walks into the entity, and so on. Public fields are saved with the scene and shown in the inspector, so designers tune them without touching code.
+
+```csharp title="assets/scripts/Spinner.cs"
+namespace MyGame;
+
+/// <summary>Turns the entity around its position.</summary>
+public sealed class Spinner : Script
+{
+    [Range(-720, 720)]
+    [Tooltip("Degrees per second; negative values turn the other way.")]
+    public float DegreesPerSecond = 90;
+
+    protected override void Update() => Transform.Rotation += MathHelper.ToRadians(DegreesPerSecond) * Time.DeltaTime;
+}
+```
+
+`Transform`, `Time`, `Input`, `Physics`, `Audio`, `Events` and the rest of the engine are properties of the script, so most gameplay needs no setup code at all. [Your first script](./scripts/first-script.mdx) builds one from scratch.
+
+<Screenshot name="scripting/script-fields" caption="Lantern Grove's Player Controller in the inspector: every public field is a saved, editable value." />
+
+## Scripts, systems and plugins
+
+Talesmith has three places to put game code. They share one engine, so you can start with a script and move code later without rewriting it.
+
+| | Scripts | Components and systems | Plugins |
+| --- | --- | --- | --- |
+| What it is | A class deriving from `Script`, attached to individual entities | Plain data structs on entities, and an `ISystem` that processes every entity with them each frame | A separately built assembly with an `IPlugin` that registers services, systems, scenes and UI |
+| Use it for | Behavior of one kind of entity: a player controller, a door, a pickup, a spawner | Thousands of similar entities: bullets, swarms, crowds, parallax layers | Engine features, Avalonia overlays and menus, code scenes, editor tools, services shared by several projects |
+| Where it lives | `assets/scripts` of the project | `assets/scripts` too, or a plugin | Its own project, built into `assets/plugins/<name>` |
+| How it is built | The editor compiles it when you save | Same as scripts when it lives there | With `dotnet build`, outside the editor |
+| Hot reload while playing | Yes, keeping each script's state | No; play mode asks to restart | No |
+| Cost per entity | One virtual call per overridden method | A tight loop over packed arrays | Whatever it registers |
+
+Script files can declare systems, components and scene listeners as well; the game registers them exactly as if a plugin had. Lantern Grove does this for its HUD and parallax. The price is paid in play mode: once the script assembly declares any of them, every script change while playing asks you to restart play mode instead of swapping the code in. The [entities and components](./concepts/ecs.mdx) and [systems](./concepts/systems.mdx) pages explain when that pays off, and the [Plugins](/plugins) section covers everything scripts cannot do, such as Avalonia controls, which scripts cannot reference.
+
+## How scripts are compiled
+
+Every `.cs` file under `assets/scripts` and its subfolders is part of one script assembly, except files in `bin`, `obj` and hidden folders. The editor compiles it in memory with Roslyn 250 ms after files stop changing, reports errors and warnings in the console with their file and line, and swaps the new code into a running game when it can. See [Compiling and hot reload](./scripts/hot-reload.mdx).
+
+```text
+MyGame/
+  MyGame.Scripts.csproj     written by the editor so your IDE has IntelliSense
+  assets/
+    scripts/
+      PlayerController.cs
+      Pickups/Coin.cs       namespace MyGame.Pickups
+    scripts/bin/            Game.Scripts.dll in exported games
+```
+
+New scripts get a namespace made from the project name and the folders between `assets/scripts` and the file, such as `MyGame.Pickups`. Every script can use these namespaces without a `using` directive: `System`, `System.Collections.Generic`, `System.Linq`, `System.Numerics`, `System.Threading.Tasks`, `Talesmith.Assets`, `Talesmith.Assets.Textures`, `Talesmith.Audio`, `Talesmith.Authoring`, `Talesmith.Ecs`, `Talesmith.Input`, `Talesmith.Mathematics`, `Talesmith.Physics`, `Talesmith.Runtime.Components`, `Talesmith.Scripting` and `Talesmith.Systems`. Anything else, such as `Talesmith.VFX` for particles or `Talesmith.Runtime.Tweens` for easing curves, needs a `using`.
+
+Scripts compile against the engine's runtime assemblies and the project's enabled plugins, never the editor. Exported games carry the compiled scripts as `assets/scripts/bin/Game.Scripts.dll`, compiled by the export with the configuration of its build profile.
+
+## Before you start
+
+- You need to know C#: classes, properties, lambdas and `async`/`await`. The engine follows ordinary .NET conventions.
+- You do not need the .NET SDK to write scripts: the editor compiles them itself. You need it to build Talesmith from source, to build plugins, and for your IDE to load the generated project.
+- Use a C# editor. **Assets › Open C# project** opens the generated project in your code editor (Visual Studio Code or Rider when installed, or the command set in Settings) with completion for every engine type, and double-clicking an error in the console opens the file at its line.
+
+## In this section
+
+<CardGrid columns={3}>
+  <Card title="C# scripts" icon="code" to="/scripting/scripts/first-script">
+    Write, attach and debug scripts: the lifecycle, fields, components, input, time, events, waiting, sound, physics and tile maps.
+  </Card>
+  <Card title="Engine concepts" icon="layers" to="/scripting/concepts/ecs">
+    What runs underneath: entities and systems, scenes, the game loop and its threads, physics, particles, lighting, rendering and game UI.
+  </Card>
+  <Card title="Recipes" icon="rocket" to="/scripting/recipes/platformer">
+    Complete, working gameplay: a platformer controller, hex movement, pickups, spawners, a follow camera and a HUD.
+  </Card>
+</CardGrid>

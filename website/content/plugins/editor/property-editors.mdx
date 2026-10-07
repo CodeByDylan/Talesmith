@@ -1,0 +1,145 @@
+---
+title: "Inspector property editors"
+description: "Give your own field types a custom editor in the inspector."
+---
+
+The inspector picks an editor for each field from its kind: a checkbox for a boolean, a number field or slider for a number, a color picker for a color. A plugin can supply its own editor for the fields it chooses, typically for a field type it defines. This page covers registering a property editor provider, deciding which fields it handles, building the editor control, several selected entities with different values, read-only values, and undo.
+
+## Register a provider
+
+```csharp
+services.AddPropertyEditor<HeadingEditorProvider>();
+```
+
+For each field, the inspector asks the providers from the highest `Priority` down and uses the first control returned. The built-in editors have priority 0, so a provider with a higher priority that returns a control for a field replaces the built-in editor for it, and returns null for every other field.
+
+## An editor for a field type
+
+The `Heading` type from [value converters](../runtime/importers.mdx#value-converters) is saved as a number, so the inspector would show a number field. This provider shows eight compass buttons instead:
+
+```csharp title="HeadingEditorProvider.cs"
+using System.Text.Json.Nodes;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Layout;
+using Talesmith.Editor.Inspector;
+
+namespace Weather.Editor;
+
+/// <summary>Edits a Heading with eight compass buttons.</summary>
+public sealed class HeadingEditorProvider : IPropertyEditorProvider
+{
+    private static readonly (string Label, float Degrees)[] Directions =
+        [("E", 0), ("SE", 45), ("S", 90), ("SW", 135), ("W", 180), ("NW", 225), ("N", 270), ("NE", 315)];
+
+    public int Priority => 10;
+
+    public Control? CreateEditor(PropertyEditorContext context)
+    {
+        if (context.Property.ValueType != typeof(Heading))
+            return null;
+        var value = context.Value;
+        var row = new WrapPanel { Orientation = Orientation.Horizontal };
+        var buttons = new List<(ToggleButton Button, float Degrees)>();
+        foreach (var (label, degrees) in Directions)
+        {
+            var button = new ToggleButton { Content = label, Classes = { "small" }, MinWidth = 34 };
+            button.Click += (_, _) => value.Set(JsonValue.Create(degrees));
+            buttons.Add((button, degrees));
+            row.Children.Add(button);
+        }
+
+        return PropertyEditors.Watch(row, value, () =>
+        {
+            var current = value.IsMixed ? null : JsonValues.Number(value.Get());
+            foreach (var (button, degrees) in buttons)
+            {
+                button.IsChecked = current is { } d && Math.Abs(d - degrees) < 0.5;
+                button.IsEnabled = !value.IsReadOnly;
+            }
+        });
+    }
+}
+```
+
+Every `Weathervane` component's **Wind** field, and any other `Heading` field in components and scripts, now gets the compass.
+
+## Match fields
+
+`context.Property` is the field's `PropertyDescriptor`. Decide from it whether to handle the field:
+
+| Member | Use it to match |
+| --- | --- |
+| `ValueType` | The field's C# type. The most reliable match for types you define. |
+| `Kind` | The editor kind: `Boolean`, `Integer`, `Number`, `String`, `Enum`, `Vector2`, `Color`, `Rect`, `Curve`, `Gradient`, `Asset`, `Entity`, `Object`, `List`. |
+| `Name`, `Label` | The saved name and the shown label. |
+| `Min`, `Max`, `Step`, `IsAngle`, `Lines`, `EnumNames`, `IsFlags`, `AssetType`, `AssetExtensions`, `Layers`, `IsLayerMask`, `IsNullable`, `AutoValue`, `Tooltip`, `Header` | Hints from the field's attributes and type. |
+
+The descriptor carries the engine's [field attributes](../runtime/systems-and-components.mdx#components), not attributes of your own. To give some fields of an existing type a special editor, give them a type of their own, such as a `Heading` instead of a `float`, with a value converter.
+
+## The editor control
+
+`context.Value` is an `IPropertyValue`: the field's saved JSON for the selected entities.
+
+| Member | Meaning |
+| --- | --- |
+| `Get()` | The value, or the first selected entity's when the values differ; null when unset. |
+| `Set(value)` | Sets the value on every selected entity, as one undoable edit. |
+| `Update(change)` | Changes each entity's own value, as one edit, such as one axis of vectors that differ. |
+| `IsMixed` | Whether the selected entities have different values. |
+| `IsReadOnly` | True when the value cannot be changed, such as on locked entities and for live values in play mode. |
+| `Changed` | Raised when the value changed, by this editor, undo, a gizmo or anything else. |
+
+Write the control so it shows the value whenever it changes: `PropertyEditors.Watch(control, value, update)` runs `update` now and on every `Changed`, and returns the control. Show mixed values as such (an indeterminate state, an empty field), and disable editing while `IsReadOnly`. `JsonValues` reads saved JSON: `Number`, `Boolean`, `Text`, `Vector`, `Color`, `Rect`, `Asset` and `EntityId` return null when the value is missing or of another type.
+
+`context.Services` gives the editor's services, for editors that need more than the value, such as an asset picker.
+
+## Undo
+
+Each `Set` is an undoable edit. For an interactive edit that sets the value many times, such as dragging a slider, bracket the changes with `PropertyEditors.Start(control)` and `PropertyEditors.Complete(control)`, which raise the `ValueEdit` events the inspector turns into one undo step:
+
+```csharp title="HeadingSliderEditorProvider.cs"
+using System.Text.Json.Nodes;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Talesmith.Editor.Inspector;
+
+namespace Weather.Editor;
+
+/// <summary>Edits a Heading with a slider; one drag is one undo step.</summary>
+public sealed class HeadingSliderEditorProvider : IPropertyEditorProvider
+{
+    public int Priority => 5;
+
+    public Control? CreateEditor(PropertyEditorContext context)
+    {
+        if (context.Property.ValueType != typeof(Heading))
+            return null;
+        var value = context.Value;
+        var slider = new Slider { Minimum = 0, Maximum = 360, SmallChange = 15 };
+        var updating = false;
+        slider.AddHandler(InputElement.PointerPressedEvent, (_, _) => PropertyEditors.Start(slider), RoutingStrategies.Tunnel, handledEventsToo: true);
+        slider.AddHandler(InputElement.PointerReleasedEvent, (_, _) => PropertyEditors.Complete(slider), RoutingStrategies.Tunnel, handledEventsToo: true);
+        slider.ValueChanged += (_, e) =>
+        {
+            if (!updating)
+                value.Set(JsonValue.Create((float)e.NewValue));
+        };
+        return PropertyEditors.Watch(slider, value, () =>
+        {
+            updating = true;
+            slider.Value = JsonValues.Number(value.Get()) ?? 0;
+            slider.IsEnabled = !value.IsReadOnly;
+            updating = false;
+        });
+    }
+}
+```
+
+The `updating` flag keeps the update from `Watch` from writing the value back as a new edit.
+
+## Related
+
+- [Importers and value converters](../runtime/importers.mdx#value-converters)
+- [The inspector in the guide](/guide/scenes/inspector)

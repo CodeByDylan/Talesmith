@@ -1,0 +1,130 @@
+---
+title: "Permissions"
+description: "Declare what a plugin needs access to, and check permissions from engine code."
+---
+
+Plugins declare in `plugin.json` what they do beyond registering ordinary services: touching files, using the network, adding systems, extending the editor. This page lists every permission, what the engine checks when a plugin loads, what users see in the Plugins panel, and how engine and host code can check a permission before it acts for a plugin.
+
+:::warning[A declaration, not a sandbox]
+Plugins run with the full trust of the editor or the game. Permissions tell users what a plugin does and let the engine flag code that does more than it says. They do not stop a plugin at run time: reflection, code in its private NuGet packages and native code are invisible to the checks.
+:::
+
+## The permissions
+
+| Name in plugin.json | Shown as | Declare it when the plugin |
+| --- | --- | --- |
+| `fileSystem` | File system access | reads or writes files and folders directly instead of through the asset manager |
+| `network` | Network access | uses the network |
+| `processExecution` | Process execution | starts other programs |
+| `editorUi` | Editor UI access | extends the editor; required for an `editorAssembly` |
+| `runtimeScene` | Runtime scene access | registers systems, scenes or scene listeners |
+| `assetWrite` | Asset write access | creates, changes or deletes asset files |
+| `renderBackend` | Render backend access | replaces the renderer, adds render passes or uses Vulkan or Skia directly |
+
+Registering components, services, importers, value converters, particle modules and overlays needs no permission.
+
+## Declare permissions
+
+List the permission names in `permissions`:
+
+```json title="plugin.json"
+{
+  "id": "coral-cove.spinners",
+  "assembly": "Spinners.dll",
+  "editorAssembly": "Spinners.Editor.dll",
+  "contractVersion": 1,
+  "permissions": [ "runtimeScene", "editorUi" ]
+}
+```
+
+Names are case sensitive. An unknown name, or one listed twice, makes the manifest invalid: **permission "filesystem" is unknown; did you mean "fileSystem"?**
+
+The Hex Quest and Isle Hopper gameplay plugins declare `runtimeScene` and `fileSystem`, because their pause menus save player preferences to a file; the cutscene plugin declares only `runtimeScene`.
+
+## What the engine checks
+
+When a plugin loads, the engine reads its assemblies' metadata, without running them, and checks the services its `Configure` registers:
+
+| Permission | Found by reading the code | Found in registrations |
+| --- | --- | --- |
+| `fileSystem` | `File`, `FileInfo`, `Directory`, `DirectoryInfo`, `FileStream`, `FileSystemWatcher`, `DriveInfo` | |
+| `network` | anything in `System.Net.Http`, `System.Net.Sockets`, `System.Net.WebSockets`; `WebClient`, `WebRequest`, `HttpWebRequest`, `HttpListener`, `Dns` | |
+| `processExecution` | `Process`, `ProcessStartInfo` | |
+| `editorUi` | types from `Talesmith.Editor` or `Talesmith.UI` in the runtime assembly | services in the `Talesmith.Editor` and `Talesmith.UI` namespaces; an `editorAssembly` without the permission |
+| `runtimeScene` | | systems (`AddSystem`), scenes (`AddScene`), scene listeners (`AddSceneListener`) |
+| `assetWrite` | | only where engine or host code calls `IPluginPermissions.Check` |
+| `renderBackend` | types from `Talesmith.Rendering.Vulkan`, `Talesmith.Rendering.Skia` or `Vortice.Vulkan` | renderers (`IRenderer`, `IOffscreenRenderer`) and engine services whose name ends in `RenderPass` |
+
+The code check sees direct use of these types in the plugin's own assemblies. A `File.ReadAllText` inside a NuGet package the plugin uses, or a call made through reflection, is not found. The engine also warns when a runtime assembly references an editor-only assembly at all, because exported games do not contain them.
+
+Each finding becomes a warning on the plugin, for example:
+
+```text
+its assembly uses System.IO.File without declaring the "fileSystem" permission.
+it registers systems (SpinSystem) without declaring the "runtimeScene" permission.
+it ships an editor assembly (Spinners.Editor.dll) but does not declare the "editorUi" permission.
+```
+
+By default these are only warnings: the plugin loads and works. A host that sets `PluginLoadOptions.PermissionPolicy` to `PluginPermissionPolicy.Enforce` turns them into failures, with reasons such as **its code uses undeclared permissions: fileSystem.** or **it registers services that need undeclared permissions: runtimeScene.** The editor and the player use the default.
+
+## What users see
+
+Each declared permission is a chip on the plugin's card in the Plugins panel, with a shield icon. A permission the plugin uses without declaring it is a red chip with a warning sign, and the warning that found it is listed under the description. Hovering a chip shows what the permission allows.
+
+<Screenshot name="plugins/plugin-problems" maxWidth={440} alt="Plugin cards in the Plugins panel: Map notes with editor errors and an Editor UI access chip, a plugin folder with an invalid manifest, Quest log skipped for a missing dependency, Photo mode switched off, and Weather with a red File system access chip and a warning that its assembly uses System.IO.File" />
+
+The load report carries the same information for tools: `PluginLoadEntry.Permissions` (declared), `PluginLoadEntry.UndeclaredPermissions` (found but not declared) and `PluginLoadEntry.Warnings`. A plugin sees its own declared permissions in `builder.Plugin.Permissions`.
+
+## Check a permission from engine code
+
+Code that does something on behalf of a plugin can ask whether the plugin declared the permission for it. `IPluginPermissions` is registered in every game that loads plugins:
+
+```csharp title="SaveGameWriter.cs"
+using Talesmith.Plugins;
+
+namespace Acme.Saves;
+
+/// <summary>An engine or host service that writes files on behalf of plugins.</summary>
+public sealed class SaveGameWriter(IPluginPermissions permissions)
+{
+    public void Write(object caller, string path, byte[] data)
+    {
+        if (!permissions.Check(caller.GetType(), PluginPermissions.FileSystem, $"write the save game {path}"))
+            throw new UnauthorizedAccessException($"{permissions.FindPlugin(caller.GetType())} did not declare the fileSystem permission.");
+        File.WriteAllBytes(path, data);
+    }
+}
+```
+
+- `Check(Type caller, …)` finds the plugin whose assembly defines the type. Engine and host types always pass.
+- `Check(string pluginId, …)` checks a plugin by id.
+- When the plugin did not declare the permission, the check records a `PluginPermissionViolation` (once per plugin, permission and operation), logs **Plugin x used undeclared permission fileSystem to write the save game …; allowed**, and raises `ViolationRecorded`. It returns `true` under the default policy and `false` under `Enforce`.
+- `Violations` lists everything recorded so far, `GetDeclared(id)` returns a plugin's declared permissions and `FindPlugin(type)` the id of the plugin that defines a type.
+
+The engine's own services do not call `Check` today, which is why `assetWrite` is never reported unless a host or another plugin checks it.
+
+## Rules for your own types
+
+Hosts and engine modules can say that registering a type needs a permission, in `PluginLoadOptions.RegistrationRules`:
+
+```csharp
+var options = new PluginLoadOptions
+{
+    PluginsDirectory = Path.Combine(assetRoot, "plugins"),
+    ConfigurationFile = Path.Combine(assetRoot, "config", "plugins.json"),
+    PermissionPolicy = PluginPermissionPolicy.Enforce,
+    RegistrationRules =
+    [
+        .. PluginRegistrationRule.Defaults,
+        PluginRegistrationRule.ForType(typeof(IAssetSource), PluginPermissions.FileSystem, "asset sources")
+    ]
+};
+```
+
+`ForType` matches a service type and its generic forms, `ForTypeName` matches by full name for types the host does not reference, and `ForNamespace` matches every service type in a namespace.
+
+## Related
+
+- [The manifest](./manifest.mdx)
+- [Installing and managing plugins](../installing.mdx)
+- [Debugging and reloading](../debugging.mdx)

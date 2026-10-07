@@ -1,0 +1,222 @@
+---
+title: "Systems"
+description: "Write systems that process many entities each frame, register them from scripts or plugins, and choose their phase, order and execution modes."
+---
+
+A system is a class that runs once per frame, or once per fixed step, over every entity that has certain components. Systems are how the engine itself works: sprites, cameras, physics, particles and lighting are all systems. This page covers writing one, registering it, choosing when it runs and in which modes, and keeping it fast.
+
+## A minimal system
+
+A system implements `ISystem`, whose one method receives a `SystemContext` with the scene's `World`, the frame's `Time` and a `CommandBuffer` for structural changes. This one turns every entity that has a `Spin` component:
+
+```csharp title="assets/scripts/Spin.cs"
+namespace MyGame;
+
+[Component(Category = "Gameplay")]
+public struct Spin
+{
+    [Tooltip("Radians per second.")]
+    public float Speed;
+}
+
+/// <summary>Turns every entity with a Spin component.</summary>
+[UpdateIn(SystemPhase.Update)]
+public sealed class SpinSystem : ISystem
+{
+    public void Update(in SystemContext context)
+    {
+        var delta = context.Time.DeltaTime;
+        foreach (var archetype in context.World.Query<Transform, Spin>())
+        {
+            var transforms = archetype.GetSpan<Transform>();
+            var spins = archetype.GetSpan<Spin>();
+            for (var i = 0; i < transforms.Length; i++)
+                transforms[i].Rotation += spins[i].Speed * delta;
+        }
+    }
+}
+```
+
+Save it in `assets/scripts`, give a few entities a `Spin` component and press play. The entities turn without any script attached to them. **Spin** appears under **Add component** once the scripts compile; see [Compiling and hot reload](../scripts/hot-reload.mdx) for how the editor loads scripts that declare components and systems.
+
+## Registering systems
+
+| Where the system lives | How it is registered |
+| --- | --- |
+| A script file | Automatically. When the game starts, every class in the scripts that implements `ISystem` is registered, along with every `[Component]` type and every `ISceneListener`. |
+| A plugin | `services.AddSystem<SpinSystem>()` in the plugin's `Configure`, or `services.AddSystem<HeroMovementSystem>(SystemPhase.FixedUpdate, order: 10)` to set the phase and order there instead of with attributes. |
+
+```csharp title="MyGamePlugin/MyGamePlugin.cs"
+public sealed class MyGamePlugin : IPlugin
+{
+    public void Configure(IPluginBuilder builder)
+    {
+        var services = builder.Services;
+        services.AddComponent<Spin>();
+        services.AddSystem<SpinSystem>();
+        services.AddSystem<HeroMovementSystem>(SystemPhase.FixedUpdate, order: 10);
+    }
+}
+```
+
+Systems are created once per scene, in the scene's service scope, so a field in a system starts fresh in every scene. The constructor can ask for any service: the event bus, input, audio, the physics world, `RenderContext`, or a service of your own plugin. Systems declared in scripts get constructor injection too.
+
+Because systems, components and scene listeners are registered when the game is built, scripts that declare any of them cannot be hot reloaded: as long as one script file declares a system, every script change asks play mode to restart. If you change gameplay scripts often while playing, keep systems and components in a plugin, so edits to ordinary scripts still reload in place.
+
+## Phases and order
+
+Every frame runs the phases in this order. A system runs in exactly one of them; without `[UpdateIn]` it runs in `Update`.
+
+| Phase | Runs | Typical systems |
+| --- | --- | --- |
+| `PreUpdate` | Once per frame, before simulation | Reading input into components, reacting to events, spawning |
+| `FixedUpdate` | Zero or more times per frame, with a constant step (60 per second by default) | Physics, character movement, anything that must not depend on the frame rate |
+| `Update` | Once per frame | Most gameplay; scripts' `Update` runs here |
+| `LateUpdate` | Once per frame, after `Update` | Cameras, parallax, anything that follows what moved this frame |
+| `PreRender` | Once per frame, just before the frame is published | Drawing into `RenderContext.Frame` |
+
+Within a phase, three attributes decide the order:
+
+| Attribute | Effect |
+| --- | --- |
+| `[UpdateAfter(typeof(Other))]` | Runs after `Other` when both are in the same phase. Can be repeated. |
+| `[UpdateBefore(typeof(Other))]` | Runs before `Other`. Can be repeated. |
+| `[SystemOrder(n)]` | Breaks the remaining ties; lower runs first. The default is 0. |
+
+Systems without a dependency between them run by `SystemOrder`, then in registration order. Dependencies on systems that are not registered or live in another phase are ignored, and a cycle of dependencies stops the scene from starting with an error that names it.
+
+Scripts run inside three engine systems, so you can order your systems around them: `FixedUpdateScriptsSystem`, `UpdateScriptsSystem` and `LateUpdateScriptsSystem`. The last one runs before `CameraSystem`, which is why a script's `LateUpdate` can move a camera's target and the camera follows in the same frame.
+
+```csharp
+/// <summary>Runs after every script's Update, so it sees where scripts moved their entities this frame.</summary>
+[UpdateIn(SystemPhase.Update)]
+[UpdateAfter(typeof(UpdateScriptsSystem))]
+public sealed class AfterScriptsSystem : ISystem
+{
+    public void Update(in SystemContext context)
+    {
+    }
+}
+```
+
+`CameraSystem` lives in `Talesmith.Runtime.Systems`. Physics orders its own systems in `FixedUpdate`: it prepares the step first, then your systems and scripts move bodies and characters, then the step runs and delivers contacts. See [Physics](./physics.mdx).
+
+## Execution modes
+
+The same world type serves three purposes, and `ExecutionModes` says which one a world is in:
+
+| Mode | When | What runs by default |
+| --- | --- | --- |
+| `Edit` | The editor is authoring the scene | `PreRender` systems only, so the scene is drawn |
+| `Preview` | The editor's **Preview** toggle plays effects without gameplay | `PreRender` systems only |
+| `Play` | Play mode and exported games | Every system |
+
+So a system without `[ExecuteIn]` that runs in `PreRender` also draws in the editor's scene view, and a system in any other phase only runs while the game plays. That default keeps gameplay from running while you edit: a movement system that ran in `Edit` mode would move entities in the document you are authoring.
+
+`[ExecuteIn(...)]` overrides the default. The engine uses it where seeing the effect while you author helps: sprite animation, light flicker and particles run in `Preview | Play`, and the transform hierarchy and chunk streaming run in every mode. A system of your own can do the same:
+
+```csharp
+/// <summary>Bobs entities up and down, also in the editor's preview so you see the motion while placing them.</summary>
+[UpdateIn(SystemPhase.Update)]
+[ExecuteIn(ExecutionModes.Preview | ExecutionModes.Play)]
+public sealed class BobSystem : ISystem
+{
+    public void Update(in SystemContext context)
+    {
+        var time = (float)context.Time.TotalTime;
+        foreach (var archetype in context.World.Query<Transform, Bob>())
+        {
+            var transforms = archetype.GetSpan<Transform>();
+            var bobs = archetype.GetSpan<Bob>();
+            for (var i = 0; i < bobs.Length; i++)
+            {
+                ref var bob = ref bobs[i];
+                if (!bob.Started)
+                {
+                    bob.Home = transforms[i].Position;
+                    bob.Started = true;
+                }
+
+                transforms[i].Position = bob.Home + new Vector2(0, MathF.Sin(time * bob.Speed) * bob.Height);
+            }
+        }
+    }
+}
+```
+
+Be careful with `Edit`. A system that runs while authoring and writes components changes what the editor shows and may save. Keep edit-mode systems to drawing and to values marked `[Transient]`. This applies to systems in `assets/scripts` as much as to plugins: the scene view runs the scripts' systems too.
+
+Scripts are different: they never run while the editor authors a scene, only in play mode and games.
+
+## Starting and stopping with the scene
+
+A system that implements `ISystemLifecycle` is told when its scene starts and stops: `OnStart(world)` runs in order before the first update, `OnStop(world)` in reverse order when the scene unloads. Use them for subscriptions and resources that belong to the scene:
+
+```csharp
+public readonly record struct EnemyDefeated(Entity Enemy, int Score);
+
+/// <summary>Adds the score of every defeated enemy to the entity with a Score component.</summary>
+[UpdateIn(SystemPhase.LateUpdate)]
+public sealed class ScoreSystem(IEventBus events) : ISystem, ISystemLifecycle
+{
+    private IDisposable? _subscription;
+    private int _pending;
+
+    public void OnStart(World world) => _subscription = events.Subscribe((ref EnemyDefeated e) => _pending += e.Score);
+
+    public void OnStop(World world) => _subscription?.Dispose();
+
+    public void Update(in SystemContext context)
+    {
+        if (_pending == 0 || !context.World.Query<Score>().TryGetSingle(out var holder))
+            return;
+        context.World.Get<Score>(holder).Value += _pending;
+        _pending = 0;
+    }
+}
+```
+
+`IEventBus` is in `Talesmith.Events`. Unlike subscriptions made through a script's `Events`, a system's subscriptions do not end by themselves; dispose them in `OnStop`. This pattern, collecting events in a handler and acting on them in `Update`, also keeps handlers short and the work at a predictable point in the frame. See [Events](../scripts/events.mdx) for publishing.
+
+## Failures
+
+An exception thrown by a system is logged with the system's name and the frame carries on. After three consecutive failures the system is disabled for the rest of the scene, so one broken system cannot flood the log or take the game down. A successful update resets the count. Scripts follow the same rule.
+
+## Three ways to loop
+
+The ECS offers three loops over a query. All three are correct; they differ in cost.
+
+```csharp
+// 1. ForEach with a lambda: shortest, one delegate call per entity.
+context.World.Query<Transform, Spin>().ForEach((Entity entity, ref Transform transform, ref Spin spin) =>
+    transform.Rotation += spin.Speed * delta);
+
+// 2. Archetype spans: a plain for loop over arrays, as in SpinSystem above.
+
+// 3. A struct job: the JIT inlines Execute into the loop.
+var job = new SpinJob(context.Time.DeltaTime);
+context.World.Query<Transform, Spin>().Run<SpinJob, Transform, Spin>(ref job);
+
+private readonly struct SpinJob(float delta) : IForEach<Transform, Spin>
+{
+    public void Execute(Entity entity, ref Transform transform, ref Spin spin) => transform.Rotation += spin.Speed * delta;
+}
+```
+
+A lambda that captures a local, such as `delta`, allocates a closure every time the line runs, and each entity costs a delegate call. Archetype spans and struct jobs do neither: the job is a struct passed by reference, so the JIT specializes `Run` for it and the loop body is inlined. The engine's own systems use spans and jobs; `CameraSystem` is a struct job.
+
+## Performance tips
+
+- **Let the archetype layout work for you.** Query only the components you need. A query over `Transform` and `Spin` reads two arrays; one over six components reads six.
+- **Do not allocate per frame.** No `new` of classes, lists or arrays, no LINQ and no capturing lambdas in `Update`. Keep buffers in fields and clear them. The compiler's analyzers flag these in systems' `Update` as well as in scripts; see [Diagnostics and analyzers](../scripts/diagnostics.mdx).
+- **Queries are cached.** `World.Query<A, B>()` returns the same cached query every time, so there is nothing to gain from storing it, and nothing lost by calling it each frame.
+- **Avoid searching.** Finding an entity by name or tag walks every entity. Use `TryGetSingle` on a query of a marker component, or remember the entity.
+- **Batch structural changes.** Adding and removing components moves rows between archetypes. A flag in a component is cheaper to toggle than adding and removing a marker every frame.
+- **Measure.** Every system is a profiler marker named `Systems/{type}`, and every script type one named `Scripts/{type}`, with the `Script time` counter for all scripts together. They appear in the performance overlay and in reports; see [Performance](/guide/performance).
+
+## Related
+
+- [Entities and components](./ecs.mdx)
+- [The game loop and threads](./game-loop.mdx)
+- [Systems and components in plugins](/plugins/runtime/systems-and-components)
+- [The script lifecycle](../scripts/lifecycle.mdx)

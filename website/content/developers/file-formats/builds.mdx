@@ -1,0 +1,109 @@
+---
+title: "Launcher and content packs"
+sidebar_label: "launcher.json, content packs"
+description: "The files an exported game ships, launcher.json and content packs, and the build.json that configures exports."
+---
+
+An exported game is the Talesmith player, renamed after the game, next to a `launcher.json` that tells it which game folder to play, and a game folder whose assets are packed into one compressed `content.tspack` file. This page describes both files, how the player finds them, and `build.json`, the project file that holds the export settings.
+
+## What a build writes
+
+A Linux build of Hex Quest, from [Exporting a game](/guide/exporting):
+
+```text
+Hex Quest-linux-x64/
+  Hex Quest                  the player, renamed after the game
+  Hex Quest.png
+  launcher.json
+  libSkiaSharp.so, libHarfBuzzSharp.so, libopenal.so
+  licenses/                  the licenses of Talesmith and the libraries the game includes
+  game/
+    content.tspack           every shipped asset, with assets.index.json inside
+    config/                  game.json, input.json and the other config files, loose
+    scripts/bin/Game.Scripts.dll
+    plugins/                 each switched-on plugin's folder
+```
+
+## launcher.json
+
+```json title="Hex Quest-linux-x64/launcher.json"
+{
+  "gameFolder": "game",
+  "title": "Hex Quest",
+  "logLevel": "warning",
+  "developerTools": false
+}
+```
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `gameFolder` | string | `"game"` | The game folder, relative to `launcher.json`. Builds write `game`. |
+| `title` | string | `""` | The game's title. Captures and logs go to a folder of this name in the user's local data folder. |
+| `logLevel` | `trace`, `debug`, `information`, `warning`, `error`, `critical` or `none` | `warning` | The lowest level the player logs. Development builds write `debug`. |
+| `developerTools` | boolean | false | Enables F3 (performance overlay), F4 (debug views), F9 (profiler report) and F12 (screenshot). Only development builds write true. |
+
+The build writes the file from its profile; you do not edit it by hand. The reader accepts comments and trailing commas.
+
+### How the player finds the game
+
+1. At startup the player looks for `launcher.json` in its own folder. If there is one, it plays the folder `gameFolder` names and takes its log level, developer tools and capture folder from the file.
+2. Without a launcher file, it plays the folder given on the command line, or the current folder.
+3. In the game folder, the asset root is its `assets/` subfolder when there is one, otherwise the folder itself. Exported games use the folder itself.
+4. When the asset root holds `content.tspack`, assets are read from the pack, and files the pack does not hold, such as the loose `config/` files, are read from the folder. Without a pack, everything is read from the folder.
+5. The asset catalog comes from `assets.index.json` in the pack, so the shipped game needs no `.meta` files.
+
+Command-line options still override the launcher settings, so `"Hex Quest" --renderer skia` works on an exported game.
+
+## Content packs
+
+A content pack is one binary file: a 32-byte header, the stored files one after another, and a table of contents at the end.
+
+| Part | Layout |
+| --- | --- |
+| Header | The 8 bytes `TSPACK\r\n`, a 32-bit version (1), a 32-bit entry count, a 64-bit offset of the table and its 64-bit length, all little-endian |
+| Files | Each entry's stored bytes, compressed or not |
+| Table | Per entry: the asset path (a 7-bit length-prefixed UTF-8 string, relative to the asset root with forward slashes), the 64-bit offset of its bytes, their 64-bit stored length, the 64-bit length once decompressed, and a compression byte: 0 for none, 1 for Brotli |
+
+- **Compression.** Assets are compressed with Brotli at the optimal level, except formats that are compressed already: `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.ogg`, `.mp3`, `.flac`, `.zip`, `.gz`, `.br` and `.woff2`. An entry that compression would not make at least 3% smaller is stored as it is. `"compress": false` in `build.json` stores everything uncompressed.
+- **The index.** The pack carries the build's `assets.index.json` as an ordinary entry, so guid references work as they do in the editor; see [Meta files](./meta-files.mdx#the-asset-index).
+- **Lookup.** Paths are looked up without regard to case, so a game behaves the same on every platform. Stored entries are read straight from the pack file; compressed entries are decompressed into memory when opened. Reading is safe from several threads.
+- **Validation.** A file without the magic bytes, a newer version, or a table that points outside the file fails with a message saying the pack is damaged or truncated.
+
+`ContentPackWriter` and `ContentPack` in `src/Talesmith.Assets/Packs` write and read the format.
+
+## build.json
+
+The **Build** dialog saves its settings in the project folder, next to `assets/`, so they can be versioned with the game. Every field is optional.
+
+```json title="build.json"
+{
+  "target": "linux-x64",
+  "profile": "release",
+  "outputFolder": "builds",
+  "scenes": [
+    { "path": "scenes/level-2.tscene", "enabled": true }
+  ],
+  "alwaysInclude": [ "ui/menu", "label:music" ],
+  "version": "1.0.0",
+  "compress": true
+}
+```
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `target` | `win-x64`, `linux-x64` or null | null | The platform to build for; null builds for the computer the editor runs on. |
+| `profile` | `development`, `release` or `distribution` | `release` | Debug or optimized scripts, developer tools and logging, and whether the build is archived. |
+| `outputFolder` | string | `"builds"` | Where builds go: absolute, or relative to the project folder. |
+| `scenes` | array | `[]` | Scenes to ship besides the start scene, in order, each `{ "path", "enabled" }`; `enabled` defaults to true and false keeps a scene in the list without shipping it. |
+| `alwaysInclude` | array of strings | `[]` | Asset files and folders shipped even when nothing refers to them, or `label:<name>` for every asset with a label. |
+| `version` | string | `"1.0.0"` | The game's version, written into the executable's details and archive names. |
+| `executableName` | string or null | null | The executable's name without extension; null uses the game's title. |
+| `icon` | string or null | null | A PNG asset used as the application icon. |
+| `compress` | boolean | true | Compresses assets in the content pack, except formats that are compressed already. |
+
+Null fields are left out when the file is written.
+
+## Related
+
+- [Exporting a game](/guide/exporting) explains builds from the editor, profiles and output layouts.
+- [Meta files](./meta-files.mdx) describes the data the asset index carries.

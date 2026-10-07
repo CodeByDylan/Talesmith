@@ -1,0 +1,283 @@
+---
+title: "Systems and components"
+description: "Register ECS systems and components from a plugin."
+---
+
+Components hold data on entities and systems change that data every frame. A plugin registers both in `Configure`: `AddComponent` makes a component available to scenes, prefabs and the inspector, and `AddSystem` runs a system in every scene. This page covers registering systems, the data a system gets, phases, ordering and execution modes, declaring components for the editor, and scripts shipped in a plugin. The ECS itself is described in [ECS](/scripting/concepts/ecs) and [Systems](/scripting/concepts/systems).
+
+## Add a system
+
+```csharp
+builder.Services.AddSystem<SpinSystem>();
+```
+
+The engine creates one instance of the system for each scene, through dependency injection, when the scene starts. The constructor can ask for any service: engine services such as `IInputService`, `IEventBus` or `ILogger<T>`, the scene's `World`, and services your plugin registers, singletons or [scoped](./scenes.mdx#state-for-one-scene). Fields of a system therefore live as long as its scene.
+
+```csharp title="SpinBrakeSystem.cs"
+using Talesmith.Input;
+using Talesmith.Systems;
+
+namespace Spinners;
+
+/// <summary>Stops spinners while Shift is held.</summary>
+public sealed class SpinBrakeSystem(IInputService input) : ISystem
+{
+    public void Update(in SystemContext context)
+    {
+        if (!input.IsDown(Key.LeftShift))
+            return;
+        foreach (var archetype in context.World.Query<Spinner>())
+        {
+            foreach (ref var spinner in archetype.GetSpan<Spinner>())
+                spinner.Speed = 0;
+        }
+    }
+}
+```
+
+`Update` receives a `SystemContext`:
+
+| Member | What it is |
+| --- | --- |
+| `World` | The scene's world, to query and change entities. |
+| `Time` | `DeltaTime` (scaled seconds since the last update; the fixed step in `FixedUpdate`), `TotalTime`, `UnscaledDeltaTime`, `UnscaledTotalTime`, `FrameCount` and `Interpolation`. |
+| `Commands` | A command buffer for structural changes (create and destroy entities, add and remove components), played back right after the system returns. |
+
+Change component values through the spans of a query, as above. Do structural changes through `Commands`, because they move entities between archetypes while you iterate them:
+
+```csharp title="StoppedSpinnerSystem.cs"
+using Talesmith.Systems;
+
+namespace Spinners;
+
+/// <summary>Removes spinners that have stopped.</summary>
+public sealed class StoppedSpinnerSystem : ISystem
+{
+    public void Update(in SystemContext context)
+    {
+        foreach (var archetype in context.World.Query<Spinner>())
+        {
+            var spinners = archetype.GetSpan<Spinner>();
+            for (var i = 0; i < archetype.Count; i++)
+            {
+                if (spinners[i].Speed == 0)
+                    context.Commands.Remove<Spinner>(archetype.Entities[i]);
+            }
+        }
+    }
+}
+```
+
+Registering systems needs the `runtimeScene` [permission](../package/permissions.mdx).
+
+### Start and stop
+
+A system that also implements `ISystemLifecycle` is told when its scene's systems start and stop, after the scene's entities exist and before they are released:
+
+```csharp title="SpinnerCensusSystem.cs"
+using Microsoft.Extensions.Logging;
+using Talesmith.Ecs;
+using Talesmith.Systems;
+
+namespace Spinners;
+
+/// <summary>Logs how many spinners a scene starts with.</summary>
+public sealed class SpinnerCensusSystem(ILogger<SpinnerCensusSystem> logger) : ISystem, ISystemLifecycle
+{
+    public void OnStart(World world) => logger.LogInformation("The scene starts with {Count} spinners", world.Query<Spinner>().Count);
+
+    public void OnStop(World world)
+    {
+    }
+
+    public void Update(in SystemContext context)
+    {
+    }
+}
+```
+
+## Phases
+
+Each frame runs the phases in this order. A system without `[UpdateIn]` runs in `Update`.
+
+| Phase | Runs | Use it for | Engine systems in it |
+| --- | --- | --- | --- |
+| `PreUpdate` | once per frame | input and events, before simulation | |
+| `FixedUpdate` | zero or more times per frame, with a constant step (60 per second by default) | deterministic simulation and physics | the physics step, scripts' `FixedUpdate` |
+| `Update` | once per frame | gameplay | scripts' `Update`, sprite animation |
+| `LateUpdate` | once per frame | cameras and anything that follows other entities | `TransformHierarchySystem` (first), `CameraSystem`, `TriggerSystem`, particle simulation, scripts' `LateUpdate` |
+| `PreRender` | once per frame, just before rendering | building draw lists from the final state | sprite and tile map drawing, particle drawing, lighting |
+
+`TransformHierarchySystem` runs first in `LateUpdate` and computes the `Transform` of child entities from their `LocalTransform`. A gameplay system that moves children changes `LocalTransform`, as the tutorial's `SpinSystem` does.
+
+## Order
+
+Within a phase, systems run in dependency order:
+
+```csharp title="CameraZoomSystem.cs (Hex Quest)"
+[UpdateIn(SystemPhase.LateUpdate)]
+[UpdateBefore(typeof(CameraSystem))]
+public sealed class CameraZoomSystem(IInputService input) : ISystem
+```
+
+| Attribute | Effect |
+| --- | --- |
+| `[UpdateIn(SystemPhase.X)]` | The phase. |
+| `[UpdateAfter(typeof(OtherSystem))]` | Runs after another system of the same phase. Repeatable. |
+| `[UpdateBefore(typeof(OtherSystem))]` | Runs before another system of the same phase. Repeatable. |
+| `[SystemOrder(n)]` | Orders systems with no dependency between them; lower runs first, default 0. |
+
+`AddSystem<T>(phase, order)` registers a system with a phase and order of your choosing instead of its attributes, which helps when you register a system from another plugin or a library somewhere else:
+
+```csharp
+builder.Services.AddSystem<SpinSystem>(SystemPhase.LateUpdate, order: 10);
+```
+
+For full control, build a `SystemDescriptor` (`SystemDescriptor.For(typeof(T)) with { … }`) and pass it to `AddSystem(descriptor)`.
+
+## Execution modes
+
+A world runs in one of three modes, and each system runs only in some of them:
+
+| Mode | When |
+| --- | --- |
+| `Play` | The game is running: play mode, the player, exported games. |
+| `Edit` | The editor's scene viewport while you edit. |
+| `Preview` | The viewport while **Preview** is on, to see animation, particles and similar effects without gameplay. |
+
+Systems in `PreRender` run in every mode, so the viewport draws; every other system runs only in `Play`. Change that with `[ExecuteIn]`:
+
+```csharp
+[ExecuteIn(ExecutionModes.Play | ExecutionModes.Preview)]
+public sealed class PreviewSpinSystem : ISystem
+```
+
+Be careful with `Edit`: a system that changes components while you edit fights with the editor, which applies your edits to the same world.
+
+## Components
+
+Any struct can be a component. Register it so scenes, prefabs and the editor know it:
+
+```csharp
+builder.Services.AddComponent<Health>();
+```
+
+`[Component]` describes it for the editor, and field attributes control the inspector:
+
+```csharp title="Health.cs"
+using Talesmith.Authoring;
+
+namespace Spinners;
+
+[Component("Health", Category = "Gameplay", Icon = "shield", Description = "Hit points; the entity is destroyed at zero.")]
+public struct Health
+{
+    [Range(1, 1000)]
+    public int Maximum;
+
+    [Tooltip("Hit points left.")]
+    public int Current;
+
+    [HideInInspector]
+    public float LastHitTime;
+
+    [Transient]
+    public bool IsDying;
+
+    public Health()
+    {
+        Maximum = 10;
+        Current = 10;
+    }
+}
+```
+
+| `[Component]` property | Effect |
+| --- | --- |
+| first argument | The name shown in the editor; defaults to the type name split into words. |
+| `Category` | The group in the **Add component** menu, such as `Gameplay`. |
+| `Description` | One line shown in the **Add component** menu and the inspector. |
+| `Icon` | An icon from the editor's set, such as `shield`, `rotate-cw` or `compass`, for the inspector and the viewport. |
+| `Hidden` | Leaves the component out of the **Add component** menu, for components your code adds itself. |
+
+| Field attribute | Effect |
+| --- | --- |
+| `[Range(min, max)]` | Limits a number; both ends finite shows a slider. `Step` sets the drag increment. |
+| `[Tooltip("…")]`, `[Label("…")]`, `[Header("…")]` | Explains a field, renames it, starts a titled group above it. |
+| `[Multiline(lines)]` | Edits a string in a multi-line box. |
+| `[Angle]` | A value in radians, edited in degrees. |
+| `[AssetFilter(".png")]` | Limits an asset field to files with these extensions. |
+| `[Layer]`, `[LayerMask]` | An integer chosen as a physics or shadow layer, or a mask of them. |
+| `[HideInInspector]` | Saved, not shown. |
+| `[Transient]` | Neither saved nor shown, for runtime state. |
+| `[SerializeField]` | Saves and shows a non-public field. |
+
+Saved fields are public fields that are not read-only, fields with `[SerializeField]`, and public properties with a getter and setter. Their values start from the parameterless constructor, which is also what a newly added component gets. Supported types are numbers, `bool`, `string`, enums, `Guid`, `Vector2`, `Color`, `Rect2`, `Curve`, `Gradient`, entity references, asset references such as textures, nullable values, lists and nested structs or classes. Other types need a [value converter](./importers.mdx#value-converters); a field of a type nothing can save is left out.
+
+Scenes save a plugin's components under their full type name, such as `Spinners.Spinner`, and fields under camelCase names, such as `speed`. Renaming the type, its namespace or a field breaks existing scenes; see [Versioning](../package/packaging.mdx#versioning).
+
+### Custom definitions
+
+`AddComponent` builds a component's definition from its fields by reflection. For full control over how a component is saved, loaded and shown, implement `IComponentDefinition` and register it with `AddSingleton<IComponentDefinition, MyDefinition>()`; a registered definition replaces the reflection-based one for its component type and needs no `AddComponent` call.
+
+## Scripts from a plugin
+
+A plugin can ship scripts, which users attach to entities like the game's own scripts:
+
+```csharp title="Bob.cs"
+using Talesmith.Authoring;
+using Talesmith.Scripting;
+
+namespace Spinners;
+
+/// <summary>Bobs the entity up and down.</summary>
+public sealed class Bob : Script
+{
+    [Range(0, 64)]
+    public float Height = 8;
+
+    public float Speed = 2;
+
+    private float _baseY;
+
+    protected override void OnStart() => _baseY = Position.Y;
+
+    protected override void Update() => Position = Position with { Y = _baseY + MathF.Sin((float)Time.TotalTime * Speed) * Height };
+}
+```
+
+```csharp
+builder.Services.AddScript<Bob>();
+```
+
+`AddScript` is in `Talesmith.Scripting`; reference `Talesmith.Scripting.dll`. See [Your first script](/scripting/scripts/first-script) for the `Script` class.
+
+## Example: Hex Quest
+
+The Hex Quest gameplay plugin registers its systems, HUD and music in a few lines:
+
+```csharp title="samples/Talesmith.Samples.HexQuest/HexQuestPlugin.cs"
+public sealed class HexQuestPlugin : IPlugin
+{
+    public void Configure(IPluginBuilder builder)
+    {
+        var services = builder.Services;
+        services.AddSingleton<QuestHud>();
+        services.AddSingleton<IGameOverlay, HudOverlay>();
+        services.AddGameMenu();
+        services.AddSystem<HeroSpawnSystem>();
+        services.AddSystem<HeroMovementSystem>();
+        services.AddSystem<CameraZoomSystem>();
+        services.AddSceneListener<AmbientMusic>();
+    }
+}
+```
+
+Its `Hero` component is a plain struct the spawn system adds in code; it is not registered with `AddComponent`, so it is not in the **Add component** menu and is never saved. Register a component only when scenes should store it.
+
+## Related
+
+- [Your first plugin](../first-plugin.mdx)
+- [Scenes and scene listeners](./scenes.mdx)
+- [Services](./services.mdx)
+- [Testing plugins](../testing.mdx)

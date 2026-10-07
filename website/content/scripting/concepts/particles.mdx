@@ -1,0 +1,186 @@
+---
+title: "Particles"
+description: "Control particle emitters from code, swap presets, build effects in code, and understand the simulation, budgets, level of detail and stats."
+---
+
+A particle effect is a `ParticleEmitter` component on an entity. Its particles are not entities: they live in arrays inside the emitter, so thousands of them cost little more than their memory, and each emitter is drawn as one batch. This page covers controlling emitters from scripts, presets and modules, and how the simulation keeps large effects cheap. You design effects in the editor's particle editor; see [Particles](/guide/effects/particles).
+
+## Control an emitter
+
+`ParticleEmitter` is in `Talesmith.VFX` and is a class, so `GetComponent<ParticleEmitter>()` gives you the shared emitter object. Keep it in a field from `OnStart`:
+
+| Member | What it does |
+| --- | --- |
+| `Play()` | Starts a cycle from the beginning, or resumes after `Pause` |
+| `Stop()` | Stops emitting; alive particles finish their lives |
+| `Stop(ParticleStopBehavior.StopEmittingAndClear)` | Stops and removes every particle at once |
+| `Pause()` | Freezes particles and emission |
+| `Clear()` | Removes every particle |
+| `Restart()` | Clears and plays from the beginning |
+| `Emit(count)` | Emits particles at once on the next update, whether or not the emitter is playing |
+| `IsPlaying`, `IsFinished`, `AliveCount` | Playback state; `IsFinished` is true when a played effect ended and every particle died |
+| `Settings` | The effect's `ParticleSettings`: playback settings and modules |
+| `Preset` | The guid of a `.tparticles` preset; while it is set and loaded, the emitter plays the preset instead of `Settings` |
+
+Calls take effect on the next simulation update, which runs in `LateUpdate`. A burst of sparks when something breaks is one line: `GetComponent<ParticleEmitter>().Emit(40)`. Lantern Grove's lanterns do exactly that when collected.
+
+### Swap presets at run time
+
+A preset is a `.tparticles` asset. Load it with `Assets.Load<ParticlePreset>(…)` (from `Talesmith.VFX.Presets`) and assign its settings. Take the guid from a field so the inspector offers a picker:
+
+```csharp title="assets/scripts/Campfire.cs"
+using Talesmith.VFX;
+using Talesmith.VFX.Presets;
+
+namespace MyGame;
+
+/// <summary>A campfire that flares up while the player stands close.</summary>
+public sealed class Campfire : Script
+{
+    [AssetFilter(".tparticles")]
+    public AssetGuid Flare;
+
+    [Range(0, 200)]
+    public int Sparks = 40;
+
+    private ParticleEmitter? _fire;
+    private ParticleSettings? _calm;
+    private ParticleSettings? _flare;
+
+    protected override void OnStart()
+    {
+        _fire = GetComponent<ParticleEmitter>();
+        _calm = _fire.Settings;
+        if (!Flare.IsEmpty)
+            _flare = Assets.Load<ParticlePreset>(Flare).Settings;
+    }
+
+    protected override void OnTriggerEnter(in ContactInfo contact)
+    {
+        if (_fire is null || _flare is null)
+            return;
+        _fire.Settings = _flare;
+        _fire.Emit(Sparks);
+    }
+
+    protected override void OnTriggerExit(in ContactInfo contact)
+    {
+        if (_fire is not null && _calm is not null)
+            _fire.Settings = _calm;
+    }
+}
+```
+
+The entity needs a trigger collider for the callbacks. Presets load once and are shared, so two emitters given the same preset's `Settings` share one object. Call `Settings.Clone()` before changing a preset's settings in code, or you change every emitter that uses it.
+
+### Build an effect in code
+
+Settings are plain objects, so code can build or adjust them field by field. `BuiltInParticlePresets` (in `Talesmith.VFX.Presets`) returns fresh copies of the engine's presets: `Fire`, `Smoke`, `Sparks`, `MagicSparkle`, `Rain`, `Snow`, `DustPuff` and `Explosion`.
+
+```csharp
+public void Fire()
+{
+    var sparks = BuiltInParticlePresets.Sparks();
+    sparks.Initial.Color = new MinMaxColor(Color.Parse("#A0E0FF"), Color.Parse("#4080FF"));
+    sparks.Emission.RateOverTime = 0;
+    sparks.Looping = false;
+    _burst = CreateEntity("Sparks", Position);
+    AddComponent(_burst, new ParticleEmitter(sparks)).Emit(40);
+}
+
+protected override void Update()
+{
+    if (!_burst.IsNull && TryGetComponent<ParticleEmitter>(_burst, out var emitter) && emitter.IsFinished)
+    {
+        Destroy(_burst);
+        _burst = Entity.Null;
+    }
+}
+```
+
+Values that may vary per particle are `MinMaxFloat` and `MinMaxColor`: equal ends give a constant, different ends a random value per particle. Curves and gradients are immutable, so assign a new one to change them. Building an effect allocates, so do it once and reuse the settings, not every frame.
+
+## Playback settings
+
+| Setting | |
+| --- | --- |
+| `Duration`, `Looping` | One emission cycle; bursts are timed within it. Non-looping emitters stop emitting after one cycle |
+| `Prewarm` | A looping effect starts as if a full cycle had already played |
+| `PlayOnStart`, `StartDelay` | Whether the emitter plays as soon as it is simulated, and how long it waits |
+| `SimulationSpeed` | Plays faster or slower than game time |
+| `SimulationSpace` | `World` leaves particles behind when the emitter moves; `Local` carries them along |
+| `MaxParticles` | The emitter's own cap |
+| `Seed` | A fixed seed makes every play identical; 0 picks a new seed each time |
+| `Culling` | What happens off screen: `Automatic` pauses looping emitters and lets one-shot emitters finish |
+
+## Modules
+
+Each aspect of an effect is a module with an `Enabled` switch:
+
+| Module | What it does |
+| --- | --- |
+| `Emission` | Rate over time, rate over distance moved (for trails) and bursts |
+| `Shape` | Where particles start: point, line, rectangle, circle or ring, cone, a grid cell, any polygon |
+| `Initial` | Lifetime, speed, size, rotation, spin and color of new particles |
+| `VelocityOverLifetime` | Drift, orbiting, pushing away from the emitter, a speed curve |
+| `Forces` | Constant acceleration and the scene's gravity times a scale |
+| `Drag` | Air resistance |
+| `Noise` | Turbulence from a flow field: swirls without clumping, for smoke and magic |
+| `ColorOverLifetime`, `SizeOverLifetime`, `RotationOverLifetime` | Gradients and curves over each particle's life |
+| `TextureSheet` | Animates through a grid of frames |
+| `Collision` | A ground line and the world's colliders, with bounce, friction, lifetime loss and `ParticleCollision` events |
+| `Renderer` | Texture, blend mode, render layer, sort order and alignment |
+
+With `Collision.WorldColliders` on, particles collide with solid colliders and collision tiles on the layers in `Collision.LayerMask`. With `Collision.SendEvents` on, hits are published as `ParticleCollision` events (up to 16 per emitter per frame), for splashes and hiss sounds:
+
+```csharp
+Events.Subscribe((ref ParticleCollision hit) => Log.Info(hit.Position.ToString()));
+```
+
+You can write modules of your own, such as wind, in a plugin; see [Particle modules](/plugins/runtime/particle-modules).
+
+## How the simulation runs
+
+Each emitter stores its particles as one array per attribute: positions, velocities, age, size, rotation, color and a random number per particle. That layout, a structure of arrays, is what makes the simulation fast:
+
+- **Only alive particles are touched.** A dead particle is replaced by the last one, so alive particles stay packed at the front.
+- **Hot loops are vectorized.** Forces, drag, movement and aging run over `Vector<float>` lanes, several particles per instruction.
+- **Curves and gradients are baked** into 256-entry tables, so evaluating one per particle is a table read.
+- **Variable step, sub-stepped.** Each frame advances by the frame's delta time in sub-steps of at most 1/30 second. Particles move smoothly at any refresh rate, and a hitch cannot make them explode.
+- **Deterministic.** Each emitter has its own seeded random generator, so a fixed seed replays the same effect.
+
+The simulation runs in `LateUpdate`, after gameplay moved the entities, in the editor's preview and in play mode. Drawing runs in `PreRender` in every mode, so a paused preview stays visible. Measured on a Ryzen 9 PRO 8945HS, one emitter with 10 000 particles costs 0.13 ms per frame with gravity and drag, and 0.39 ms with noise, orbit, spin and color and size curves; neither allocates.
+
+### Budgets and level of detail
+
+The engine limits particle cost on its own, through `ParticleOptions`:
+
+| Option | Default | |
+| --- | --- | --- |
+| `MaxParticlesPerScene` | 200 000 | A cap for the whole scene. Above `BudgetPressureThreshold` (0.8) of it, every emitter emits progressively less, so the cap is approached gently |
+| `CullingMargin` | 64 | World units around the view in which emitters count as visible. Off-screen looping emitters pause; one-shot emitters finish |
+| `LodMinimumPixelSize` | 2 | Emitters whose particles would be smaller on screen emit proportionally fewer, down to a tenth |
+| `EmissionScale` | 1 | Scales all emission, for a quality setting |
+
+`ParticleOptions` is a game-wide service. A graphics menu can lower emission with `GetService<ParticleOptions>().EmissionScale = 0.5f`.
+
+### Stats
+
+`ParticleStats`, also a service, holds the last frame's numbers for the active scene: `AliveParticles`, `EmittedPerSecond`, `SimulationMilliseconds`, `VisibleEmitters` and `CulledEmitters`. The performance overlay shows the markers `Particles/Simulate` and `Particles/Draw` and the counters `Particles alive`, `Particles emitted`, `Particles drawn`, `Particle emitters visible` and `Particle emitters culled`.
+
+## Performance tips
+
+- **One emitter per layer of an effect.** Each emitter has one texture and blend mode and draws as one batch; fire with smoke above it is two emitters, usually child entities.
+- **Prefer bursts on one emitter to many short-lived emitters.** Emitting 40 particles into an existing emitter costs only the particles; creating an entity per explosion costs a structural change and a new simulation.
+- **Clean up one-shot emitters** you create in code once `IsFinished` is true.
+- **Turn off world collision** where you do not need it. It costs a swept circle per particle per step.
+- **Leave `Culling` on `Automatic`** so effects outside the view do not simulate.
+
+Simulation runs on the CPU, on the game thread. Sub-emitters, trails and ribbons are not available.
+
+## Related
+
+- [Particles in the editor](/guide/effects/particles)
+- [Particle preset format](/developers/file-formats/particles)
+- [Particle modules in plugins](/plugins/runtime/particle-modules)
+- [Pickups](../recipes/pickups.mdx)

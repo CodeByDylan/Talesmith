@@ -1,0 +1,101 @@
+---
+title: "Sprites and the sprite editor"
+description: "Import textures, slice sprite sheets into sprites, build animations and use them on entities."
+---
+
+A texture is an image file. Used whole, it is one sprite; sliced in the sprite editor, a sheet becomes many named sprites, such as the frames of a walk cycle, and those sprites become animations. This page covers a texture's import settings, slicing a sheet by grid, by transparency or by hand, pivots, animations, and putting sprites and animations on entities.
+
+## Put a sprite in the scene
+
+Drag a texture from the Assets panel into the viewport. The editor creates an entity named after the file with a **Sprite** component showing the texture. To use one sprite of a sliced texture, pick it in the Sprite component's **Sprite** field, which lists the texture's sprites by name.
+
+## Texture settings
+
+Select a texture in the Assets panel to see its settings in the Inspector. The preview at the top shows the image on a checkerboard, with its sprites outlined; zoom with the buttons under it or double-click to fit. Change settings and click **Apply**.
+
+<Screenshot name="guide/asset-texture" caption="A character sheet sliced into four sprites, with pixel art filtering." />
+
+| Setting | Choices | What it does |
+| --- | --- | --- |
+| **Filter** | **Game default**, **Nearest (pixel art)**, **Linear (smooth)** | How the texture looks when scaled. Nearest keeps pixel art crisp; linear smooths painted art. Game default uses **Texture filter** from [Project Settings › Game](../workflow/project-settings.mdx). |
+| **Wrap** | **Clamp**, **Repeat**, **Mirror** | What a sprite shows beyond the texture's edge, for renderers and effects that sample outside it |
+| **Max size** | **Original**, 256 to 8192 | Scales larger images down when they are imported, with their sprites |
+| **Compression** | **None**, **Normal**, **High quality** | A hint for builds |
+| **Mipmaps** | **Generate mipmaps** | Smaller copies for drawing far zoomed out |
+| **Alpha** | **Premultiplied** | Tick when the file's colors are already multiplied by their transparency |
+| **Mode** | **Single**, **Multiple** | **Single** makes the whole texture one sprite. **Multiple** cuts it into sprites; click **Open sprite editor** to set them up. |
+
+For pixel art, choose **Nearest** here, or set the game's texture filter to nearest once in Project Settings so every texture follows. The platformer and hex templates do the latter.
+
+## The sprite editor
+
+Select a texture, set **Mode** to **Multiple** and click **Open sprite editor**. The **Sprite Editor** opens as a tab beside the Scene panel.
+
+<Screenshot name="guide/sprite-editor" caption="A character sheet sliced into four sprites, with hero-1 selected and a walk animation of two frames." />
+
+The image is shown pixel for pixel. Scroll to zoom around the pointer, drag with the middle or right mouse button to pan, and use the zoom bar to fit the image or see it at 100%.
+
+### Slice by grid
+
+For sheets laid out in a regular grid, under **Grid** on the left:
+
+<Steps>
+
+1. Choose **Cell size** and enter the size of one cell in pixels, or **Cell count** and enter how many columns and rows the sheet has.
+2. Set an **Offset** if the grid does not start at the top-left corner, and a **Padding** if there is space between cells.
+3. Keep **Skip empty cells** ticked to leave out cells with nothing in them.
+4. Tick **Preview the grid** to check the cells before you slice.
+5. Click **Slice by grid**.
+
+</Steps>
+
+The new sprites are named with the **Prefix** under **New sprites** and a number: *hero-0*, *hero-1* and so on.
+
+### Slice by transparency
+
+For sheets where sprites are scattered, under **Automatic**, click **Slice by transparency**. Each group of touching opaque pixels becomes a sprite. **Alpha above** sets how opaque a pixel must be to count, **Minimum size** drops specks, and **Merge within** joins groups that are closer than that many pixels, such as a character and its separate sword.
+
+### Draw and adjust sprites
+
+- Drag on empty space in the image to draw a sprite.
+- Click a sprite to select it; <Keys>Ctrl</Keys>+click toggles, <Keys>Shift</Keys>+click adds.
+- Drag a selected sprite to move it, its handles to resize it, and its round handle to move its pivot. Everything snaps to whole pixels.
+- Arrow keys nudge the selected sprites by a pixel, or 10 with <Keys>Shift</Keys>. <Keys>Delete</Keys> deletes them.
+
+The **Sprite** section on the right edits the selected sprite's **Name**, **Position**, **Size** and **Pivot**. The toolbar above the image selects all sprites, renames them in order with the prefix, deletes the selected sprites or removes every sprite.
+
+### Pivots
+
+The pivot is the point of the sprite that sits at the entity's position, and the point it rotates and scales around, given from 0 to 1 across the sprite: `0.5, 0.5` is the center, `0.5, 1` the bottom center. For characters, a pivot at their feet makes positions easy to reason about: an entity at the top of the ground stands on it. The **Preset** grid sets the pivot of every selected sprite to a corner, an edge's middle or the center. New sprites get the **Pivot** chosen under **New sprites**.
+
+### Animations
+
+<Steps>
+
+1. Select the frames in the image or in the **Sprites** list, in order.
+2. Click **+** next to **Animations**. A new animation is made of the selected sprites.
+3. Type the animation's name, such as `walk`.
+4. Set the frame rate in frames per second, 12 by default, and whether it loops.
+5. Press the play button, or <Keys>Space</Keys>, to watch it in the preview.
+
+</Steps>
+
+Drag frames to reorder them, click × on a frame to remove it, and use **Add selected** to append more sprites. One sprite can be a frame in several animations.
+
+### Apply your changes
+
+Sprites and animations are stored in the texture's import settings. Click **Apply** to save them; **Revert** discards them. The editor asks before it discards unapplied changes, for example when you close the sprite editor. Every edit can be undone while you work.
+
+## Play an animation on an entity
+
+Add a **Sprite Animator** next to the entity's Sprite, and set its **Texture** and its **Animation**, picked by name from the texture's animations. It plays as soon as the scene starts, unless you untick **Play On Start**, and its **Speed** scales the frame rate. The templates' heroes use an animator playing *idle*. Scripts switch animations by changing the animator's animation, as the Lantern Grove sample's player does for running and jumping.
+
+## Missing sprites
+
+When a Sprite or Sprite Animator names a sprite or animation the texture no longer has, for example after you renamed it in the sprite editor, the console shows a warning naming the texture and the missing sprite. Pick the new name in the field to fix it.
+
+## Related
+
+- [Sprite atlases](./atlases.mdx), to pack many textures into one.
+- [Built-in components](../scenes/components.mdx#sprite)
+- [Tilesets](../tile-maps/tilesets.mdx), which slice images for tile maps instead.

@@ -1,0 +1,112 @@
+---
+title: "Hexy maps"
+sidebar_label: ".hexy"
+description: "How Talesmith reads and writes maps in the Hexy editor's .hexy format, and what it adds."
+---
+
+Talesmith reads and writes `.hexy` maps, the native format of the Hexy map editor, without losing anything. This page notes what Talesmith uses from the format (grids, chunks, layers, tilesets, terrains, objects and properties), the two properties it adds for layer roles and tile collision, and how round-tripping with Hexy works. The reader and writer are in `src/Talesmith.Assets.Hexy`; Hexy's own documentation has the complete format reference ("The .hexy file format").
+
+## The package
+
+A version 2 `.hexy` file is a zip archive holding `map.json` and every tileset image under `assets/`. Lantern Grove's map:
+
+```text title="samples/LanternGrove/assets/maps/grove.hexy"
+map.json
+assets/blocks-7222af150895.png
+assets/ground-dd47df3afa07.png
+assets/plants-8fc2c592ea03.png
+assets/trees-52098d65a1a3.png
+```
+
+Talesmith also reads version 1 maps, which are a bare JSON file whose tileset images sit next to it in the asset folder. It always writes version 2. Each image is named after its tileset with a hash of its contents, as Hexy names them.
+
+## map.json
+
+The start of Lantern Grove's `map.json`, with tiles, chunks and layers shortened:
+
+```json title="map.json in grove.hexy"
+{
+  "format": "hexy",
+  "version": 2,
+  "orientation": "orthogonal",
+  "hexWidth": 64,
+  "hexHeight": 64,
+  "chunkSize": 32,
+  "nextObjectId": 1,
+  "backgroundColor": "#0B1030",
+  "properties": [
+    { "name": "title", "type": "string", "value": "Lantern Grove" }
+  ],
+  "tilesets": [
+    {
+      "id": 1,
+      "name": "Ground",
+      "image": "assets/ground-dd47df3afa07.png",
+      "tileWidth": 64,
+      "tileHeight": 72,
+      "margin": 0,
+      "spacing": 2,
+      "columns": 4,
+      "tileCount": 16,
+      "tiles": [
+        { "id": 0, "name": "Ground ----", "properties": [ { "name": "solid", "type": "bool", "value": "true" } ] }
+      ]
+    }
+  ],
+  "layers": [
+    {
+      "type": "tiles",
+      "encoding": "base64-zlib-u32le",
+      "chunks": [
+        { "q": 0, "r": 0, "data": "eAFiGAWjITAaAqMhMCRDQIBoVzMyEKMWtxri9BPt…" }
+      ],
+      "id": "b0f82380-3ee1-46ef-aad3-d67d734196ea",
+      "name": "Trees",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "properties": [
+        { "name": "role", "type": "string", "value": "decoration" }
+      ]
+    }
+  ]
+}
+```
+
+## What Talesmith uses
+
+| Part | How Talesmith reads it |
+| --- | --- |
+| Grid | `orientation` `pointy` or `flat` gives a hex grid of `hexWidth` × `hexHeight`; `orthogonal` gives a rectangular grid, and the older `"grid": "square"` or `"orientation": "square"` loads the same way. Missing orientation means `pointy`. |
+| Chunks | `chunkSize` must be a power of two from 4 to 256. Each chunk's `data` is base64 of zlib-compressed little-endian 32-bit cells. Chunks stay compressed until the game needs them, and are decoded and meshed as the camera reaches them. |
+| Cells | Each 32-bit cell packs the tile id (bits 0 to 17), the tileset id (bits 18 to 27, 0 for empty), a clockwise rotation in steps (bits 28 to 30; 60° on hex grids, 90° on rectangular grids) and a horizontal flip (bit 31). Talesmith's `TileCell` uses the same layout, so chunk data is used as stored. |
+| Layers | `tiles` layers become tile layers drawn per chunk; object layers become map objects. `name`, `visible`, `locked`, `opacity` and `properties` are kept. Each layer gets a role; see below. |
+| Tilesets | The image, tile size, margin, spacing and columns, and per tile its name, color, animation frames and properties. A missing image is a warning, and its tiles draw in their colors. |
+| Terrains | Terrains and their rules, for the editor's terrain brush. Terrains of missing tilesets, and rules written for another grid, are skipped with a warning. |
+| Objects | Tile objects become sprites sorted by their bottom edge; polygons become trigger areas. Every object keeps its id, name, type and properties in a `MapObjectComponent`, so game code can read them. |
+| Properties | Map, layer, tile and object properties are available to game code through their property sets, typed as Hexy stores them. Game-specific properties such as the samples' `solid`, `oneWay` and `hazard` mean nothing to the engine; the sample game code reads them. |
+
+## What Talesmith adds
+
+Hexy has no fields for layer roles or tile collision shapes, so Talesmith stores them as custom properties, which Hexy shows, keeps and writes back unchanged.
+
+| Property | On | Value | Meaning |
+| --- | --- | --- | --- |
+| `role` | Layers | `ground`, `decoration`, `collision`, `trigger`, `object`, `navigation` or `custom`, as a string | What the layer is for. Collision layers become solid ground for physics and cast shadows; trigger layers report activators entering and leaving. Reading ignores case and a plural `s`. |
+| `collision` | Tiles | Polygons separated by `;`, points by spaces, coordinates by a comma | Collision shapes of the tile in pixels from the cell center, such as `-32,-16 32,-16 0,16`. Without it, every non-empty cell of a collision layer is solid. |
+
+A layer without a `role` property gets one from its name: a name containing a word such as `collision`, `solid`, `walls` or `blocking` makes a collision layer; `trigger` or `zones` a trigger layer; `navigation`, `nav` or `walkable` a navigation layer; `decoration`, `detail` or `overlay` a decoration layer (tile layers only). Anything else is `ground` for tile layers and `object` for object layers. The writer stores `role` only when it differs from what the name implies, so most maps carry no role property at all. A property named `role` or `collision` whose value does not parse stays an ordinary property.
+
+## Round-tripping with Hexy
+
+You can edit a map in Talesmith and in Hexy in turn:
+
+- **Unknown data is kept.** Fields and sections Talesmith does not model, at any level, are written back as they were read.
+- **Unchanged values keep their form.** Numbers, properties and objects that did not change are written exactly as they were read, so saving an unchanged map gives the same `map.json`. A property Talesmith turned into model data, such as `role`, goes back to its original position.
+- **Images are written once.** Saving writes `map.json` first, then each tileset image once under `assets/`, with the image read from the old file before it is replaced. The file is replaced atomically.
+- **No isometric grids.** Hexy has none, so neither does the format.
+
+## Related
+
+- [Maps and grids](/guide/tile-maps/maps-and-grids) in the guide explains hex and rectangular maps in the editor.
+- [Layers](/guide/tile-maps/layers) explains layer roles in the editor.

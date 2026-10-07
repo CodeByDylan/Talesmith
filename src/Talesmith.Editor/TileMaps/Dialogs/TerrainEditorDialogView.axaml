@@ -1,0 +1,199 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.TileMaps.Dialogs"
+             xmlns:controls="using:Talesmith.Editor.TileMaps.Controls"
+             x:Class="Talesmith.Editor.TileMaps.Dialogs.TerrainEditorDialogView"
+             x:DataType="vm:TerrainEditorDialogViewModel">
+  <UserControl.DataTemplates>
+    <DataTemplate x:DataType="vm:TileOption">
+      <Panel>
+        <Border Background="{Binding Brush}" CornerRadius="4" IsVisible="{Binding !HasImage}" />
+        <Image Source="{Binding Image}" IsVisible="{Binding HasImage}" Stretch="Uniform" />
+      </Panel>
+    </DataTemplate>
+  </UserControl.DataTemplates>
+
+  <ui:Dialog Header="Terrain" Description="Rules are evaluated top to bottom; the first rule whose neighbors match picks the tile." Width="920">
+    <Grid RowDefinitions="Auto,16,Auto,16,Auto">
+      <Grid ColumnDefinitions="*,16,Auto">
+        <StackPanel Spacing="6">
+          <TextBlock Classes="section" Text="Name" />
+          <TextBox Text="{Binding Name}" PlaceholderText="Terrain name" />
+        </StackPanel>
+        <StackPanel Grid.Column="2" Spacing="6">
+          <TextBlock Classes="section" Text="Base tile" />
+          <Border Classes="card" Padding="6" Height="34">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <ContentControl Content="{Binding BaseTile}" Width="22" Height="22" />
+              <TextBlock Text="{Binding BaseTile.Name, FallbackValue='None'}" VerticalAlignment="Center" MinWidth="120" />
+              <TextBlock Classes="caption muted" Text="{Binding TilesetName}" VerticalAlignment="Center" Margin="0,0,4,0" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Grid>
+
+      <Grid Grid.Row="2" ColumnDefinitions="280,16,*" Height="300">
+        <DockPanel>
+          <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+            <TextBlock Classes="section" Text="Rules" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
+              <Button Classes="icon small" ToolTip.Tip="Add rule" Command="{Binding AddRuleCommand}"><ui:SymbolIcon Data="{x:Static ui:Icons.Plus}" Size="14" /></Button>
+              <Button Classes="icon small" ToolTip.Tip="Duplicate rule" Command="{Binding DuplicateRuleCommand}"><ui:SymbolIcon Data="{x:Static ui:Icons.Copy}" Size="14" /></Button>
+              <Button Classes="icon small" ToolTip.Tip="Move up" Command="{Binding MoveRuleUpCommand}"><ui:SymbolIcon Data="{x:Static ui:Icons.ArrowUp}" Size="14" /></Button>
+              <Button Classes="icon small" ToolTip.Tip="Move down" Command="{Binding MoveRuleDownCommand}"><ui:SymbolIcon Data="{x:Static ui:Icons.ArrowDown}" Size="14" /></Button>
+              <Button Classes="icon small" ToolTip.Tip="Remove rule" Command="{Binding RemoveRuleCommand}"><ui:SymbolIcon Data="{x:Static ui:Icons.Trash}" Size="14" /></Button>
+            </StackPanel>
+          </Grid>
+          <Border Background="{DynamicResource SurfaceSunkenBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="{DynamicResource CornerRadiusMedium}">
+            <Panel>
+              <ListBox Classes="sidebar" Margin="4" Background="Transparent" ItemsSource="{Binding Rules}" SelectedItem="{Binding SelectedRule}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:TerrainRuleViewModel">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <ui:SymbolIcon Data="{Binding $parent[UserControl].((vm:TerrainEditorDialogViewModel)DataContext).CellIcon}" Size="14" />
+                      <TextBlock Classes="mono" Text="{Binding Summary}" FontSize="12" VerticalAlignment="Center" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+              <StackPanel Spacing="8" VerticalAlignment="Center" HorizontalAlignment="Center" IsVisible="{Binding !HasRules}">
+                <TextBlock Classes="muted" Text="No rules yet" HorizontalAlignment="Center" />
+                <TextBlock Classes="caption muted" Text="Without rules every cell uses the base tile." HorizontalAlignment="Center" />
+                <Button Classes="small" HorizontalAlignment="Center" Command="{Binding AddRuleCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="6"><ui:SymbolIcon Data="{x:Static ui:Icons.Plus}" Size="12" /><TextBlock Text="Add rule" /></StackPanel>
+                </Button>
+              </StackPanel>
+            </Panel>
+          </Border>
+        </DockPanel>
+
+        <Border Grid.Column="2" Classes="card" Padding="16" IsVisible="{Binding HasSelectedRule}">
+          <ContentControl Content="{Binding SelectedRule}">
+            <ContentControl.ContentTemplate>
+              <DataTemplate x:DataType="vm:TerrainRuleViewModel">
+                <Grid ColumnDefinitions="Auto,24,*">
+                  <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Classes="section" Text="Neighbors" />
+                    </Grid>
+                    <controls:NeighborPatternEditor Width="172" Height="172" Pattern="{Binding Pattern}"
+                                                    Layout="{Binding $parent[UserControl].((vm:TerrainEditorDialogViewModel)DataContext).Layout}" />
+                    <TextBlock Classes="caption muted" Text="{Binding $parent[UserControl].((vm:TerrainEditorDialogViewModel)DataContext).GridName}" HorizontalAlignment="Center" />
+                    <StackPanel Spacing="4">
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Border Width="10" Height="10" CornerRadius="2" Background="{DynamicResource AccentBrush}" />
+                        <TextBlock Classes="caption" Text="Same terrain" />
+                      </StackPanel>
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Border Width="10" Height="10" CornerRadius="2" Background="{DynamicResource DangerBrush}" Opacity="0.6" />
+                        <TextBlock Classes="caption" Text="Different terrain" />
+                      </StackPanel>
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Border Width="10" Height="10" CornerRadius="2" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1" />
+                        <TextBlock Classes="caption" Text="Any (click to cycle)" />
+                      </StackPanel>
+                    </StackPanel>
+                  </StackPanel>
+
+                  <DockPanel Grid.Column="2">
+                    <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,12">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Classes="section" Text="Output tiles" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Classes="caption mono muted" Text="{Binding Pattern}" VerticalAlignment="Center" />
+                      </Grid>
+                      <CheckBox IsChecked="{Binding MatchRotations}">
+                        <StackPanel Spacing="1">
+                          <TextBlock Text="Match all rotations" />
+                          <TextBlock Classes="caption muted" Text="Also try the pattern rotated, rotating the output tile to fit." />
+                        </StackPanel>
+                      </CheckBox>
+                    </StackPanel>
+                    <Panel>
+                      <ScrollViewer>
+                        <ItemsControl ItemsSource="{Binding Tiles}">
+                          <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><StackPanel Spacing="4" /></ItemsPanelTemplate>
+                          </ItemsControl.ItemsPanel>
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:WeightedTileOption">
+                              <Border Background="{DynamicResource SurfaceSunkenBrush}" CornerRadius="{DynamicResource CornerRadiusMedium}" Padding="6,4">
+                                <Grid ColumnDefinitions="Auto,10,*,Auto,8,Auto">
+                                  <ContentControl Content="{Binding Tile}" Width="26" Height="26" />
+                                  <TextBlock Grid.Column="2" Text="{Binding Tile.Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                  <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Classes="caption muted" Text="Weight" VerticalAlignment="Center" />
+                                    <ui:NumberField Value="{Binding Weight}" Minimum="0" Maximum="1000" Step="0.5" FormatString="0.##" Width="84" />
+                                  </StackPanel>
+                                  <Button Grid.Column="5" Classes="icon small" ToolTip.Tip="Remove"
+                                          Command="{Binding $parent[ItemsControl].((vm:TerrainRuleViewModel)DataContext).RemoveTileCommand}" CommandParameter="{Binding}">
+                                    <ui:SymbolIcon Data="{x:Static ui:Icons.X}" Size="12" />
+                                  </Button>
+                                </Grid>
+                              </Border>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </ScrollViewer>
+                      <TextBlock Classes="caption muted" TextWrapping="Wrap" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="260"
+                                 Text="Pick tiles below with “Rule output” selected. Several tiles are chosen at random by weight."
+                                 IsVisible="{Binding !Tiles.Count}" />
+                    </Panel>
+                  </DockPanel>
+                </Grid>
+              </DataTemplate>
+            </ContentControl.ContentTemplate>
+          </ContentControl>
+        </Border>
+        <Border Grid.Column="2" Classes="card" IsVisible="{Binding !HasSelectedRule}">
+          <TextBlock Classes="muted" Text="Select or add a rule to edit it." HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+      </Grid>
+
+      <DockPanel Grid.Row="4">
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+          <TextBlock Classes="section" Text="Tiles" VerticalAlignment="Center" />
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="caption muted" Text="Clicking a tile sets" VerticalAlignment="Center" />
+            <ui:SegmentedControl SelectedIndex="{Binding PickModeIndex}">
+              <ui:SegmentedControlItem Content="Base tile" />
+              <ui:SegmentedControlItem Content="Rule output" IsEnabled="{Binding HasSelectedRule}" />
+            </ui:SegmentedControl>
+          </StackPanel>
+        </Grid>
+        <Border Background="{DynamicResource SurfaceSunkenBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="{DynamicResource CornerRadiusMedium}">
+          <ScrollViewer MaxHeight="136" Padding="6">
+            <ItemsControl ItemsSource="{Binding Tiles}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><WrapPanel ItemSpacing="4" LineSpacing="4" /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:TileOption">
+                  <Button Classes="subtle" Width="42" Height="42" Padding="4" ToolTip.Tip="{Binding Name}"
+                          HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                          Command="{Binding $parent[UserControl].((vm:TerrainEditorDialogViewModel)DataContext).PickTileCommand}" CommandParameter="{Binding}">
+                    <ContentControl Content="{Binding}" />
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Border>
+      </DockPanel>
+    </Grid>
+
+    <ui:Dialog.Footer>
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                    IsVisible="{Binding ValidationMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.AlertCircle}" Size="14" Foreground="{DynamicResource WarningBrush}" />
+          <TextBlock Classes="caption" Text="{Binding ValidationMessage}" Foreground="{DynamicResource TextSecondaryBrush}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+          <Button Content="Cancel" MinWidth="84" IsCancel="True" Command="{Binding CancelCommand}" />
+          <Button Classes="accent" Content="Save terrain" MinWidth="104" IsDefault="True" Command="{Binding SaveCommand}" />
+        </StackPanel>
+      </Grid>
+    </ui:Dialog.Footer>
+  </ui:Dialog>
+</UserControl>

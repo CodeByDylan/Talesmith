@@ -1,0 +1,18 @@
+{
+  // Default key bindings of Isle Hopper. Players can rebind these; the game saves its own copy.
+  "actions": {
+    "Run": {
+      "kind": "axis",
+      "bindings": [
+        { "type": "axis", "negative": "A", "positive": "D" },
+        { "type": "axis", "negative": "Left", "positive": "Right" }
+      ]
+    },
+    "Jump": {
+      "kind": "button",
+      "bindings": [ { "type": "key", "key": "Space" }, { "type": "key", "key": "W" }, { "type": "key", "key": "Up" }, { "type": "key", "key": "Enter" } ]
+    },
+    "Restart": { "kind": "button", "bindings": [ { "type": "key", "key": "R" } ] },
+    "Menu": { "kind": "button", "bindings": [ { "type": "key", "key": "Escape" } ] }
+  }
+}

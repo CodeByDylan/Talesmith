@@ -1,0 +1,99 @@
+---
+title: "The manifest"
+description: "Write plugin.json: identity, versions, entry assemblies, dependencies, permissions and settings."
+---
+
+Every plugin folder has a `plugin.json` next to its assemblies. The engine reads it before it loads any code, to decide whether the plugin can load, in which order, and what to show about it in the editor. This page explains the manifest with a complete example and what the engine does with each part; [plugin.json](../reference/plugin-json.mdx) is the field-by-field reference.
+
+## A complete example
+
+This is the manifest of the Spinners plugin once it has an editor part, a dependency and every optional field:
+
+```json title="plugins-src/Spinners/plugin.json"
+{
+  // Comments and trailing commas are allowed.
+  "id": "coral-cove.spinners",
+  "name": "Spinners",
+  "version": "1.2.0",
+  "description": "Turns entities with a Spinner component, with editor tools to place and tune them.",
+  "authors": [ "Dylan de Beer" ],
+  "license": "MIT",
+  "homepage": "https://example.com/spinners",
+  "icon": "icon.png",
+  "assembly": "Spinners.dll",
+  "editorAssembly": "Spinners.Editor.dll",
+  "contractVersion": 1,
+  "minEngineVersion": "0.1.0",
+  "dependencies": [
+    { "id": "samples.hexquest", "version": "^1.0", "optional": true }
+  ],
+  "permissions": [ "runtimeScene", "editorUi" ],
+  "extensions": [ "components", "systems", "editor.panels", "editor.commands", "editor.tools" ],
+  "assets": "assets",
+  "enabled": true
+}
+```
+
+Only `id`, `assembly` and `contractVersion` are required. A minimal manifest is three lines:
+
+```json title="plugin.json"
+{ "id": "acme.weather", "assembly": "Weather.dll", "contractVersion": 1 }
+```
+
+## Identity
+
+`id` identifies the plugin everywhere: in `plugins.json`, in other plugins' dependencies, in settings and in the load order. Choose it once and do not change it. It is lowercase letters and digits in groups separated by `.`, `-` or `_`, such as `coral-cove.spinners` or `acme.weather`. The editor's scaffold uses `<project>.<plugin>`; for plugins you share, a prefix of your own, such as your studio's name, keeps ids from colliding.
+
+`name` is what the editor shows; it defaults to the id. `version` is `major.minor.patch` and defaults to `1.0.0`. `description`, `authors`, `license` (ideally an SPDX expression such as `MIT`), `homepage` (an `http` or `https` address) and `icon` (an image in the plugin folder, shown on its card) are only shown to people.
+
+## Assemblies
+
+`assembly` is the file name of the runtime assembly, in the plugin folder itself, not a subfolder. It must contain exactly one public, non-abstract class that implements `IPlugin` and has a public parameterless constructor.
+
+`editorAssembly` is the file name of the editor part. Games never load it. The editor loads it into the same load context as `assembly` and creates every public `IEditorPlugin` class in it. It must be a different file from `assembly`. When it is missing, the plugin still loads and its card warns that its editor features are unavailable. See [Editor plugins](../editor/index.mdx).
+
+## Engine compatibility
+
+`contractVersion` is the version of the public contracts the plugin was compiled against. It is `1` for this engine (`EngineInfo.ContractVersion`). A plugin with any other number is skipped with **it was built for engine contract version 2, but this engine uses version 1**. The number changes only when the engine breaks plugins, so a rebuilt plugin keeps working across engine releases that keep it.
+
+`minEngineVersion` is the oldest engine release the plugin runs on, such as `0.1.0`, for plugins that use an API added in that release. An older engine skips the plugin with the reason. Without it, any engine with the same contract version may load the plugin.
+
+## Dependencies, permissions and the rest
+
+- `dependencies` lists other plugins this one uses, each with a version range and whether it is optional. Required dependencies load first, and the plugin is skipped without them. See [Dependencies and versions](./dependencies.mdx).
+- `permissions` declares what the plugin does beyond registering ordinary services, such as adding systems (`runtimeScene`) or extending the editor (`editorUi`). See [Permissions](./permissions.mdx).
+- `extensions` lists the extension points the plugin contributes to, such as `systems` or `editor.panels`. The list is shown under **Extends** on the plugin's card; it changes nothing about loading. See [the well-known ids](../reference/plugin-json.mdx#extension-ids).
+- `assets` names a folder in the plugin folder with files the plugin ships. See [Packaging](./packaging.mdx#assets-shipped-with-a-plugin).
+- `enabled: false` installs the plugin switched off. A game turns it on in `plugins.json`; see [Installing](../installing.mdx#pluginsjson).
+
+Settings are not declared in the manifest. A plugin reads them with a default in code; see [Plugin settings](./settings.mdx).
+
+## Validation
+
+The engine checks the whole manifest and reports every problem at once, with a suggestion when a name looks like a typo. Unknown properties are errors, so a misspelled field never goes unnoticed. This manifest:
+
+```json title="plugin.json"
+{ "id": "Broken Plugin", "versoin": "1.0", "assembly": "Broken.exe" }
+```
+
+makes the plugin **Failed**, with this reason on its card and in the console:
+
+```text
+/path/to/Coral Cove/assets/plugins/broken/plugin.json is invalid:
+  - unknown property "versoin"; did you mean "version"?
+  - id "Broken Plugin" must be lowercase letters and digits separated by '.', '-' or '_', such as "talesmith.cutscenes".
+  - assembly "Broken.exe" must be the file name of a .dll in the plugin folder, such as "MyPlugin.dll".
+  - contractVersion is required (this engine uses 1).
+```
+
+[plugin.json](../reference/plugin-json.mdx#validation-errors) lists every message. Some problems do not stop the plugin and appear as warnings instead: an editor assembly without the `editorUi` permission, and an `icon` or `assets` folder that does not exist.
+
+:::note[Older manifests]
+Manifests written before version ranges existed keep working: a dependency's `"minimumVersion": "1.0.0"` means `"version": ">=1.0.0"`. A dependency may have one or the other, not both.
+:::
+
+## Related
+
+- [plugin.json reference](../reference/plugin-json.mdx)
+- [Dependencies and versions](./dependencies.mdx)
+- [Permissions](./permissions.mdx)

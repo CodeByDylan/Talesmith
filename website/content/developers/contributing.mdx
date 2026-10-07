@@ -1,0 +1,173 @@
+---
+title: "Contributing"
+description: "Conventions for code, tests, commits and documentation in the Talesmith repository."
+---
+
+This page collects the conventions contributors follow: code style, naming, comments, nullable and analyzers, tests for every change, commit messages, and keeping docs and this website current.
+
+The rules here come from the repository itself: `.editorconfig`, `Directory.Build.props` and the code that is already there. When something is not covered, match the code around your change.
+
+## Build settings
+
+`Directory.Build.props` applies to every project:
+
+| Setting | Value | What it means for you |
+| --- | --- | --- |
+| `TargetFramework` | `net10.0` | Use current C# and .NET APIs freely. |
+| `LangVersion` | `latest` | Collection expressions, primary constructors and `field` are all in use. |
+| `Nullable` | `enable` | Every reference type states whether it can be null. Do not silence warnings with `!` where a check or a better type would do. |
+| `ImplicitUsings` | `enable` | Leave out `using System;`, `System.Linq` and the other implicit namespaces. |
+| `AnalysisLevel` | `latest-recommended` | The .NET analyzers run on every build. Fix their warnings rather than suppressing them. |
+| `AllowUnsafeBlocks` | `false` | No `unsafe` code. Use spans, `MemoryMarshal` and `CollectionsMarshal` instead. |
+| `GenerateDocumentationFile` | `true` for libraries | XML docs ship with the libraries. Missing docs are not warnings (`CS1591` is off), so document what needs it rather than everything. |
+
+Package versions live in `Directory.Packages.props` (central package management). A project's `PackageReference` has no `Version`; add new packages to `Directory.Packages.props` first. See [Building and testing](./building.mdx).
+
+## Code style
+
+`.editorconfig` sets UTF-8, LF line endings, a final newline, four spaces for C# and two for project files, XAML and JSON, keeps the braces of a `case` block level with the `case`, and makes block-scoped namespaces a warning. `dotnet format whitespace Talesmith.slnx` and `dotnet format style Talesmith.slnx` apply these rules; CI fails a pull request they would change. `.gitattributes` keeps the LF line endings in Windows checkouts too, so tests that read files from the repository see the same bytes on every platform. The rest of the style is what the code does everywhere:
+
+- **File-scoped namespaces** that match the folder: `namespace Talesmith.Editor.Panels;`. System `using` directives first.
+- **One public type per file**, named after the file. Small private helpers and closely related records may share a file.
+- **Sealed by default.** Classes are `sealed` unless they are designed for inheritance; about nine in ten classes in `src` are. Avalonia controls meant to be restyled stay unsealed.
+- **`internal` unless it is API.** Plugins compile against the public surface of the engine libraries, so every public type is a promise. Hide implementation types.
+- **Primary constructors** for services that only store their dependencies: `public sealed class DialogService(WindowHost host) : IDialogService`.
+- **`var`** where the type is obvious from the right-hand side, **expression bodies** for one-line members, **collection expressions** (`[]`, `[.. items]`) for collections.
+- **Braces on their own lines.** An `if` with a single-line body may leave out the braces; a body over several lines always has them.
+- **Naming:** `PascalCase` for types, members and constants, `_camelCase` for private fields, `camelCase` for locals and parameters, `I` prefix for interfaces. Async methods end in `Async`.
+- **Records** for immutable data and options (`DockPlacement`, `GameSettings`), `readonly record struct` for small values.
+
+```csharp
+namespace Talesmith.Editor.Panels;
+
+/// <summary>The dock layout of the editor window, kept per project in <c>.talesmith/layout.json</c>.</summary>
+public sealed class LayoutService : IAsyncDisposable
+{
+    private readonly PanelRegistry _panels;
+
+    public DockLayout Layout { get; private set; }
+
+    public void ShowPanel(string panelId)
+    {
+        if (_panels.Contains(panelId))
+            Layout.EnsureVisible(panelId);
+    }
+}
+```
+
+### Logging
+
+Log through `ILogger` with source-generated `[LoggerMessage]` methods, not `logger.LogWarning($"...")`. Generated methods do not format or allocate when the level is off, and the message template stays a constant. Put a project's messages in one `static partial` class:
+
+```csharp title="src/Talesmith.Assets.Hexy/HexyLog.cs"
+internal static partial class HexyLog
+{
+    [LoggerMessage(Level = LogLevel.Warning, Message = "{Path}: {Warning}")]
+    public static partial void Warning(ILogger logger, string path, string warning);
+}
+```
+
+Log messages are sentences a user can act on, since the editor's console shows them.
+
+### Performance on the game thread
+
+Code that runs every frame must not allocate once it has warmed up. Prefer `Query.Run` with struct jobs over lambdas that capture, declare queries, markers and counters once in fields, and record structural changes in the command buffer. The [performance guide](/guide/performance) shows how to measure it, and the overlay shows allocations per frame and per system.
+
+## Comments
+
+Default to no comment. Names, types and small methods should say what the code does.
+
+- **XML doc summaries** on public types and members that need them: one line, saying what the thing is or does, not how. Add `<remarks>`, `<param>` or `<exception>` only when there is something the summary cannot carry, such as a threading rule or a thrown exception.
+- **Inline comments** only for what the code cannot say: a non-obvious constraint, an invariant, a workaround for a platform or library bug. One line.
+- **Never narrate.** No reasoning, no alternatives you considered, no history of a bug or how you found it, no "now we…" walkthroughs. That belongs in the commit message.
+- Do not restate the code: `// Increment the count` above `count++` is noise.
+
+```csharp
+/// <summary>Saves dock layouts as JSON and loads them back, dropping panels the application no longer has.</summary>
+public static class DockLayoutSerializer
+```
+
+```csharp
+catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+{
+    // The layout is a convenience; the next session starts from the default layout.
+}
+```
+
+## Tests
+
+Every change comes with tests: a bug fix with a test that fails without it, a feature with tests of its behavior. A change that is hard to test usually needs a seam, not an exception to the rule.
+
+- **One test project per library**, `tests/Talesmith.<Library>.Tests`, mirroring the library's folders. The samples have their own tests, and `Talesmith.EndToEnd.Tests` covers whole workflows: new projects from every template, Lantern Grove played with simulated keys, the cutscene plugin switched off and on, and a Linux export run afterwards.
+- **xUnit v3 on the Microsoft Testing Platform** (`global.json` selects the runner). Test projects are executables; `Xunit` is a global using.
+- **Test names are sentences** in PascalCase that state the behavior: `ColorsRoundTripAsHex`, `PlayEditsChangeThePlayWorldButNotTheDocument`. Test classes are `sealed`.
+- **Editor and UI tests** run on a shared headless Avalonia application through the `Headless.Run` helper in each UI test project, so test code runs on the UI thread:
+
+  ```csharp
+  [Fact]
+  public void ActionsWithTheSameNameAreNotSaved() => Headless.Run(async () =>
+  {
+      // ...
+  });
+  ```
+
+- **Slow tests** that publish players or export games are marked `[Trait("Category", "Slow")]`, so a quick run can leave them out. Do not mark a test slow to hide a slow implementation.
+- **Timing is tested on simulated time**: `FrameScheduleTests` check the simulation thread's frame rates on a clock the test advances, so they give the same result on every machine. Tests on real threads wait for what they need, such as more frames, with a generous timeout, instead of counting what happens in a fixed time, and bound counts only from above: a busy machine runs fewer frames, never more. Such tests join their project's `FrameTiming` collection with `[Collection(nameof(FrameTiming))]`, which runs alone after the other tests.
+- **Tests that a path does not allocate** measure a few rounds of the same work and pass when one round allocates nothing. Allocations in the code show up in every round, while the runtime's own one-off work shows up in one.
+- **Stop what a test starts** in a `finally` block: close its windows and dispose its games. A frame loop or simulation thread left running reaches Avalonia's dispatcher while the next test sets up its headless application, and makes that test fail.
+- **Wait for the state a test needs**, such as the start scene having faded in before pressing keys, rather than for something that usually comes at about the same time.
+- Tests create their files in temporary folders and copy samples before changing them. Never write into `samples/`: a stray `.meta` file or rebuilt plugin there changes the repository.
+
+How to run them, all or filtered, is in [Building and testing](./building.mdx). CI runs them on every pull request; see [Continuous integration](./continuous-integration.mdx).
+
+## Commit messages
+
+One commit per change. Every commit message follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/): a type, a scope when the change stays in one part of the repository, and a subject that says what the change does as an imperative sentence, without a trailing period:
+
+```text
+perf(editor): insert and remove hierarchy rows as one change when a group expands or collapses
+perf(editor): keep tile map outline bounds per chunk so painting a large map no longer decodes every chunk each stroke step
+feat: publish RenderBackendChanged, PluginLoaded and PluginUnloaded to the game
+```
+
+| Type | For |
+| --- | --- |
+| `feat` | New behavior for players, game makers or plugin authors |
+| `fix` | A bug fix |
+| `perf` | The same behavior, faster or with less memory |
+| `refactor` | Code organized differently that behaves the same |
+| `test` | Tests only |
+| `docs` | The website and other documentation only |
+| `ci` | The workflows and other configuration in `.github/` |
+| `chore` | Dependencies, project files and other upkeep |
+| `revert` | Undoing an earlier commit, which the body names |
+
+The scope is the part of the repository the change is in, usually the library's name without `Talesmith.`: `runtime`, `editor`, `avalonia`, `rendering`, `scripting`, `build`, `player`, `samples`, `tools` or `website`, and `deps` for dependency updates. Leave it out when a change spans several. Mark a change that breaks plugins or games built against the public API with `!` before the colon, such as `feat(runtime)!:`, and say in the body what they have to change.
+
+Say what changes for the user or the engine, not which files you touched. When the reason is not obvious from the subject, add a short body that explains it. No ticket numbers in the subject.
+
+The **Commit messages** check fails a pull request with a commit that does not start this way. Reword such commits with `git rebase -i`, or the last one with `git commit --amend`, and push again with `--force-with-lease`.
+
+## Pull requests
+
+Open a pull request against `main` from a branch. The template asks for a summary, the tests that cover the change and a short checklist. Add the `run-slow` label when the change needs the slow tests. **Build and test** on Linux and on Windows, **Formatting**, **Generated files** and **Commit messages** must pass, and pull requests are merged with a merge commit. See [Continuous integration](./continuous-integration.mdx).
+
+## Documentation
+
+Behavior, file formats and APIs are documented on this website (`website/`), and a change that alters them updates it in the same commit. The guide, scripting, plugins and developer sections each have their own content folder and sidebar file, so work on one section never touches another's files.
+
+When you change the website:
+
+1. Read `website/STYLE.md` before writing. It covers voice, page structure, headings, code samples and terms.
+2. Take screenshots only with `tools/Talesmith.Screenshots`: add a scene, register it in the section's list in `tools/Talesmith.Screenshots/Docs/`, and render it with `npm run screenshots -- <name>`. [Adding a documentation screenshot](./tools.mdx#adding-a-documentation-screenshot) has the steps.
+3. After changing editor commands or shortcuts, run `npm run shortcuts` to regenerate `src/data/shortcuts.json`. Never edit it by hand; CI fails a pull request that leaves it out of date.
+4. Run `npm run lint:prose`, `npm run typecheck` and `npm run build` in `website/`. The prose lint rejects em dashes, en dashes used as dashes, emoji and a list of stock phrases; the build fails on broken links and anchors.
+
+Code samples on the site follow the same rules as the code on this page and must compile against the current API.
+
+## Related
+
+- [Building and testing](./building.mdx)
+- [Repository layout and layering](./project-layout.mdx): where new code goes.
+- [Screenshots, smoke tests and benchmarks](./tools.mdx)
+- [Continuous integration](./continuous-integration.mdx)

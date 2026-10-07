@@ -1,0 +1,18 @@
+name: Feature request
+description: Suggest new behavior for the editor, the engine or plugins.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you want to do
+      description: The game or workflow this is for, and what stands in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would help
+      description: How you would like it to work.
+    validations:
+      required: true

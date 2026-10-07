@@ -1,0 +1,243 @@
+---
+title: "Spawners"
+description: "Spawn enemies or items over time, in waves, at random points or at map objects, with a limit on how many exist at once."
+---
+
+A recipe for spawners: a timed spawner built on `Every`, a wave spawner written as one `async` routine, spawn points placed as objects on the map, and a cap on how many spawned entities are alive at once. Both spawners spawn a prefab you pick in the inspector, so the same scripts work for enemies, crates or coins.
+
+## Spawn points from the map
+
+Mark spawn points in the map rather than in code. On an object layer of the map, place point objects and set their **Type** to `spawn`. When the scene loads, the map's **Tile Map Renderer** turns every map object into a child entity with a **Transform** at the object's position and a `MapObjectComponent` holding the object's name, type and properties. See [Collision and map objects](/guide/tile-maps/collision-and-objects).
+
+Both spawners use this helper to collect the points:
+
+```csharp title="assets/scripts/SpawnPoints.cs"
+namespace MyGame;
+
+/// <summary>Finds the map objects that mark where things spawn.</summary>
+public static class SpawnPoints
+{
+    /// <summary>Adds the world position of every map object of <paramref name="type"/> to <paramref name="results"/>; returns how many were added.</summary>
+    public static int Collect(World world, string type, List<Vector2> results)
+    {
+        var count = 0;
+        foreach (var archetype in world.Query<MapObjectComponent, Transform>())
+        {
+            var objects = archetype.GetSpan<MapObjectComponent>();
+            var transforms = archetype.GetSpan<Transform>();
+            for (var i = 0; i < objects.Length; i++)
+            {
+                if (!string.Equals(objects[i].Object.Type, type, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                results.Add(transforms[i].Position);
+                count++;
+            }
+        }
+
+        return count;
+    }
+}
+```
+
+A script file can hold any C#, not only scripts, so a static helper class like this is shared by every script in the project. The query walks the archetypes that have both components, which is how ECS code reads many entities at once; see [Entities and components](../concepts/ecs.mdx). Map objects exist before any script's `OnCreate` runs, so collecting them in `OnStart` always finds them.
+
+The object's custom properties are in `objects[i].Object.Properties`. A property such as `weight` or `enemy` on each point lets level designers vary spawns without new code: `Object.Properties.GetInt("weight", 1)`.
+
+## Timed spawning
+
+```csharp title="assets/scripts/TimedSpawner.cs"
+namespace MyGame;
+
+/// <summary>Spawns a prefab every few seconds at a random spawn point, keeping at most a set number alive.</summary>
+public sealed class TimedSpawner : Script
+{
+    [AssetFilter(".tprefab")]
+    public AssetGuid Prefab;
+
+    [Tooltip("Map objects of this type are spawn points; without any, the spawner's own position is used.")]
+    public string SpawnPointType = "spawn";
+
+    [Range(0.1, 60)]
+    public float Interval = 3;
+
+    [Range(1, 200)]
+    public int MaxAlive = 6;
+
+    private readonly List<Vector2> _points = [];
+    private readonly List<Entity> _alive = [];
+    private bool _spawning;
+
+    protected override void OnStart()
+    {
+        if (SpawnPoints.Collect(World, SpawnPointType, _points) == 0)
+            _points.Add(Position);
+        Every(Interval, SpawnOne);
+    }
+
+    private void SpawnOne()
+    {
+        PruneDead();
+        if (_spawning || _alive.Count >= MaxAlive || Prefab.IsEmpty)
+            return;
+        Run(SpawnAsync);
+    }
+
+    private async Task SpawnAsync()
+    {
+        _spawning = true;
+        try
+        {
+            var point = _points[Random.Shared.Next(_points.Count)];
+            _alive.Add(await Spawn(Prefab, point));
+        }
+        finally
+        {
+            _spawning = false;
+        }
+    }
+
+    private void PruneDead()
+    {
+        for (var i = _alive.Count - 1; i >= 0; i--)
+        {
+            if (!World.IsAlive(_alive[i]))
+                _alive.RemoveAt(i);
+        }
+    }
+}
+```
+
+Add it to an empty entity, then drag the enemy prefab onto **Prefab**. `[AssetFilter(".tprefab")]` limits the picker to prefabs, and the field saves the prefab's guid, so renaming or moving the prefab does not break the reference.
+
+### Every instead of a timer in Update
+
+`Every(Interval, SpawnOne)` calls `SpawnOne` every `Interval` seconds of game time. It follows the time scale and stops while the game is paused, and it ends by itself when the spawner is destroyed, so there is no timer field to count down and nothing to clean up. Pass `scaled: false` for real time. Keep the returned `IDisposable` if you want to stop it earlier. See [Waiting, routines and tweens](../scripts/waiting.mdx).
+
+### Spawn is asynchronous
+
+`Spawn(Prefab, point)` returns the root entity of the new instance once the prefab's assets are loaded. The first spawn of a prefab loads it, which can take a few frames; later spawns of the same prefab finish at the start of the next frame. That is why `SpawnOne` starts a routine with `Run` and why `_spawning` stops a second spawn from starting while the first is still loading. The `finally` resets it even when a spawn fails, for example because the prefab was deleted; `Run` logs that failure in the console with the script and entity name. See [Spawning and finding entities](../scripts/spawning.mdx).
+
+### Limiting how many exist
+
+The spawner remembers the entities it spawned and forgets the dead ones before each spawn. `World.IsAlive` is cheap, and the list is never longer than `MaxAlive`, so this costs nothing measurable. It also catches every way an enemy can go: killed by the player, fallen out of the level or removed by another script.
+
+When you need to react to each death, for a score or a sound, have the enemy publish an event such as `EnemyDefeated` and subscribe in the spawner instead. The [pickups recipe](./pickups.mdx) shows the pattern.
+
+## Waves
+
+A wave spawner is a sequence: announce the wave, spawn its enemies one by one, wait until they are all gone, take a break, repeat. Written as one `async` routine, the code reads in that order.
+
+```csharp title="assets/scripts/WaveSpawner.cs"
+using Talesmith.Runtime.Scenes;
+
+namespace MyGame;
+
+/// <summary>Raised when a wave starts, so music, a banner or a HUD can react.</summary>
+public readonly record struct WaveStarted(int Wave, int Waves);
+
+/// <summary>Sends waves of a prefab from the spawn points; each wave starts once the previous one is cleared and a break has passed.</summary>
+public sealed class WaveSpawner : Script
+{
+    [AssetFilter(".tprefab")]
+    public AssetGuid Prefab;
+
+    public string SpawnPointType = "spawn";
+
+    [Header("Waves")]
+    [Range(1, 50)]
+    public int Waves = 3;
+
+    [Range(1, 100)]
+    public int FirstWaveSize = 4;
+
+    [Range(0, 50)]
+    [Tooltip("How many more each wave sends than the one before.")]
+    public int GrowthPerWave = 2;
+
+    [Range(0, 5)]
+    [Tooltip("Seconds between spawns within a wave.")]
+    public float SpawnGap = 0.4f;
+
+    [Range(0, 60)]
+    [Tooltip("Seconds between clearing a wave and the next one starting.")]
+    public float Break = 5;
+
+    [Tooltip("Destroys what is still alive when the spawner itself is destroyed.")]
+    public bool CleanUpOnDestroy = true;
+
+    private readonly List<Vector2> _points = [];
+    private readonly List<Entity> _alive = [];
+    private bool _sceneEnding;
+
+    protected override void OnStart()
+    {
+        if (SpawnPoints.Collect(World, SpawnPointType, _points) == 0)
+            _points.Add(Position);
+        if (!Prefab.IsEmpty)
+            Run(RunWavesAsync);
+    }
+
+    protected override void OnSceneUnloaded(Scene scene) => _sceneEnding = true;
+
+    protected override void OnDestroy()
+    {
+        if (!CleanUpOnDestroy || _sceneEnding)
+            return;
+        foreach (var entity in _alive)
+            Destroy(entity);
+    }
+
+    private async Task RunWavesAsync()
+    {
+        for (var wave = 1; wave <= Waves; wave++)
+        {
+            Events.Publish(new WaveStarted(wave, Waves));
+            var size = FirstWaveSize + (wave - 1) * GrowthPerWave;
+            for (var i = 0; i < size; i++)
+            {
+                var point = _points[i % _points.Count];
+                _alive.Add(await Spawn(Prefab, point));
+                await Wait(SpawnGap);
+            }
+
+            await WaitUntil(IsCleared);
+            await Wait(Break);
+        }
+
+        Log.Info($"All {Waves} waves cleared.");
+    }
+
+    private bool IsCleared()
+    {
+        PruneDead();
+        return _alive.Count == 0;
+    }
+
+    private void PruneDead()
+    {
+        for (var i = _alive.Count - 1; i >= 0; i--)
+        {
+            if (!World.IsAlive(_alive[i]))
+                _alive.RemoveAt(i);
+        }
+    }
+}
+```
+
+- **One routine, many frames.** Each `await` hands control back to the game; the routine continues on the game thread at the start of a later frame. There is no state machine to write and no `Update` method at all.
+- **`WaitUntil(IsCleared)`** checks the condition once per frame. The method group is converted to a delegate once per wave, not once per frame.
+- **Spawn points in turn.** `i % _points.Count` cycles through the points, so a wave spreads out instead of piling up on a random favorite.
+- **`WaveStarted`** lets other scripts react without knowing about the spawner: a banner, a music change, a HUD counter.
+
+### Cleanup
+
+Everything the routine waits on is tied to the script. Destroy the spawner, or its entity, and the routine never resumes, so no wave starts after the spawner is gone. Enemies already spawned are separate entities and stay, unless `CleanUpOnDestroy` removes them in `OnDestroy`. When the whole scene unloads, `OnSceneUnloaded` runs first and the spawner leaves the cleanup to the scene, which destroys every entity anyway.
+
+To pause waves while a cutscene or dialog runs, pause the game or lower the time scale: `Wait` and `Every` use game time, so they stop too.
+
+## Related
+
+- [Spawning and finding entities](../scripts/spawning.mdx)
+- [Waiting, routines and tweens](../scripts/waiting.mdx)
+- [Tile maps from scripts](../scripts/tile-maps.mdx)
+- [Pickups](./pickups.mdx)

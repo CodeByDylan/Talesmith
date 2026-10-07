@@ -1,0 +1,58 @@
+---
+title: "Undo and history"
+description: "Undo and redo any edit, and jump to an earlier state with the History panel."
+---
+
+Every change you make in the editor is one step you can undo: moving an entity, a brush stroke on a map, a value in the Inspector, a renamed asset. This page covers undo and redo, what counts as one step, the History panel, and how undo relates to scenes, saving and play mode.
+
+## Undo and redo
+
+| Do | Shortcut | App bar |
+| --- | --- | --- |
+| Undo | <Keys>Ctrl+Z</Keys> | The undo arrow |
+| Redo | <Keys>Ctrl+Shift+Z</Keys> or <Keys>Ctrl+Y</Keys> | The redo arrow |
+
+Both are also in the **Edit** menu.
+
+## What one step is
+
+Each step is one thing you did, named after it:
+
+- **A drag is one step.** Moving, rotating or scaling with the handles, dragging a gizmo handle, scrubbing a number or dragging a slider, however long the drag.
+- **A stroke is one step.** Everything a tile tool paints between pressing and releasing the button, such as *Paint 42 tiles*.
+- **A change to several entities is one step**, such as setting **Is Trigger** on five coins at once.
+- **Quick repeated changes to the same value merge**, so typing a number does not leave one step per digit.
+- **Asset operations are steps too:** creating, renaming, moving, duplicating and deleting assets. Undoing a delete brings the asset back from the trash with its guid.
+
+## The History panel
+
+**Window › Panels › History** (<Keys>Ctrl+Shift+H</Keys>) lists every step. In the Default layout it is a tab next to the Inspector.
+
+<Split>
+
+- The first row is *Opened* and the scene's file: the state when you opened it.
+- Each row after it is one step, oldest at the top. The current step has a check mark.
+- Steps you undid stay in the list, dimmed, until you make a new change, which discards them.
+- Click any row to undo or redo everything up to that point at once.
+- The footer counts the steps you can undo and redo.
+
+<Screenshot name="guide/history-panel" maxWidth={340} caption="The steps of setting up the coins in Your first game." />
+
+</Split>
+
+The history holds up to 1,000 steps.
+
+## History, scenes and saving
+
+- **Each scene starts its own history.** Opening another scene, or reverting the scene, clears the steps of the previous one, so you cannot undo into a scene you left.
+- **Saving does not clear the history.** You can undo past a save; the scene then has unsaved changes again, and the **Unsaved** badge returns.
+- **Edits to maps, prefabs, particle presets and sprites** are steps in the same list, while the scene that shows them is open.
+
+## Undo and play mode
+
+Play mode never changes the scene you edit: everything you do in the running game ends with Stop, so there is nothing to undo afterwards. Edits you made before pressing Play stay in the history, and you can undo them after you stop.
+
+## Related
+
+- [The inspector](../scenes/inspector.mdx)
+- [Painting tools](../tile-maps/painting.mdx#undo)

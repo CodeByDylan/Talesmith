@@ -1,0 +1,302 @@
+---
+title: "The editor UI toolkit"
+description: "The controls, theme, icons and docking system the editor is built from, for anyone writing editor features or plugins."
+---
+
+Talesmith.UI is the editor's Avalonia toolkit. This page shows its controls, the theme palette and how to use theme resources, the icon set, the property grid building blocks, the curve and gradient editors, and the docking system.
+
+The toolkit knows nothing about the engine or the editor. It depends only on Avalonia and its Fluent theme, so the editor, editor plugins and tools such as the screenshot tool all use the same controls. Every control lives in the XAML namespace `https://talesmith.dev/ui`, which maps the `Talesmith.UI`, `Talesmith.UI.Controls` and `Talesmith.UI.Theming` namespaces:
+
+```xml
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui">
+```
+
+<Screenshot
+  name="developers/toolkit-gallery"
+  caption="The toolkit gallery: buttons, editor fields, inputs, an inspector, a tree, asset tiles, an empty state and toasts."
+/>
+
+## Theme
+
+`ToolkitTheme` is the root style set. It loads Avalonia's `FluentTheme` in compact density, re-skins its templates with the toolkit's palettes and metrics, and adds the toolkit's own control themes. The editor adds it first in `App.axaml`, followed by the editor's own styles:
+
+```xml title="src/Talesmith.App/App.axaml"
+<Application.Styles>
+  <ui:ToolkitTheme />
+  <StyleInclude Source="avares://Talesmith.Editor/Themes/EditorStyles.axaml" />
+</Application.Styles>
+```
+
+### Palettes and resources
+
+A `ThemePalette` is the set of semantic colors one variant is built from: accent, background, four surfaces (`Surface`, `SurfaceRaised`, `SurfaceSunken`, plus translucent `SurfaceHover` and `SurfacePressed`), two borders, four text colors, `Success`, `Warning`, `Danger`, `Info` and the `Scrim` behind dialogs. `ThemePalette.Light` and `ThemePalette.Dark` are the defaults. The accent's hover, pressed and subtle shades are derived from the accent, so a palette only sets the accent itself.
+
+`ToolkitTheme` publishes every palette color twice, as a `Color` and as a brush, in the light and dark theme dictionaries. The keys are constants in `ThemeKeys`:
+
+| Resource | Keys |
+| --- | --- |
+| Accent | `AccentBrush`, `AccentHoverBrush`, `AccentPressedBrush`, `AccentSubtleBrush`, `AccentForegroundBrush` |
+| Surfaces | `BackgroundBrush`, `SurfaceBrush`, `SurfaceRaisedBrush`, `SurfaceSunkenBrush`, `SurfaceHoverBrush`, `SurfacePressedBrush` |
+| Borders | `BorderSubtleBrush`, `BorderStrongBrush` |
+| Text | `TextPrimaryBrush`, `TextSecondaryBrush`, `TextMutedBrush`, `TextDisabledBrush` |
+| Status | `SuccessBrush`, `WarningBrush`, `DangerBrush`, `InfoBrush`, `ScrimBrush` |
+| Metrics | `CornerRadiusSmall` (4), `CornerRadiusMedium` (6), `CornerRadiusLarge` (10), `FontSizeCaption` (11), `FontSizeBody` (13), `FontSizeSubtitle` (15), `FontSizeTitle` (20), `ControlHeight` (30) |
+| Other | `MonoFontFamily`, `ShadowRaised`, `ShadowPopup`, and `AxisXBrush`, `AxisYBrush`, `AxisZBrush` for axis-colored fields |
+
+Every color key has a matching `…Color` key, such as `AccentColor`. Use them with `DynamicResource`, never as literal colors, so your control follows the theme and the accent when the user changes them:
+
+```xml
+<Border Background="{DynamicResource SurfaceRaisedBrush}"
+        BorderBrush="{DynamicResource BorderSubtleBrush}"
+        CornerRadius="{DynamicResource CornerRadiusMedium}">
+  <TextBlock Text="Ready" Foreground="{DynamicResource TextMutedBrush}" />
+</Border>
+```
+
+The interface font is Inter, the editor's text size is 13, and a standard control is 30 pixels high.
+
+### Light, dark and the accent
+
+`IThemeManager` switches the theme at runtime. The editor registers one `ThemeManager` per application and applies the user's settings to it when it starts:
+
+```csharp title="src/Talesmith.App/App.axaml.cs"
+var settings = services.GetRequiredService<ISettingsService>().Current;
+var theme = services.GetRequiredService<IThemeManager>();
+theme.Mode = settings.Theme;
+if (Color.TryParse(settings.AccentColor, out var accent))
+    theme.Accent = accent;
+```
+
+| Member | Purpose |
+| --- | --- |
+| `Mode` | `ThemeMode.System`, `Light` or `Dark`. `System` follows the operating system. |
+| `Accent` | The accent color of both variants. |
+| `ActualVariant` | The variant in effect after resolving `System`. |
+| `Changed` | Raised when the mode, accent or effective variant changes. |
+
+Below the manager, `ToolkitTheme.SetPalette(variant, palette)` replaces a whole palette and `SetAccent(color)` changes the accent of both, updating every brush in place. Controls that draw with `DynamicResource` brushes need no code to follow a change.
+
+### Style classes
+
+Most surfaces are plain Avalonia controls with a style class rather than custom controls. The editor uses these most:
+
+| Element | Classes |
+| --- | --- |
+| `TextBlock` | `title`, `subtitle`, `section` (the small uppercase group titles), `caption`, `muted`, `secondary`, `mono` |
+| `Button` | `accent` (the primary action), `danger`, `subtle` (no background until hovered), `icon` (a square icon button), `small`, `tool` (a toolbar toggle with an accent indicator) |
+| `ToggleButton` | `chip`, `swatch` |
+| `Border` | `card`, `panel`, `toolbar`, `statusbar`, `divider-h`, `divider-v` |
+| `ListBox` | `sidebar` (navigation with a selection indicator), `tiles` (a grid of `AssetTile`s) |
+| `TextBox` | `search`, `mono` |
+
+```xml
+<TextBlock Text="Drag the markers to set the loop." Classes="caption muted" />
+<Button Classes="icon" ToolTip.Tip="Play or stop">
+  <ui:SymbolIcon Data="{x:Static ui:Icons.Play}" Size="15" />
+</Button>
+```
+
+Classes combine: `caption muted` is small secondary text, `icon small` a compact icon button.
+
+## Controls
+
+| Control | What it is |
+| --- | --- |
+| `SymbolIcon` | Draws an [icon](#icons) at any size in the inherited foreground. `Size` (16 by default), `StrokeThickness` (2, in grid units) and `IsFilled`. |
+| `Badge` | A small pill label. Add the `accent`, `success`, `warning` or `danger` class for its tone. |
+| `ShortcutBadge` | A shortcut such as `Ctrl+Shift+Z` as a row of key caps. |
+| `SegmentedControl` | A single-selection `ListBox` drawn as joined segments of equal width, such as **Edit**, **Preview**, **Play**. When the row is too narrow for them, the segments continue on another row, so none is cut off. |
+| `SearchBox` | A filter field with a search icon and a clear button; Escape clears it. |
+| `NumberField` | A compact number field: drag it to scrub, click it to type a value or an expression such as `16*2+4`. Has `Label`, `Suffix`, `Minimum`, `Maximum`, `Step` and `FormatString`. Shift scrubs in bigger steps. |
+| `Vector2Field` | Two `NumberField`s labeled X and Y in the axis colors. |
+| `ColorPickerButton`, `ColorPicker`, `ColorSwatchPicker` | A color field with a swatch and hex value, the full picker it opens (spectrum, hue and alpha sliders, hex and RGBA fields), and a swatch grid. |
+| `CurvePreview`, `CurveEditor` | A curve swatch for inspector rows and the editor it opens. See [Curves and gradients](#curves-and-gradients). |
+| `GradientPreview`, `GradientEditor` | The same for gradients. |
+| `PathField` | An editable file or folder path with a browse button. |
+| `PropertyGroup`, `PropertyRow` | The inspector's building blocks. See [Property grids](#property-grids). |
+| `SectionPanel` | A titled, optionally collapsible section for side panels. |
+| `SplitBar` | A toolbar of two parts, such as filters and a search box, that share a row while they fit and take a row each otherwise, so a panel's controls stay in reach in a narrow dock. The second part takes the rest of the row, or the first with `FirstGrows`. A part that is a `WrapPanel` wraps. |
+| `SettingRow` | A settings card row: icon, title and description beside a control. |
+| `AssetTile` | A card for an asset browser: thumbnail or icon, name and type badge. |
+| `EmptyState` | A centered placeholder for an empty panel: icon, title, hint and an optional action. |
+| `Sparkline` | Plots a `ValueHistory` ring buffer as a filled line chart with an optional threshold. |
+| `Dialog`, `DialogHost` | The card of a modal dialog and the host that shows dialogs above the window's content. A dialog's `Width` and `Height` are the size it takes while the window has room; in a smaller window it shrinks to fit. A dialog with a set `Height` fills it with its body, so put lists in a `ScrollViewer`; a dialog sized by its body scrolls the body when the window is too short. |
+| `ToastHost`, `Toast` | Notifications stacked in the bottom-right corner. |
+
+### Dialogs, toasts and file pickers
+
+Code does not create dialogs or toasts directly. It asks the services in `Talesmith.UI.Services`, which the editor registers once per window:
+
+| Service | Purpose |
+| --- | --- |
+| `IDialogService` | Message dialogs with `MessageDialogButton`s, the unsaved changes question and custom dialog content, shown on the window's `DialogHost`. |
+| `IToastService` | `Show(title, message, kind)` with a `ToastKind`. Safe to call from any thread; toasts raised before the window exists wait for it. |
+| `IFileDialogService` | Native file and folder pickers with `FileFilter`s. |
+
+```csharp
+toasts.Show("Not a Talesmith project", $"{missing} has no assets/config/game.json.", ToastKind.Warning);
+```
+
+### Grouping edits for undo
+
+Every editing control raises the bubbling routed events `ValueEdit.StartedEvent` before the first change of an edit and `ValueEdit.CompletedEvent` after the last one. A drag on a `NumberField`, a stop dragged in a gradient or a key moved in a curve editor changes the value many times between the two. The editor's `UndoValueEdits.Attach` handles both events on a panel and turns each bracket into one undo transaction, so the whole drag undoes in one step. If you write your own editing control, raise the same events around each interactive edit.
+
+## Icons
+
+`Icons` is a static class of about 130 line icons, each a `Geometry` drawn on a 24 × 24 grid and meant to be stroked with round caps and joins. Use them in XAML with `x:Static`:
+
+```xml
+<ui:SymbolIcon Data="{x:Static ui:Icons.Volume}" Size="16" />
+```
+
+<Screenshot name="developers/toolkit-icons" />
+
+Code that only has a name, such as an asset kind's icon or a panel registered by a plugin, looks the icon up:
+
+| API | Behavior |
+| --- | --- |
+| `Icons.Names` | The canonical kebab-case names, such as `list-tree` or `volume`, sorted. |
+| `Icons.Find(name)`, `Icons.TryFind(name, out icon)` | Finds an icon ignoring case, dashes, underscores, spaces and dots, so `ListTree`, `list-tree` and `list_tree` are the same. |
+| `Icons.Exists(name)` | Whether an icon has that name, without creating its geometry. Any thread may call it. |
+
+An icon's geometry is created the first time it is asked for and belongs to the thread that asked, like every Avalonia object. Ask for icons on the UI thread only. Code on other threads, such as `LiveHierarchy.Capture` on the game thread, passes icon names and checks them with `Icons.Exists`.
+
+Lookups also accept aliases for engine concepts: `entity` is `box`, `component` is `puzzle`, `script` is `file-code`, `prefab` is `package`, `scene` is `clapperboard`, `light` is `lightbulb`, `particles` is `sparkles`, `plugin` is `plug`, `tilemap` is `map`, `warning` is `alert-triangle`, and so on. Use these names in `plugin.json` icons and panel registrations, so the meaning stays clear if the icon behind it changes.
+
+To add an icon, add a `Geometry` property to `Icons` (general icons in `Icons.cs`, editor and engine icons in `Icons.Engine.cs`) built from SVG path strings on the 24 × 24 grid. The lookup finds new properties by reflection, so the name is available at once.
+
+## Property grids
+
+The inspector, asset inspectors, Project Settings and the particle editor are all built from two controls.
+
+<Screenshot
+  name="developers/toolkit-property-grid"
+  maxWidth={380}
+  caption="An entity header, a property group per component and a row per field."
+/>
+
+- `PropertyGroup` is a collapsible section, typically one component: a `Header`, an `Icon`, `HeaderActions` on the right (such as the enable toggle) and a `Menu` flyout behind the **…** button. `IsExpanded` collapses it.
+- `PropertyRow` is one labeled field: `Label`, an optional `Description` shown as the label's tooltip, and the editor as its content. `IsModified` marks a value that differs from its default or prefab value with an accent bar at the left of the label and a reset button that raises `ResetRequested` (or runs `ResetCommand`). `Accessory` holds a small control at the end of the label, such as the **Auto** chip of a value that follows another.
+
+All rows below an element share one label column, which you can resize by dragging. Set its width with the inherited attached property `PropertyGrid.LabelWidth` (120 by default) on any container.
+
+From the audio asset inspector:
+
+```xml title="src/Talesmith.Editor/Assets/Inspectors/AudioInspectorView.axaml"
+<ui:PropertyGroup Header="Audio" Icon="{x:Static ui:Icons.Volume}">
+  <StackPanel Spacing="2">
+    <ui:PropertyRow Label="Load type" Description="Auto decodes clips and streams music; Preload keeps the file in memory.">
+      <ui:SegmentedControl ItemsSource="{Binding LoadTypes}" SelectedIndex="{Binding LoadTypeIndex}" HorizontalAlignment="Left" />
+    </ui:PropertyRow>
+    <ui:PropertyRow Label="Volume">
+      <Grid ColumnDefinitions="*,52" ColumnSpacing="8">
+        <Slider Minimum="0" Maximum="1" Value="{Binding Volume}" VerticalAlignment="Center" />
+        <ui:NumberField Grid.Column="1" Value="{Binding Volume}" Minimum="0" Maximum="1" Step="0.05" FormatString="0.00" />
+      </Grid>
+    </ui:PropertyRow>
+  </StackPanel>
+</ui:PropertyGroup>
+```
+
+The component inspector does not write rows by hand: it builds them from each component's property descriptors and picks an editor per property kind. To add an editor for a kind of value, see [Property editors](/plugins/editor/property-editors).
+
+## Curves and gradients
+
+Particle modules and other settings use curves (a value over time 0 to 1) and gradients (a color over 0 to 1). Each has a compact preview for a property row that opens its editor in a flyout.
+
+<Screenshot name="developers/toolkit-curve-gradient" />
+
+- `CurveEditor` combines a `CurveCanvas` (a zoomable grid with the curve, its keys and the selected key's tangent handles), the shapes in `CurvePresets`, view fitting and fields for the selected key. `CurveEditing` holds the operations on the immutable `Curve` it edits, one key at a time; `CurveSwatch` draws a curve small, for previews and preset buttons.
+- `GradientEditor` combines a `GradientBar` of stops with fields for the selected stop's location and a color picker for its color. Click the bar to add a stop, drag a stop to move it, and drag it away or press Delete to remove it. `GradientSwatch` draws translucent gradients with the opaque colors above their alpha over a checkerboard.
+
+Both raise the `ValueEdit` events around each drag, so an edit undoes in one step.
+
+## Docking
+
+The editor's workspace is a `DockHost`: a tree of resizable splits whose leaves are tab groups of panels, and floating windows with trees of their own. The host renders a `DockLayout` and gets the panels from an `IDockContentProvider`.
+
+<Screenshot name="developers/dock-workspace" />
+
+### Layouts
+
+A `DockLayout` holds ids only. Its root is a `DockNode`:
+
+- `DockSplit` divides its space between child nodes along a `DockOrientation` (`Horizontal`, side by side, or `Vertical`, stacked). Each child's `Size` is its share relative to its siblings.
+- `DockGroup` shows one or more panel ids as tabs, with one `ActivePanel`.
+
+The editor's built-in presets are written this way. The default layout, from `LayoutService`:
+
+```csharp title="src/Talesmith.Editor/Panels/LayoutService.cs"
+Row(
+    Group("left", left, 0.18),
+    Column("middle", 0.58, Group("center", center, 0.68), Group("bottom", bottom, 0.32)),
+    Group("right", right, 0.24))
+```
+
+`Row` and `Column` are small helpers that create a `DockSplit`, and `Group` a `DockGroup` with its panel ids and size.
+
+Change the layout through its methods; each one raises `Changed` with a `DockChangeKind` (`Structure`, `Activation`, `Sizes` or `Bounds`), so views update only what changed:
+
+| Method | Effect |
+| --- | --- |
+| `ActivatePanel(id)`, `FocusGroup(id)` | Shows a panel's tab, or focuses a group. |
+| `MovePanel(id, groupId, index)` | Moves or adds a panel as a tab of a group. |
+| `DockPanel(id, targetId, edge, fraction)` | Moves or adds a panel into a new group beside a node. The root's id docks along the edge of the whole workspace. |
+| `ClosePanel(id)` | Removes a panel and remembers its `DockPlacement`. |
+| `EnsureVisible(id)` | Reopens a panel where it was, or where the `Fallback` layout puts it, expands collapsed ancestors, leaves a maximized group and activates the panel. A panel that only needs its tab shown raises `Activation`, and one already showing raises nothing. |
+| `ToggleMaximize(groupId)`, `Restore()` | Fills the workspace with one group and back. |
+| `SetCollapsed(nodeId, collapsed)` | Hides a node, such as a side region, and lets its siblings take its space. |
+| `Resize(splitId, index, leading, trailing)` | Sets two neighbors' sizes, as dragging the splitter does. |
+| `FloatPanel(id, position, size)` | Moves a panel into a new floating window. `CanFloat(id)` tells whether it can: the last panel of the workspace stays. |
+| `ReturnPanel(id)`, `CloseFloat(floatId)` | Returns a floating panel, or every panel of a floating window, to where it was in the workspace. |
+| `MoveFloat(floatId, position, size)` | Records where a floating window is, as moving or resizing it does; raises `Bounds`. |
+
+Groups that lose their last panel are removed, splits left with one child merge into their parent, and floating windows left without panels close.
+
+The host keeps the view of every group that stays and places the groups of a tree in one panel, so a change to the arrangement only places them again. A group's tabs are built again only when its panels changed. Groups keep at least 140 × 80 pixels while there is room, and dragging a splitter stops there; when the space is too small for every group, all shrink alike.
+
+### Panels
+
+A panel implements `IDockPanel`: an `Id`, a `Title`, an `Icon`, `CanClose`, the `Content` control and optional `HeaderActions` shown at the right of the tab strip while the panel is active. `DockablePanel` is a ready-made implementation that creates its content on first use, and `DockContentProvider` a simple provider. The host creates each panel's content once and keeps it while the panel moves, hides behind another tab, is maximized or is closed, so the panel's state survives every layout change.
+
+In the editor you do not implement these yourself: register a panel with `services.AddEditorPanel<T>(...)` and the editor's panel registry provides it. See [Panels](/plugins/editor/panels).
+
+### Dragging tabs
+
+Drag a tab to rearrange the workspace. While you drag, the host shows guides: one in the middle of each edge of the workspace, kept clear of the tab strips, and in the middle of the group under the pointer, one for each side and one for its tabs. It fills the area the panel would take and the ghost of the tab says where the panel goes, such as "Left of Inspector", staying clear of the guides:
+
+- On a guide, the panel docks where the guide shows.
+- Over another group's tab strip, the tab is inserted at that position. Along its own group's tabs, only the line where it goes shows.
+- Over the outer 30% of a group's content, the panel docks in a new group on that side, taking half of the group's space.
+- Over the middle of another group, the panel becomes one of its tabs.
+- Within 22 pixels of the workspace's edge, outside the tab strips, the panel docks along that whole edge, taking a quarter of the workspace.
+- Outside every window, an outline shows the window the panel opens in, as large as its group.
+
+After the drop, the group the panel landed in flashes. Escape cancels the drag.
+
+<Screenshot
+  name="developers/dock-drag"
+  caption="The Console tab dragged onto the guide that docks it on the left of the Inspector's group."
+/>
+
+<Screenshot name="developers/dock-rearranged" />
+
+### Floating windows
+
+`DockLayout.Floats` lists the floating windows. Each `DockFloat` has an `Id`, a `Root` arranged like the workspace's, a `Position` on screen in device pixels and the `Size` of its content. `FloatOf(node)` tells which floating window a node is in, and `FloatingPanelHomes` where each floating panel was in the workspace, which is where it returns.
+
+The `DockHost` opens a window for each floating window, owned by the window the host is in, and keeps it in step with the layout: tabs drag between windows, and a window records its place and size with `MoveFloat`. Before a window shows, the host raises the bubbling `WindowOpenedEvent`, so the application can set the window up like its own, such as for keyboard shortcuts: the editor's window gives each one its icon and shortcuts. Closing a window returns its panels to the workspace; when the host leaves its window or shows another layout, it closes the windows and leaves the layout as it is. A window restored on a screen that is no longer connected opens on the main window's screen.
+
+### Saving layouts
+
+`DockLayoutSerializer.Serialize` writes a layout as JSON with its tree, its floating windows, the focused and maximized groups, where closed panels were and where floating panels return. `Deserialize` and `TryDeserialize` read it back and take a predicate of known panels: panels the application no longer has, such as those of a plugin that was switched off, are dropped, along with groups left empty. `DockLayoutPresets` keeps named layouts as JSON.
+
+The editor saves the current layout, the preset it came from and the user's saved presets in `<project>/.talesmith/layout.json`, a second after each change.
+
+## Related
+
+- [Editor architecture](./editor-architecture.mdx): how panels, commands and inspectors are registered.
+- [Extending the editor](/plugins/editor): panels, commands, property editors and tools in plugins.
+- [Contributing](./contributing.mdx): the look and feel rules for new editor features.

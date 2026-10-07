@@ -1,0 +1,192 @@
+---
+title: "Camera follow"
+description: "A camera that follows the player smoothly, looks ahead, ignores small movements and stays inside the level bounds."
+---
+
+A recipe for a follow camera, in two versions. The first is Lantern Grove's: a script moves an invisible focus point and the built-in camera follows it. The second is a script on the camera itself that adds a dead zone, look-ahead, bounds taken from the map and pixel snapping. Both run in `LateUpdate`, after the player has moved for the frame.
+
+## How the built-in camera follows
+
+The **Camera** component can already follow an entity. `CameraSystem` runs every frame in the `LateUpdate` phase and, for each camera:
+
+- clamps the zoom between **Min Zoom** and **Max Zoom**;
+- when **Follow Target** is set, moves the view toward that entity's position, with **Follow Sharpness** deciding how fast (0 snaps to it). The smoothing uses real time, so the camera keeps settling when the game is slowed down;
+- when **Bounds** is set, keeps the visible area inside that world rectangle, or centers the view on the bounds when the level is smaller than the screen.
+
+The active camera with the highest **Priority** draws the scene. Scripts' `LateUpdate` runs before `CameraSystem`, and after physics has placed interpolated bodies at their drawn position, so whatever a script does to the camera or its target in `LateUpdate` shows in the same frame. See [Rendering, cameras and materials](../concepts/rendering.mdx).
+
+## A focus point the camera follows
+
+Following the player directly puts it dead center, which leaves little room to see where it is going. Lantern Grove follows a separate **Camera Focus** entity instead and moves that entity a little above the player and ahead of the way it faces:
+
+```csharp title="assets/scripts/CameraRig.cs"
+namespace LanternGrove;
+
+/// <summary>Moves the point the camera follows: above the player and a little ahead of where it faces.</summary>
+public sealed class CameraRig : Script
+{
+    public Entity Player;
+
+    [Range(0, 400)]
+    public float LookAhead = 120;
+
+    [Range(0, 400)]
+    public float Above = 110;
+
+    [Range(0, 20)]
+    [Tooltip("How quickly the look-ahead swings around when the player turns.")]
+    public float TurnSharpness = 2.5f;
+
+    private PlayerController? _controller;
+    private float _ahead;
+
+    protected override void OnStart() => _controller = GetScript<PlayerController>(Player);
+
+    protected override void LateUpdate()
+    {
+        if (_controller is null || !World.IsAlive(Player))
+            return;
+        _ahead = MathHelper.Damp(_ahead, _controller.Facing * LookAhead, TurnSharpness, Time.DeltaTime);
+        Position = GetComponent<Transform>(Player).Position + new Vector2(_ahead, -Above);
+    }
+}
+```
+
+<Steps>
+
+1. Create an empty entity named **Camera Focus** and add the **Camera Rig** script. Drag the player from the hierarchy onto its **Player** field.
+2. On the **Main Camera**, set **Follow Target** to **Camera Focus** and **Follow Sharpness** to about 5.
+3. Set the camera's **Bounds** to the level's extent so it never shows what lies past the edges. Lantern Grove uses `-32, -32, 5120, 1024`.
+
+</Steps>
+
+The script looks the player's controller up once in `OnStart` and keeps it, and reads `Facing`, a public property of the [platformer controller](./platformer.mdx). `MathHelper.Damp` moves a value toward a target by a fraction that depends on the time passed, so the look-ahead swings around at the same speed at any frame rate. Two layers of smoothing, the rig's and the camera's, make turns feel soft without the camera lagging when the player runs straight.
+
+An `Entity` field such as **Player** is saved as a reference to the entity in the same scene, and the reference survives renaming the entity.
+
+## A camera script with dead zone, look-ahead and bounds
+
+When you want full control, put a script on the camera and write the view position yourself:
+
+```csharp title="assets/scripts/FollowCamera.cs"
+using Talesmith.Grids;
+
+namespace LanternGrove;
+
+/// <summary>Moves the camera after a target with a dead zone and look-ahead, inside the level's bounds.</summary>
+public sealed class FollowCamera : Script
+{
+    public Entity Target;
+
+    [Range(0, 30)]
+    [Tooltip("How quickly the camera catches up; 0 snaps to the goal every frame.")]
+    public float Sharpness = 6;
+
+    [Tooltip("Half the size of the box around the camera's focus that the target moves in freely, in world units.")]
+    public Vector2 DeadZone = new(40, 60);
+
+    [Range(0, 400)]
+    [Tooltip("How far ahead of the target the camera looks in the direction it last moved.")]
+    public float LookAhead = 120;
+
+    [Range(0, 20)]
+    public float LookAheadSharpness = 2.5f;
+
+    [Tooltip("Uses the extent of the first tile map when the Camera has no bounds of its own.")]
+    public bool BoundsFromMap = true;
+
+    public bool PixelSnap = true;
+
+    private Vector2 _focus;
+    private Vector2 _lastTarget;
+    private float _direction = 1;
+    private float _ahead;
+
+    protected override void OnStart()
+    {
+        ref var camera = ref GetComponent<Camera>();
+        camera.Target = Entity.Null;
+        camera.PixelSnap = PixelSnap;
+        if (camera.Bounds is null && BoundsFromMap && TryFindTileMap(out var map))
+            camera.Bounds = MapBounds(map);
+        _focus = camera.View.Position;
+        if (World.IsAlive(Target))
+            _lastTarget = GetComponent<Transform>(Target).Position;
+    }
+
+    protected override void LateUpdate()
+    {
+        if (!World.IsAlive(Target))
+            return;
+        var dt = Time.UnscaledDeltaTime;
+        var target = GetComponent<Transform>(Target).Position;
+        var moved = target.X - _lastTarget.X;
+        _lastTarget = target;
+        if (MathF.Abs(moved) > 0.5f)
+            _direction = MathF.Sign(moved);
+        _ahead = MathHelper.Damp(_ahead, _direction * LookAhead, LookAheadSharpness, dt);
+
+        var goal = target + new Vector2(_ahead, 0);
+        _focus.X = Math.Clamp(_focus.X, goal.X - DeadZone.X, goal.X + DeadZone.X);
+        _focus.Y = Math.Clamp(_focus.Y, goal.Y - DeadZone.Y, goal.Y + DeadZone.Y);
+
+        ref var camera = ref GetComponent<Camera>();
+        var view = camera.View.Position;
+        camera.View.Position = Sharpness <= 0
+            ? _focus
+            : new Vector2(MathHelper.Damp(view.X, _focus.X, Sharpness, dt), MathHelper.Damp(view.Y, _focus.Y, Sharpness, dt));
+    }
+
+    private static Rect2 MapBounds(ScriptTileMap map)
+    {
+        var layout = map.Map.Layout;
+        var bounds = Rect2.Empty;
+        foreach (var layer in map.Map.TileLayers)
+        {
+            var cells = layer.ChunkBounds;
+            if (cells.IsEmpty)
+                continue;
+            bounds = bounds
+                .Union(layout.CellBounds(new GridCoord(cells.MinX, cells.MinY)))
+                .Union(layout.CellBounds(new GridCoord(cells.MaxX, cells.MinY)))
+                .Union(layout.CellBounds(new GridCoord(cells.MinX, cells.MaxY)))
+                .Union(layout.CellBounds(new GridCoord(cells.MaxX, cells.MaxY)));
+        }
+
+        return bounds.Offset(map.Origin);
+    }
+}
+```
+
+Add it to the entity with the **Camera** component and set **Target** to the player. The script clears the camera's own **Follow Target** in `OnStart`, so `CameraSystem` no longer moves the view but still applies the bounds and zoom limits after the script has run.
+
+### Writing the view
+
+`Camera.View` is a `Camera2D`: the world point at the center of the view, the zoom in view units per world unit, a rotation and the pixel snap flag. It is runtime state, not saved with the scene; the view starts at the camera entity's position. `GetComponent<Camera>()` returns a reference, so `camera.View.Position = …` changes the camera in place. Moving the camera entity's **Transform** after the scene started does not move the view.
+
+### Dead zone
+
+`_focus` is the point the camera wants to center on. Each frame it moves only as far as needed to keep the goal within `DeadZone` of it, so small movements such as idling, a short hop or a step back leave the camera still. Large movements drag the focus along at the target's speed. A taller dead zone than wide is typical for platformers: jumping should not bounce the screen, running should move it.
+
+### Look-ahead
+
+`_direction` is the direction the target last moved horizontally, and `_ahead` eases toward `LookAhead` in that direction. The threshold of half a unit ignores the jitter of a character standing still on a slope. For a top-down game, track a `Vector2` direction instead of the sign of X.
+
+### Bounds from the map
+
+When the camera has no **Bounds** set in the inspector, `MapBounds` builds them from the first tile map in the scene: the union of every tile layer's chunk bounds, converted from cells to world space with the map's grid layout, then moved by the map entity's position (`map.Origin`). It works for square and hex grids alike. The result is rounded out to whole chunks (32 cells by default), so set **Bounds** by hand when the level must stop exactly at its last tile. The [tile maps page](../scripts/tile-maps.mdx) explains `ScriptTileMap`.
+
+### Pixel snapping
+
+Pixel art shimmers when the view lands between screen pixels, because every sprite edge is resampled differently from frame to frame. `Camera.PixelSnap` rounds the view to whole device pixels when the frame is drawn, which keeps edges stable while the camera moves. Combine it with `"textureFilter": "nearest"` in `config/game.json`, a `view` with `"integerScale": true` and whole-number zoom levels, so every world unit covers a whole number of device pixels. See [Project configuration](/developers/file-formats/project-config).
+
+### Real time or game time
+
+The script smooths with `Time.UnscaledDeltaTime`, as `CameraSystem` does, so a slow-motion effect slows the world but not the camera catching up. Use `Time.DeltaTime` if the camera should slow down with everything else; while the game is paused it then stops completely.
+
+## Related
+
+- [Platformer controller](./platformer.mdx)
+- [Rendering, cameras and materials](../concepts/rendering.mdx)
+- [The script lifecycle](../scripts/lifecycle.mdx)
+- [Time](../scripts/time.mdx)

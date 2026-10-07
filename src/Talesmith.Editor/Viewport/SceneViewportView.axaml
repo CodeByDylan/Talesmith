@@ -1,0 +1,65 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Viewport"
+             xmlns:tools="using:Talesmith.Editor.Viewport.Tools"
+             xmlns:loading="using:Talesmith.Avalonia.Loading"
+             x:Class="Talesmith.Editor.Viewport.SceneViewportView"
+             x:DataType="vm:SceneViewportPanel">
+  <UserControl.Styles>
+    <Style Selector="Border.zoom.compact :is(Control).framing, Border.zoom.minimal :is(Control).stepping">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+  </UserControl.Styles>
+
+  <vm:ViewportChrome x:Name="Chrome" Background="{DynamicResource SurfaceSunkenBrush}" ClipToBounds="True">
+    <Panel x:Name="Stage" />
+
+    <ui:EmptyState IsVisible="{Binding IsOpening}" Icon="{x:Static ui:Icons.Clapperboard}" Title="Opening the project"
+                   Hint="The viewport appears as soon as the game is ready." />
+
+    <!-- Tool rail -->
+    <Border x:Name="RailHost" Classes="floating" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10" Padding="3">
+      <tools:ToolRail Manager="{Binding Tools}" />
+    </Border>
+
+    <!-- Loading notice -->
+    <Border Classes="floating" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,12,0,0" Padding="14,7" IsVisible="{Binding IsBusy}">
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <loading:LoadingBar Width="70" Height="4" VerticalAlignment="Center" IsVisible="{Binding IsBusy}" Foreground="{DynamicResource AccentBrush}"
+                            Background="{DynamicResource BorderSubtleBrush}" />
+        <TextBlock Text="Loading scene…" VerticalAlignment="Center" />
+      </StackPanel>
+    </Border>
+
+    <!-- Preview badge -->
+    <Border Classes="floating" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12" Padding="10,5" IsVisible="{Binding IsPreviewing}">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <ui:SymbolIcon Data="{x:Static ui:Icons.Sparkles}" Size="13" Foreground="{DynamicResource AccentBrush}" />
+        <TextBlock Text="Preview" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
+      </StackPanel>
+    </Border>
+
+    <!-- Zoom controls; narrow viewports leave out framing and then stepping, which their shortcuts and the mouse wheel still do -->
+    <Border x:Name="ZoomBar" Classes="floating zoom" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,12,12">
+      <StackPanel Orientation="Horizontal" Spacing="2">
+        <Button Classes="icon stepping" Command="{Binding [view.zoomOut].Command}" ToolTip.Tip="Zoom out (Ctrl+-)">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.Minus}" />
+        </Button>
+        <Button Classes="subtle small" Command="{Binding [view.actualSize].Command}" MinWidth="58" ToolTip.Tip="Actual size (Ctrl+1)">
+          <TextBlock Text="{Binding ZoomText}" Classes="mono" HorizontalAlignment="Center" />
+        </Button>
+        <Button Classes="icon stepping" Command="{Binding [view.zoomIn].Command}" ToolTip.Tip="Zoom in (Ctrl+=)">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.Plus}" />
+        </Button>
+        <Border Classes="divider-v framing" Height="16" Margin="4,0" />
+        <Button Classes="icon framing" Command="{Binding [view.frameSelection].Command}" ToolTip.Tip="Frame selection (F)">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.Crosshair}" />
+        </Button>
+        <Button Classes="icon framing" Command="{Binding [view.frameAll].Command}" ToolTip.Tip="Frame scene (Shift+F)">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.Maximize}" />
+        </Button>
+      </StackPanel>
+    </Border>
+  </vm:ViewportChrome>
+</UserControl>

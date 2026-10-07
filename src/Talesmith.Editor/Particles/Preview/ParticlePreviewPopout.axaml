@@ -1,0 +1,61 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Particles"
+             xmlns:pv="using:Talesmith.Editor.Particles.Preview"
+             x:Class="Talesmith.Editor.Particles.Preview.ParticlePreviewPopout"
+             x:DataType="vm:ParticleEditorViewModel">
+  <ui:Dialog Header="{Binding Title}" Description="Wheel to zoom, drag to pan, double-click to frame the effect." Width="1000">
+    <Grid RowDefinitions="Auto,560,Auto" RowSpacing="8">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <Border Classes="playbar">
+          <StackPanel>
+            <ToggleButton IsChecked="{Binding IsPlaying, Mode=OneWay}" Command="{Binding TogglePlayCommand}" ToolTip.Tip="Play or pause">
+              <Panel>
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Pause}" IsFilled="True" IsVisible="{Binding IsPlaying}" />
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Play}" IsFilled="True" IsVisible="{Binding !IsPlaying}" />
+              </Panel>
+            </ToggleButton>
+            <Button Command="{Binding RestartCommand}" ToolTip.Tip="Restart">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.RotateCcw}" />
+            </Button>
+            <Button Command="{Binding StopCommand}" ToolTip.Tip="Stop">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Stop}" IsFilled="True" />
+            </Button>
+            <Button Command="{Binding BurstNowCommand}" ToolTip.Tip="Burst now">
+              <ui:SymbolIcon Data="{x:Static vm:ParticleIcons.Burst}" />
+            </Button>
+          </StackPanel>
+        </Border>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+          <ui:SegmentedControl SelectedIndex="{Binding SpeedIndex}">
+            <ui:SegmentedControlItem Content="¼×" />
+            <ui:SegmentedControlItem Content="½×" />
+            <ui:SegmentedControlItem Content="1×" />
+            <ui:SegmentedControlItem Content="2×" />
+          </ui:SegmentedControl>
+          <ui:SegmentedControl SelectedIndex="{Binding BackgroundIndex}">
+            <ui:SegmentedControlItem Content="Dark" />
+            <ui:SegmentedControlItem Content="Light" />
+            <ui:SegmentedControlItem Content="Checker" />
+            <ui:SegmentedControlItem Content="Scene" />
+          </ui:SegmentedControl>
+          <ToggleButton Classes="chip" IsChecked="{Binding ShowGrid}" Content="Grid" />
+          <ToggleButton Classes="chip" IsChecked="{Binding ShowShape}" Content="Shape" />
+          <ToggleButton Classes="chip" IsChecked="{Binding ShowBounds}" Content="Bounds" />
+        </StackPanel>
+      </Grid>
+      <Border Grid.Row="1" CornerRadius="10" ClipToBounds="True" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+        <pv:ParticlePreviewCanvas x:Name="Canvas" Player="{Binding Player}" PreviewRenderer="{Binding Renderer}" BackgroundMode="{Binding Background}"
+                                  SceneColor="{Binding SceneColor}" ShowGrid="{Binding ShowGrid}" ShowShape="{Binding ShowShape}"
+                                  ShowBounds="{Binding ShowBounds}" IsInteractive="True" />
+      </Border>
+      <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="18">
+        <TextBlock Classes="mono caption"><Run Text="alive " Foreground="{DynamicResource TextMutedBrush}" /><Run Text="{Binding Player.Alive}" /></TextBlock>
+        <TextBlock Classes="mono caption"><Run Text="emitted/s " Foreground="{DynamicResource TextMutedBrush}" /><Run Text="{Binding Player.EmittedPerSecond, StringFormat={}{0:N0}}" /></TextBlock>
+        <TextBlock Classes="mono caption"><Run Text="simulation " Foreground="{DynamicResource TextMutedBrush}" /><Run Text="{Binding Player.SimulationMilliseconds, StringFormat={}{0:0.000} ms}" /></TextBlock>
+        <TextBlock Classes="mono caption"><Run Text="drawn " Foreground="{DynamicResource TextMutedBrush}" /><Run Text="{Binding Player.DrawInstances}" /></TextBlock>
+      </StackPanel>
+    </Grid>
+  </ui:Dialog>
+</UserControl>

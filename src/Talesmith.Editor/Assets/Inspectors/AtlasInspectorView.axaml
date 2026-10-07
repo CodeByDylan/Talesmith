@@ -1,0 +1,70 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Assets.Inspectors"
+             xmlns:controls="using:Talesmith.Editor.Assets.Controls"
+             x:Class="Talesmith.Editor.Assets.Inspectors.AtlasInspectorView"
+             x:DataType="vm:AtlasInspection">
+  <StackPanel>
+    <Border Height="220" Margin="12,10,12,4" CornerRadius="8" ClipToBounds="True" Background="{DynamicResource SurfaceSunkenBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+      <Panel>
+        <controls:PixelCanvas Name="Canvas" Source="{Binding Packed}" Regions="{Binding Regions}" Accent="#06B6D4" />
+        <controls:CanvasZoomBar Target="{Binding #Canvas}" Margin="6" />
+        <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsPacking}" VerticalAlignment="Top" />
+      </Panel>
+    </Border>
+    <Grid ColumnDefinitions="*,Auto" Margin="12,2,12,8">
+      <TextBlock Text="{Binding PackInfo}" Classes="caption muted mono" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,8,0" />
+      <Button Grid.Column="1" Classes="small accent" Command="{Binding PackCommand}" ToolTip.Tip="Apply and pack the atlas">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.Package}" Size="13" />
+          <TextBlock Text="Pack" />
+        </StackPanel>
+      </Button>
+    </Grid>
+
+    <ui:PropertyGroup Header="Sources" Icon="{x:Static ui:Icons.Layers}">
+      <Border Name="SourceDrop" DragDrop.AllowDrop="True" Background="Transparent" CornerRadius="6" BorderThickness="1" BorderBrush="Transparent" Padding="2">
+        <StackPanel Spacing="6">
+          <ItemsControl ItemsSource="{Binding Sources}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:AtlasSourceItem">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,1">
+                  <ui:SymbolIcon Data="{Binding Icon}" Size="13" Foreground="{Binding Brush}" VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Detail}" Classes="caption muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                  <Button Grid.Column="2" Classes="icon small" ToolTip.Tip="Remove"
+                          Command="{Binding $parent[UserControl].((vm:AtlasInspection)DataContext).RemoveSourceCommand}" CommandParameter="{Binding}">
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.X}" Size="12" />
+                  </Button>
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Text="Drag textures or folders here from the Assets panel." Classes="caption muted" TextWrapping="Wrap" HorizontalAlignment="Center"
+                     Margin="0,4" />
+        </StackPanel>
+      </Border>
+    </ui:PropertyGroup>
+
+    <ui:PropertyGroup Header="Packing" Icon="{x:Static ui:Icons.Grid}">
+      <StackPanel Spacing="2">
+        <ui:PropertyRow Label="Padding" Description="Empty pixels between sprites, which keeps filtering from bleeding neighbors in.">
+          <ui:NumberField Value="{Binding Padding}" Minimum="0" Maximum="64" IsInteger="True" Suffix="px" />
+        </ui:PropertyRow>
+        <ui:PropertyRow Label="Trim">
+          <CheckBox IsChecked="{Binding Trim}" Content="Remove transparent borders" />
+        </ui:PropertyRow>
+        <ui:PropertyRow Label="Size">
+          <CheckBox IsChecked="{Binding PowerOfTwo}" Content="Power of two" />
+        </ui:PropertyRow>
+        <ui:PropertyRow Label="Max size">
+          <ComboBox ItemsSource="{Binding MaxSizeNames}" SelectedIndex="{Binding MaxSizeIndex}" HorizontalAlignment="Stretch" />
+        </ui:PropertyRow>
+      </StackPanel>
+    </ui:PropertyGroup>
+  </StackPanel>
+</UserControl>

@@ -1,0 +1,172 @@
+---
+title: "Panels"
+description: "Add a dockable panel to the editor."
+---
+
+A panel is a tab of the editor's dock workspace, like the Hierarchy, the Console or the Plugins panel. This page covers registering a panel with `AddEditorPanel` and `EditorPanelInfo`, building its view, where it docks by default and how users open it, buttons in its tab strip, replacing a built-in panel, and following the selection and the open scene.
+
+## Register a panel
+
+```csharp
+services.AddEditorPanel<SpinnersPanel>(new EditorPanelInfo("spinners", "Spinners", Icons.RotateCw, DockLocation.Right) { Order = 40 });
+```
+
+`EditorPanelInfo` describes the panel:
+
+| Property | Default | Meaning |
+| --- | --- | --- |
+| `Id` | | A stable id; layouts refer to panels by it. Prefix it with your plugin's name. |
+| `Title` | | The tab's title and the entry in **Window › Panels**. |
+| `Icon` | | A 24 × 24 stroke icon, such as one from `Talesmith.UI.Icons`, or null. |
+| `Location` | | Where the default layout puts it: `Left`, `Center` (with the scene viewport), `Right` or `Bottom`. |
+| `Order` | 0 | Its position among the panels of its location; lower comes first. The built-in right panels use 0 to 30. |
+| `CanClose` | `true` | Whether the tab has a close button. |
+| `Shortcut` | none | A shortcut that shows the panel, such as `Ctrl+Alt+T`. |
+| `OpenByDefault` | `true` | Whether the default layout includes it. When `false`, users open it from **Window › Panels**, as with the Plugins panel. |
+
+Every panel gets a command, `window.<id>`, listed in **Window › Panels** and the command palette with the panel's shortcut. Showing a panel that is not in the layout docks it where the default layout would put it.
+
+Layouts are saved per project. A project whose layout was saved before your plugin was installed does not show a new panel until the user opens it from **Window › Panels** or resets the layout with **Window › Layout › Reset layout**. When a plugin is switched off, its panels leave the layout.
+
+## The panel class
+
+A panel implements `IEditorPanel`. The editor creates it through dependency injection the first time it is shown, as a singleton, so its constructor can ask for editor services. `CreateContent` is called once; the view is kept while the panel is moved, hidden behind another tab or closed.
+
+```csharp title="plugins-src/Spinners.Editor/SpinnersPanel.cs"
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Layout;
+using Talesmith.Editor.Documents;
+using Talesmith.Editor.Inspector;
+using Talesmith.Editor.Panels;
+using Talesmith.Editor.Selection;
+
+namespace Spinners.Editor;
+
+public sealed class SpinnersPanel(ISceneDocumentService documents, ISelectionService selection) : IEditorPanel
+{
+    private readonly StackPanel _rows = new() { Spacing = 2, Margin = new Thickness(8) };
+    private SceneDocumentModel? _document;
+
+    public Control CreateContent()
+    {
+        documents.ActiveChanged += (_, _) => Watch(documents.Active);
+        Watch(documents.Active);
+        return new ScrollViewer { Content = _rows };
+    }
+
+    private void Watch(SceneDocumentModel? document)
+    {
+        if (_document is not null)
+            _document.Changed -= OnDocumentChanged;
+        _document = document;
+        if (document is not null)
+            document.Changed += OnDocumentChanged;
+        Refresh();
+    }
+
+    private void OnDocumentChanged(object? sender, SceneChangedEventArgs e) => Refresh();
+
+    private void Refresh()
+    {
+        _rows.Children.Clear();
+        foreach (var entity in _document?.Entities ?? [])
+        {
+            if (entity.FindComponent(SpinnerCommands.ComponentType) is not { } spinner)
+                continue;
+            var id = entity.Id;
+            var speed = JsonValues.Number(spinner.Data["speed"]) ?? 90;
+            var row = new Button
+            {
+                Classes = { "subtle" },
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Content = $"{entity.Name}   {speed:0}°/s"
+            };
+            row.Click += (_, _) => selection.SelectEntity(id);
+            _rows.Children.Add(row);
+        }
+
+        if (_rows.Children.Count == 0)
+            _rows.Children.Add(new TextBlock { Text = "No spinners in this scene.", Classes = { "muted" } });
+    }
+}
+```
+
+The panel reads the open scene's document, not the running game: `SceneDocumentModel.Entities` are the saved entities with their components as JSON. `SpinnerCommands.ComponentType` is the component's saved name, `Spinners.Spinner` (see [Commands](./commands.mdx)). The `Changed` event fires after every edit, undo and redo, so the list stays current.
+
+## Views
+
+Views are Avalonia controls. The editor's look comes from its toolkit, `Talesmith.UI`, whose styles apply to standard controls and which adds its own, such as `SymbolIcon`, `Badge`, `NumberField` and `SearchBox`. Style classes such as `subtle`, `icon`, `small`, `caption` and `muted` match the built-in panels; see [The UI toolkit](/developers/ui-toolkit). The examples here build their views in code. For larger panels, a view model deriving from CommunityToolkit's `ObservableObject` keeps the view simple, as the editor's own panels do.
+
+Keep work off the UI thread: load files and do slow calculations with `Task.Run`, then update the view on the UI thread.
+
+## Buttons in the tab strip
+
+`CreateHeaderActions` returns small controls shown at the right of the tab strip while the panel is active:
+
+```csharp title="SelectionStatsPanel.cs"
+using Avalonia.Controls;
+using Talesmith.Editor.Panels;
+using Talesmith.Editor.Selection;
+using Talesmith.Editor.Viewport;
+using Talesmith.UI;
+using Talesmith.UI.Controls;
+
+namespace Spinners.Editor;
+
+/// <summary>Shows how many entities are selected and how many the edit world holds.</summary>
+public sealed class SelectionStatsPanel(ISelectionService selection, IEditWorld world, LayoutService layout) : IEditorPanel
+{
+    private readonly TextBlock _text = new() { Margin = new Avalonia.Thickness(12) };
+
+    public Control CreateContent()
+    {
+        selection.Changed += (_, _) => Refresh();
+        world.Changed += (_, _) => Refresh();
+        Refresh();
+        return _text;
+    }
+
+    public Control? CreateHeaderActions()
+    {
+        var inspector = new Button { Classes = { "icon", "small" }, Content = new SymbolIcon { Data = Icons.Sliders, Size = 14 } };
+        ToolTip.SetTip(inspector, "Show the inspector");
+        inspector.Click += (_, _) => layout.ShowPanel(PanelIds.Inspector);
+        return inspector;
+    }
+
+    private void Refresh() => _text.Text = $"{selection.Entities.Count} selected of {world.EntityCount} entities";
+}
+```
+
+```csharp
+services.AddEditorPanel<SelectionStatsPanel>(new EditorPanelInfo("spinners.stats", "Selection stats", Icons.Activity, DockLocation.Bottom)
+{
+    Order = 60,
+    Shortcut = "Ctrl+Alt+T",
+    OpenByDefault = false
+});
+```
+
+## Replace a built-in panel
+
+A registration with the id of an existing panel replaces it, because the later registration wins. The built-in ids are in `PanelIds`: `hierarchy`, `scene`, `game`, `inspector`, `assets`, `console`, `history`, `tilemap`, `particles`, `lighting` and `plugins`. Replacing `scene` or `inspector` takes over a central part of the editor; prefer adding a panel of your own.
+
+## Follow the selection and the scene
+
+| To know | Use |
+| --- | --- |
+| What is selected | `ISelectionService.Entities` (document ids), `Assets`, `Primary`; `Changed` |
+| The open scene and its edits | `ISceneDocumentService.Active` and `ActiveChanged`; `SceneDocumentModel.Changed` |
+| The live entities of the scene viewport | `IEditWorld.World`, `TryGetEntity(documentId, out entity)`; `Changed` |
+| Play mode | `IPlayModeService.State` and `StateChanged`; while playing, read the game through `InvokeAsync` |
+| The project | `IProjectService.Project`, `Settings`, `Database` |
+
+Change the scene only through `SceneDocumentModel`'s methods, so every edit can be undone. Group several edits into one undo step with `IUndoService.BeginTransaction("Description")`, disposed when you are done.
+
+## Related
+
+- [Editor plugins](./index.mdx)
+- [Commands, menus and the toolbar](./commands.mdx)
+- [Layouts in the guide](/guide/workflow/layouts)

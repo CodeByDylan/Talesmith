@@ -1,0 +1,225 @@
+---
+title: "Events"
+description: "Send and receive messages between scripts and systems with the game's event bus: define an event, subscribe, publish now or queue for the next frame."
+---
+
+Events let parts of a game talk without holding references to each other. A coin does not need to know which scripts keep the score, show a counter or play a jingle; it publishes a `CoinCollected` event and whoever subscribed reacts. This page covers defining event types, `Events.Subscribe`, `Publish` and `Enqueue`, when handlers run, cancelling events, and how subscriptions end with the script.
+
+## Define an event
+
+An event is any type. Make it a small `readonly record struct`: the bus delivers structs by reference, so publishing one does not allocate, and a record gives you a constructor, equality and a readable `ToString` for free.
+
+```csharp title="assets/scripts/CoinCollected.cs"
+namespace MyGame;
+
+/// <summary>Raised when the player picks up a coin.</summary>
+public readonly record struct CoinCollected(int Value, Vector2 Position);
+```
+
+Put the data the receivers need into the event, so they do not have to look it up: here the coin's value and where it was, for a score and for a floating "+1" effect. Event types can live in any script file; one file per event, or one file for all of a feature's events, both work.
+
+## Publish and subscribe
+
+The coin publishes the event when the player touches it:
+
+```csharp title="assets/scripts/Coin.cs"
+namespace MyGame;
+
+public sealed class Coin : Script
+{
+    [Range(1, 100)]
+    public int Value = 1;
+
+    protected override void OnTriggerEnter(in ContactInfo contact)
+    {
+        if (!HasComponent<CharacterController2D>(contact.Other))
+            return;
+        Events.Publish(new CoinCollected(Value, Position));
+        Destroy();
+    }
+}
+```
+
+Any number of scripts subscribe. A score keeper adds the value, and a bar under the score grows toward a goal:
+
+```csharp title="assets/scripts/Score.cs"
+namespace MyGame;
+
+public sealed class Score : Script
+{
+    public int Total { get; private set; }
+
+    protected override void OnCreate() => Events.Subscribe((ref CoinCollected coin) =>
+    {
+        Total += coin.Value;
+        Log.Info($"Score: {Total}");
+    });
+}
+```
+
+```csharp title="assets/scripts/ScoreBar.cs"
+namespace MyGame;
+
+/// <summary>Stretches the entity's sprite horizontally as coins come in, until the goal fills it.</summary>
+public sealed class ScoreBar : Script
+{
+    [Tooltip("The score that fills the bar.")]
+    public int Goal = 50;
+
+    private int _score;
+
+    protected override void OnCreate() => Events.Subscribe((ref CoinCollected coin) =>
+    {
+        _score += coin.Value;
+        Transform.Scale = new Vector2(Math.Min(1, _score / (float)Goal), 1);
+    });
+}
+```
+
+Handlers receive the event by reference (`ref CoinCollected coin`), which is why the lambda names the parameter type. Subscribe in `OnCreate` so the handler is in place before any other script's `OnStart` or first update can publish. To show the score on screen, hand it to a HUD; see [A simple UI overlay](../recipes/ui-overlay.mdx).
+
+## When handlers run
+
+| Call | Delivery |
+| --- | --- |
+| `Events.Publish(e)` | Now, before `Publish` returns, on the game thread. Handlers run highest priority first, then in the order they subscribed. |
+| `Events.Publish(ref e)` | The same, and handlers can change the event, so the publisher can read results back. |
+| `Events.Enqueue(e)` | At the start of the next frame, after input is applied and before any update. Safe to call from any thread. |
+
+`Publish` is the right choice almost always: the receivers react in the same frame, and an exception in one handler is logged against the script that subscribed it without stopping the others or the publisher. Use `Enqueue` when the handlers should not run in the middle of what you are doing, such as while iterating a list they might change, or when the event comes from another thread, such as a background task that finished loading.
+
+```csharp
+Events.Publish(new CoinCollected(5, Position));  // score is 5 when this line returns
+Events.Enqueue(new CoinCollected(7, Position));  // score becomes 12 at the start of the next frame
+```
+
+A script that publishes an event it also subscribes to receives it like any other subscriber.
+
+## Priorities and cancelling
+
+`Subscribe` takes a `priority`; higher values run first, and the default is 0. An event type that implements `ICancellableEvent` (in `Talesmith.Events`) can be stopped by a handler: once `IsCancelled` is true, handlers with a lower priority are skipped and `Publish` returns `false`.
+
+```csharp title="assets/scripts/Damage.cs"
+using Talesmith.Events;
+
+namespace MyGame;
+
+public record struct DamageRequested(Entity Target, int Amount) : ICancellableEvent
+{
+    public bool IsCancelled { get; set; }
+}
+
+/// <summary>Blocks damage to its entity while it is up.</summary>
+public sealed class Shield : Script
+{
+    public bool Up = true;
+
+    protected override void OnCreate() => Events.Subscribe((ref DamageRequested damage) =>
+    {
+        if (Up && damage.Target == Entity)
+            damage.IsCancelled = true;
+    }, priority: 10);
+}
+
+public sealed class Health : Script
+{
+    public int Current = 10;
+
+    protected override void OnCreate() => Events.Subscribe((ref DamageRequested damage) =>
+    {
+        if (damage.Target == Entity)
+            Current -= damage.Amount;
+    });
+}
+```
+
+`Events.Publish(new DamageRequested(target, 3))` returns `false` while the target's shield is up, and the health handler never sees the event. A cancellable event is a mutable `record struct`, not a `readonly` one, because the handler sets `IsCancelled` through the reference.
+
+## Subscriptions end with the script
+
+Every subscription made through `Events` belongs to the script. When the script is destroyed (removed, its entity destroyed, or its scene unloaded), its subscriptions end, and a handler never runs for a destroyed script. You never need an `OnDestroy` just to unsubscribe.
+
+`Subscribe` also returns an `IDisposable`. Dispose it to stop listening earlier, for example only while the script is enabled:
+
+```csharp
+private IDisposable? _listening;
+
+protected override void OnEnable() => _listening = Events.Subscribe((ref CoinCollected _) => Log.Info("A coin was collected"));
+
+protected override void OnDisable() => _listening?.Dispose();
+```
+
+For a subscription that should outlive the script, subscribe on the bus itself, `Events.Bus.Subscribe(...)`, and dispose the result yourself. That is rarely what you want in a script.
+
+## Events between scripts and systems
+
+Scripts and [systems](../concepts/systems.mdx) share one event bus for the whole game, so an event published by a system reaches scripts and the other way around. A system receives the bus, `IEventBus`, through its constructor:
+
+```csharp title="assets/scripts/FallSystem.cs"
+using Talesmith.Events;
+
+namespace MyGame;
+
+/// <summary>Raised for every entity with a character controller that falls below the level.</summary>
+public readonly record struct FellOut(Entity Entity);
+
+[UpdateIn(SystemPhase.Update)]
+public sealed class FallSystem(IEventBus events) : ISystem
+{
+    public const float FloorY = 2000;
+
+    public void Update(in SystemContext context)
+    {
+        foreach (var archetype in context.World.Query<Transform, CharacterController2D>())
+        {
+            var transforms = archetype.GetSpan<Transform>();
+            var entities = archetype.Entities;
+            for (var i = 0; i < transforms.Length; i++)
+            {
+                if (transforms[i].Position.Y > FloorY)
+                    events.Publish(new FellOut(entities[i]));
+            }
+        }
+    }
+}
+
+/// <summary>Puts its entity back where it started when it falls out of the level.</summary>
+public sealed class Respawn : Script
+{
+    private Vector2 _start;
+
+    protected override void OnStart()
+    {
+        _start = Position;
+        Events.Subscribe((ref FellOut fell) =>
+        {
+            if (fell.Entity == Entity)
+                Position = _start;
+        });
+    }
+}
+```
+
+A system in a script file is registered automatically, but declaring one means a changed script needs play mode to restart instead of [hot reloading](./hot-reload.mdx).
+
+The engine publishes events of its own that scripts can subscribe to:
+
+| Event | Namespace | Raised when |
+| --- | --- | --- |
+| `KeyPressed`, `KeyReleased`, `MouseButtonPressed`, `MouseButtonReleased` | `Talesmith.Input` | A key or mouse button changes, once per frame when input is applied |
+| `ActionTriggered`, `ActionReleased` | `Talesmith.Input` | An input action becomes active or stops being active |
+| `CollisionEntered`, `CollisionStayed`, `CollisionExited` | `Talesmith.Physics` | Two colliders touch, keep touching or separate, after each fixed step |
+| `PhysicsTriggerEntered`, `PhysicsTriggerStayed`, `PhysicsTriggerExited` | `Talesmith.Physics` | A collider overlaps a trigger collider |
+| `TriggerEntered`, `TriggerExited` | `Talesmith.Runtime.Systems` | A `TriggerActivator` enters or leaves a map trigger area |
+| `MapLoaded` | `Talesmith.Runtime.Maps` | A tile map and its objects were spawned |
+| `SceneLoading`, `SceneLoaded`, `SceneUnloaded`, `SceneLoadFailed` | `Talesmith.Runtime.Scenes` | A scene changes |
+| `PauseStateChanged` | `Talesmith.Runtime.Hosting` | The game is paused or resumed |
+| `PlayAudioSource`, `StopAudioSource` | `Talesmith.Runtime.Audio` | Published by you, to start or stop an [Audio Source](./audio.mdx) |
+
+For contacts of the script's own entity, the [collision callbacks](./physics.mdx) are simpler than the physics events, which report every pair in the scene.
+
+## Related
+
+- [Waiting, routines and tweens](./waiting.mdx): the other half of event-driven scripts
+- [Systems](../concepts/systems.mdx): the ECS side of the bus
+- [Pickups](../recipes/pickups.mdx): a complete coin and score built on events

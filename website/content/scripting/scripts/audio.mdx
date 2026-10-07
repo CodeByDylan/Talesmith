@@ -1,0 +1,202 @@
+---
+title: "Playing sounds"
+description: "Play sound effects and music from scripts, change sounds while they play, control Audio Source components and set bus volumes."
+---
+
+Scripts play audio through the `Audio` property: one-shot sound effects with `Audio.Play`, music with `PlayMusic` and `StopMusic`, and the full `IAudioService` for volumes, buses and changing sounds that are already playing. This page covers each, plus starting and stopping an entity's **Audio Source** component from code.
+
+## Play a sound effect
+
+```csharp title="assets/scripts/Crate.cs"
+namespace MyGame;
+
+/// <summary>Thuds when something hits it hard enough, louder for harder hits.</summary>
+public sealed class Crate : Script
+{
+    protected override void OnCollisionEnter(in ContactInfo contact)
+    {
+        if (contact.NormalImpulse < 200)
+            return;
+        var volume = Math.Clamp(contact.NormalImpulse / 1500, 0.2f, 1);
+        Audio.Play("audio/thud.wav", new SoundOptions(Volume: volume, Pitch: 0.9f + Random.Shared.NextSingle() * 0.2f));
+    }
+}
+```
+
+`Audio.Play(path, options)` plays a `.wav` or `.ogg` file by its asset path, relative to the `assets` folder. Sounds given by path load on first use and stay cached, so later calls with the same path cost only the playback. A small random pitch change, as above, keeps a sound that repeats often from sounding mechanical.
+
+`SoundOptions` is a record struct with named arguments:
+
+| Option | Default | |
+| --- | --- | --- |
+| `Volume` | 1 | From 0 to 1, multiplied with the bus, master and import volumes |
+| `Pitch` | 1 | Playback speed; 2 is an octave higher and twice as fast |
+| `Pan` | 0 | From -1, left, to 1, right; applies to mono sounds only |
+| `Loop` | false | Plays until stopped |
+| `Bus` | `Effects` | The mixer bus; see [Buses and volume](#buses-and-volume) |
+
+Without options, a sound plays with the loop setting and bus from its import settings, which you set on the file in the **Inspector**; see [Audio](/guide/assets/audio). With options, the options decide both.
+
+### Preload sounds you play in the middle of the action
+
+The first `Audio.Play` of a path loads and decodes the file on the game thread, which can cause a hitch the first time an explosion goes off. Give the script a `SoundClip` field instead: the scene loads it along with everything else, and you pick the file in the inspector.
+
+```csharp title="assets/scripts/Footsteps.cs"
+namespace MyGame;
+
+/// <summary>Plays a step sound at a steady pace while the Move action is held.</summary>
+public sealed class Footsteps : Script
+{
+    [AssetFilter(".wav", ".ogg")]
+    public SoundClip? Step;
+
+    [Range(0.1, 1)]
+    public float Interval = 0.32f;
+
+    private float _untilNext;
+
+    protected override void Update()
+    {
+        var moving = Input.Vector("Move") != Vector2.Zero;
+        _untilNext -= Time.DeltaTime;
+        if (!moving || _untilNext > 0 || Step is null)
+            return;
+        _untilNext = Interval;
+        Audio.Play(Step, new SoundOptions(Volume: 0.4f, Pitch: 0.95f + Random.Shared.NextSingle() * 0.1f));
+    }
+}
+```
+
+Calling `Assets.Load<SoundClip>("audio/step.wav")` in `OnStart` also works, and keeps the path in code.
+
+## Change or stop a playing sound
+
+`Play` returns a `SoundHandle`. Keep it to stop the sound or change it while it plays, through `Audio.Service`:
+
+```csharp title="assets/scripts/Engine.cs"
+namespace MyGame;
+
+/// <summary>Hums while enabled, higher the faster the entity moves.</summary>
+public sealed class Engine : Script
+{
+    [Range(0, 2000)]
+    public float TopSpeed = 600;
+
+    private SoundHandle _hum;
+    private Vector2 _last;
+
+    protected override void OnEnable()
+    {
+        _hum = Audio.Play("audio/engine.ogg", new SoundOptions(Volume: 0.5f, Loop: true));
+        _last = Position;
+    }
+
+    protected override void Update()
+    {
+        if (Time.DeltaTime <= 0)
+            return;
+        var speed = Vector2.Distance(Position, _last) / Time.DeltaTime;
+        _last = Position;
+        Audio.Service.SetPitch(_hum, 0.8f + Math.Min(speed / TopSpeed, 1) * 0.7f);
+    }
+
+    protected override void OnDisable() => Audio.Stop(_hum);
+}
+```
+
+| Member | |
+| --- | --- |
+| `Audio.Stop(handle)` | Stops the sound |
+| `Audio.IsPlaying(handle)` | Whether it is still playing; one-shot sounds finish on their own |
+| `Audio.Service.SetVolume(handle, volume)` | Changes the volume, as in `SoundOptions.Volume` |
+| `Audio.Service.SetPitch(handle, pitch)` | Changes the playback speed |
+| `Audio.Service.SetPan(handle, pan)` | Changes the stereo position of a mono sound |
+
+Looping sounds play until you stop them, so stop them in `OnDisable`, which also runs before the script is destroyed. Sounds started with `Audio.Play` are not tied to the script; destroying the entity does not stop them. The device plays up to 64 sounds at once: when all are busy, the oldest sound that does not loop is cut off, and when all of them loop, `Play` returns a handle whose `IsNone` is true.
+
+## Music
+
+```csharp title="assets/scripts/LevelMusic.cs"
+namespace MyGame;
+
+/// <summary>Plays the level's track, switches to the boss theme in the arena and fades out when the level ends.</summary>
+public sealed class LevelMusic : Script
+{
+    [AssetFilter(".ogg", ".wav")]
+    public MusicTrack? Track;
+
+    protected override void OnStart()
+    {
+        if (Track is not null)
+            Audio.PlayMusic(Track, fade: TimeSpan.FromSeconds(2));
+    }
+
+    protected override void OnTriggerEnter(in ContactInfo contact) =>
+        Audio.PlayMusic("audio/boss.ogg", fade: TimeSpan.FromSeconds(1.5), volume: 0.8f);
+
+    protected override void OnDestroy() => Audio.StopMusic(TimeSpan.FromSeconds(1));
+}
+```
+
+Music is a `MusicTrack`: it is decoded while it plays instead of all at once, so long tracks do not fill memory, and it streams on a background thread, so it keeps playing smoothly when a frame is slow. One track plays at a time, on the `Music` bus.
+
+| Call | |
+| --- | --- |
+| `Audio.PlayMusic(pathOrTrack, loop: true, fade: default, volume: 1)` | Starts a track, cross-fading from the current one over `fade`. Loops by default, between the loop points from the file's import settings when it has them. |
+| `Audio.StopMusic(fade)` | Fades the current track out and stops it |
+| `Audio.Service.CurrentMusic` | The track playing or fading in, or null |
+
+Music keeps playing across scene changes, because the audio service belongs to the game, not the scene. Stop it, or start the next scene's track, when the music should change.
+
+## Audio Source components
+
+An entity with an **Audio Source** component plays its clip or music track without any code: with **Play On Start** set, it starts when the entity appears in a running game, and it stops when the entity or the component goes away or the scene ends. With **Spatial** set, its volume falls with distance from the listener and its pan follows the horizontal offset; the listener is the entity with an **Audio Listener** component, or else the active camera.
+
+The component has no methods. Start and stop it by publishing an event with the entity, from `Talesmith.Runtime.Audio`:
+
+```csharp title="assets/scripts/Alarm.cs"
+using Talesmith.Runtime.Audio;
+
+namespace MyGame;
+
+/// <summary>Sounds a siren entity's Audio Source while something stands in the trigger.</summary>
+public sealed class Alarm : Script
+{
+    public Entity Siren;
+
+    protected override void OnTriggerEnter(in ContactInfo contact) => Events.Publish(new PlayAudioSource(Siren));
+
+    protected override void OnTriggerExit(in ContactInfo contact) => Events.Publish(new StopAudioSource(Siren));
+}
+```
+
+`PlayAudioSource` restarts the sound if it is already playing. To change the volume or pitch of a source, change the component; the change applies to the playing sound on the next frame:
+
+```csharp
+ref var source = ref GetComponent<AudioSource>();
+source.Volume = 0.3f;
+source.Pitch = 1.2f;
+```
+
+Use an Audio Source for sounds that belong to a place, such as a waterfall or a humming machine, and `Audio.Play` for sounds that are events, such as a jump or a hit.
+
+## Buses and volume
+
+Every sound plays on one of four buses: `Effects`, `Music`, `Voice` and `Interface`. Each bus has its own volume, and `MasterVolume` scales everything, which is what a settings menu's volume sliders change.
+
+```csharp
+var audio = Audio.Service;
+audio.MasterVolume = 0.8f;
+audio.SetBusVolume(AudioBus.Music, 0.5f);
+Audio.Play("audio/click.wav", new SoundOptions(Bus: AudioBus.Interface));
+```
+
+The final volume of a sound is its own volume times the volume from its import settings, its bus's volume and the master volume. `Audio.Service` is the game's `IAudioService`; its other members are `GetBusVolume`, `DeviceName`, `ActiveSounds` and `IsPaused`, which pauses every sound and the music. Pausing game time does not pause audio by itself.
+
+Audio calls never fail for lack of a device. Without an output device, and in headless runs and tests, the engine uses a silent service that keeps track of sounds as if it played them, so `IsPlaying` and handles behave the same.
+
+## Related
+
+- [Audio](../concepts/audio.mdx): backends, formats, spatial sound and the audio service in depth
+- [Audio](/guide/assets/audio): importing sounds and their import settings
+- [Pickups](../recipes/pickups.mdx): a sound as part of a pickup

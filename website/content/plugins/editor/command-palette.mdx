@@ -1,0 +1,78 @@
+---
+title: "Command palette providers"
+description: "Add your own results to the command palette."
+---
+
+The command palette (<Keys>Ctrl+K</Keys>) finds commands, entities of the open scene and assets. A plugin adds results of its own with an `ICommandPaletteProvider`. This page covers registering a provider, returning results for a query, ranking them, and what happens when the user runs one.
+
+Commands need no provider: every command a plugin adds with [`CommandBuilder`](./commands.mdx) is already in the palette. Providers are for things that are not commands, such as the entities, assets or records a plugin knows about.
+
+## Register a provider
+
+```csharp
+services.AddCommandPaletteProvider<SpinnerPaletteProvider>();
+```
+
+This provider finds the spinners of the open scene. Typing `%` first in the palette limits it to them:
+
+```csharp title="SpinnerPaletteProvider.cs"
+using Spinners;
+using Talesmith.Editor.CommandPalette;
+using Talesmith.Editor.Documents;
+using Talesmith.Editor.Selection;
+using Talesmith.Runtime.Serialization;
+using Talesmith.UI;
+
+namespace Spinners.Editor;
+
+/// <summary>Type % in the command palette to jump to a spinner.</summary>
+public sealed class SpinnerPaletteProvider(ISceneDocumentService documents, ISelectionService selection) : ICommandPaletteProvider
+{
+    private static readonly string SpinnerType = ComponentRegistry.GetTypeName(typeof(Spinner));
+
+    public char? Prefix => '%';
+
+    public string Category => "Spinners";
+
+    public IEnumerable<PaletteItem> Search(string query, int limit)
+    {
+        if (documents.Active is not { } document)
+            return [];
+        return document.Entities
+            .Where(e => e.FindComponent(SpinnerType) is not null)
+            .Select(e => (Entity: e, Score: query.Length == 0 ? 1 : FuzzyMatch.Score(e.Name, query)))
+            .Where(r => r.Score > 0)
+            .OrderByDescending(r => r.Score)
+            .Take(limit)
+            .Select(r => new PaletteItem($"spinner:{r.Entity.Id:N}", r.Entity.Name, Category, () => selection.SelectEntity(r.Entity.Id))
+            {
+                Subtitle = $"{r.Entity.FindComponent(SpinnerType)!.Data["speed"]} degrees per second",
+                Icon = Icons.RotateCw,
+                Score = r.Score
+            });
+    }
+}
+```
+
+| Member | Meaning |
+| --- | --- |
+| `Prefix` | A character that, typed first, shows only this provider's results, or null. The editor uses `@` for entities and `#` for assets; pick another. |
+| `Category` | What the results are; shown with each result and in the palette's prefix hints. |
+| `Search(query, limit)` | The results for the query, without the prefix, at most `limit` of them. With an empty query, return a few suggestions or nothing. |
+
+## Results and ranking
+
+A `PaletteItem` has an `Id`, a `Title`, a `Category` and the action to run, plus optional `Subtitle` (a second line, such as a folder), `Icon`, `GestureText`, `IsEnabled` and `Score`.
+
+Without a prefix, the palette shows matching commands and the best few results of every provider; with a provider's prefix, only that provider's results. Results are ordered by `Score`, higher first, so give each item the score of its match. `FuzzyMatch.Score(text, query)` scores a name the way the palette scores commands: 0 when the query's letters do not appear in the name in order, and higher for matches at the start, at word starts, in runs of consecutive letters and in shorter names.
+
+`Search` runs on the UI thread on every key press. Keep it fast: search what is in memory, return early when there is nothing to search, and stop at `limit`.
+
+## Running a result
+
+When the user picks a result, the palette closes and runs its action on the UI thread. Results with an `Id` are remembered: recently run ones are listed first next time. Use an id that identifies the thing, such as `spinner:<guid>`, and null for results that should not be remembered.
+
+## Related
+
+- [Commands, menus and the toolbar](./commands.mdx)
+- [The command palette in the guide](/guide/workflow/command-palette)

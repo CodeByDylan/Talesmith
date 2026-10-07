@@ -1,0 +1,78 @@
+---
+title: "Materials and shaders"
+sidebar_label: ".tmaterial and .tshader"
+description: "The structure of .tmaterial and .tshader files."
+---
+
+A material (`.tmaterial`) gives sprites a blend mode and, optionally, a custom shader with up to four parameters. A shader (`.tshader`) names the shader's source for each render backend: SkSL for Skia and precompiled SPIR-V for Vulkan. This page describes both files, the inputs each backend's shader receives, and what is checked when a shader is imported. The importers are in `src/Talesmith.Assets/Materials` and `src/Talesmith.Assets/Shaders`.
+
+The samples do not ship materials or shaders. The importer tests in `tests/Talesmith.Assets.Tests/ImporterTests.cs` have further examples.
+
+## Materials
+
+```json title="glow.tmaterial"
+{ "version": 1, "blend": "additive", "shader": "5e0c4a1b2d3f4e5a6b7c8d9e0f1a2b3c", "parameters": [ [1, 1, 1, 0.8] ] }
+```
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `version` | integer | 1 | The format version. A newer version fails to load. |
+| `blend` | `alpha`, `additive`, `multiply` or `opaque` | `alpha` | How the sprite combines with what is behind it: normal transparency, adding light, darkening, or overwriting. |
+| `shader` | string or null | null | The guid of a `.tshader` asset, or a path relative to the material. Without one, the material only sets the blend mode. |
+| `parameters` | array of `[x, y, z, w]` | `[]` | Up to four values passed to the shader as `params[0]` to `params[3]`. More than four fail the import. |
+
+Each material file becomes one shared `Material` instance, so every sprite using it batches with the others. Materials follow the asset JSON rules: comments and trailing commas are allowed, and property names and enum values are read without regard to case.
+
+## Shaders
+
+```json title="flash.tshader"
+{ "version": 1, "name": "flash", "stage": "material", "skSlFile": "flash.sksl", "spirVFile": "flash.frag.spv" }
+```
+
+A minimal SkSL material shader, from the importer tests, that multiplies the image by the first parameter:
+
+```glsl title="tint.sksl"
+uniform shader image; uniform float4 params[4]; half4 main(float2 c) { return image.eval(c) * half4(params[0]); }
+```
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `version` | integer | 1 | The format version. A newer version fails to load. |
+| `name` | string or null | the file name | The shader's name in logs and tools. |
+| `stage` | `material` or `postEffect` | `material` | A sprite shader used by materials, or a full-screen shader used by post effects. |
+| `skSl` | string | | The SkSL source, inline. |
+| `skSlFile` | string | | An SkSL file, relative to the `.tshader` file. Set either `skSl` or `skSlFile`, not both. |
+| `spirVFile` | string | | A SPIR-V fragment shader compiled from GLSL 450, relative to the `.tshader` file. |
+
+A shader needs at least one source. A backend without a source for itself draws as if no shader were set, so a shader with only SkSL works with Skia and is ignored by Vulkan. Write the Vulkan source as a GLSL 450 fragment shader and compile it to SPIR-V ahead of time, for example with `glslc --target-env=vulkan1.0`; backends compile nothing at import. When the SkSL or SPIR-V file changes, the editor reloads every loaded shader and material that refers to it.
+
+## What each backend passes to a shader
+
+| | Skia (SkSL) | Vulkan (SPIR-V from GLSL 450) |
+| --- | --- | --- |
+| Material input | `uniform shader image;` sampled with `image.eval(coord)` | `layout(set = 0, binding = 0) uniform sampler2D image;` |
+| Material coordinates | `half4 main(float2 coord)`, with `coord` in texture pixels | `layout(location = 0) in vec2 uv;` and `layout(location = 1) in vec4 tint;` (premultiplied) |
+| Material output | The returned color; the sprite tint is multiplied in afterwards | `layout(location = 0) out vec4 color;` with premultiplied alpha |
+| Post effect input | `uniform shader scene;` with `coord` in pixels of the view and `resolution` its size | `uv` at location 0, from 0 to 1 across the view, and `scene` at set 0, binding 0 |
+| Parameters | `uniform float4 params[4];` | `layout(set = 1, binding = 0) uniform Effect { vec4 params[4]; vec2 resolution; float time; }` (std140) |
+| Post effect extras | `uniform float2 resolution; uniform float time;` | `resolution` and `time` in the `Effect` block |
+
+## Checks on import
+
+The importer checks the structure the engine relies on, without compiling anything. Errors fail the import; warnings are logged.
+
+| Check | Result |
+| --- | --- |
+| The SkSL has a `main` function | Error when missing |
+| A material shader declares `uniform shader image`, a post effect `uniform shader scene` | Error when missing |
+| Braces in the SkSL are balanced | Error when not |
+| The SkSL uses `params` but does not declare `uniform float4 params[4]` (or `half4`) | Warning: the parameters will not be set |
+| The SPIR-V is little-endian 32-bit words starting with the SPIR-V magic number | Error when not |
+| A file named by `skSlFile` or `spirVFile` exists | Error when missing |
+
+Both files are found in the asset folder like any other asset, so their `.meta` files give them guids; neither has import settings.
+
+## Related
+
+- [Materials](/guide/effects/materials) in the guide shows how to make and assign a material.
+- [Meta files](./meta-files.mdx) explains the guids materials use to name their shader.

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>2D collision detection and response: colliders, rigid bodies, tile map collision, collision and trigger events.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Talesmith.Runtime\Talesmith.Runtime.csproj" />
+    <ProjectReference Include="..\Talesmith.VFX\Talesmith.VFX.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Talesmith.Physics.Tests" />
+    <InternalsVisibleTo Include="Talesmith.Benchmarks" />
+  </ItemGroup>
+</Project>

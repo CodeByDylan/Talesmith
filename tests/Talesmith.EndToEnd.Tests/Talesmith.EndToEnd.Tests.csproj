@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Talesmith.Editor\Talesmith.Editor.csproj" />
+    <ProjectReference Include="..\..\src\Talesmith.Build\Talesmith.Build.csproj" />
+    <ProjectReference Include="..\..\src\Talesmith.Scripting.Compiler\Talesmith.Scripting.Compiler.csproj" />
+  </ItemGroup>
+  <!-- Built first so their plugins are in the sample game folders the tests copy. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\samples\Talesmith.Samples.HexQuest\Talesmith.Samples.HexQuest.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="..\..\samples\Talesmith.Samples.Cutscenes\Talesmith.Samples.Cutscenes.csproj" ReferenceOutputAssembly="false" Private="false" />
+  </ItemGroup>
+</Project>

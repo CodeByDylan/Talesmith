@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Backend-independent rendering: cameras, culling, draw lists with batching, materials, post effects and the renderer contract.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Talesmith.Core\Talesmith.Core.csproj" />
+  </ItemGroup>
+</Project>

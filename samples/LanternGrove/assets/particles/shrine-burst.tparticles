@@ -1,0 +1,214 @@
+{
+  "version": 1,
+  "name": "Shrine sparkles",
+  "settings": {
+    "duration": 2,
+    "looping": true,
+    "prewarm": false,
+    "playOnStart": false,
+    "startDelay": 0,
+    "simulationSpeed": 1,
+    "simulationSpace": "world",
+    "maxParticles": 400,
+    "seed": 0,
+    "culling": "automatic",
+    "emission": {
+      "enabled": true,
+      "rateOverTime": 40,
+      "rateOverDistance": 0,
+      "bursts": []
+    },
+    "shape": {
+      "enabled": true,
+      "kind": "circle",
+      "emitFrom": "volume",
+      "radius": 70,
+      "innerRadius": 0,
+      "arc": 6.2831855,
+      "size": [
+        32,
+        32
+      ],
+      "coneAngle": 0.5,
+      "tile": "hexPointyTop",
+      "cellSize": [
+        64,
+        64
+      ],
+      "points": [],
+      "offset": [
+        0,
+        -110
+      ],
+      "rotation": 0,
+      "direction": "random",
+      "angle": -1.5707964,
+      "spread": 0,
+      "randomizePosition": 0
+    },
+    "initial": {
+      "lifetime": {
+        "min": 1,
+        "max": 2.2
+      },
+      "speed": {
+        "min": 10,
+        "max": 40
+      },
+      "size": {
+        "min": 12,
+        "max": 30
+      },
+      "rotation": {
+        "min": 0,
+        "max": 6.2831855
+      },
+      "angularVelocity": {
+        "min": -2.443461,
+        "max": 2.443461
+      },
+      "color": {
+        "from": "#FFF2B0",
+        "to": "#FFC060"
+      },
+      "alignToDirection": false,
+      "inheritVelocity": 0
+    },
+    "velocityOverLifetime": {
+      "enabled": true,
+      "linear": [
+        0,
+        0
+      ],
+      "linearOverLifetime": [
+        {
+          "time": 0,
+          "value": 1
+        }
+      ],
+      "orbital": 0.8,
+      "radial": 0,
+      "speedMultiplier": [
+        {
+          "time": 0,
+          "value": 1
+        }
+      ]
+    },
+    "forces": {
+      "enabled": true,
+      "acceleration": [
+        0,
+        -40
+      ],
+      "gravityScale": 0
+    },
+    "drag": {
+      "enabled": false,
+      "drag": 1
+    },
+    "noise": {
+      "enabled": false,
+      "strength": 60,
+      "scale": 96,
+      "scrollSpeed": 0.3,
+      "strengthOverLifetime": [
+        {
+          "time": 0,
+          "value": 1
+        }
+      ]
+    },
+    "colorOverLifetime": {
+      "enabled": true,
+      "color": [
+        {
+          "position": 0,
+          "color": "#00FFFFFF"
+        },
+        {
+          "position": 0.15,
+          "color": "#FFFFFF"
+        },
+        {
+          "position": 0.6,
+          "color": "#D9FFFFFF"
+        },
+        {
+          "position": 1,
+          "color": "#00FFFFFF"
+        }
+      ]
+    },
+    "sizeOverLifetime": {
+      "enabled": true,
+      "size": [
+        {
+          "time": 0,
+          "value": 0
+        },
+        {
+          "time": 0.18,
+          "value": 1
+        },
+        {
+          "time": 0.6,
+          "value": 0.75
+        },
+        {
+          "time": 1,
+          "value": 0
+        }
+      ]
+    },
+    "rotationOverLifetime": {
+      "enabled": false,
+      "angularVelocity": 3.1415927,
+      "overLifetime": [
+        {
+          "time": 0,
+          "value": 1
+        }
+      ]
+    },
+    "textureSheet": {
+      "enabled": false,
+      "columns": 4,
+      "rows": 4,
+      "frameCount": 0,
+      "mode": "overLifetime",
+      "framesPerSecond": 12,
+      "cycles": 1,
+      "randomStartFrame": false
+    },
+    "collision": {
+      "enabled": false,
+      "groundPlane": true,
+      "groundOffset": 64,
+      "groundAngle": 0,
+      "worldColliders": false,
+      "layerMask": -1,
+      "bounce": 0.4,
+      "friction": 0.2,
+      "lifetimeLoss": 0,
+      "killOnCollision": false,
+      "radiusScale": 0.25,
+      "sendEvents": false
+    },
+    "renderer": {
+      "enabled": true,
+      "texture": null,
+      "sprite": null,
+      "builtInTexture": "sparkle",
+      "blend": "additive",
+      "layer": 460,
+      "sortOrder": 0,
+      "sortByEmitterY": false,
+      "sortMode": "none",
+      "alignment": "rotation",
+      "stretchSpeedScale": 0.05,
+      "stretchLengthScale": 1
+    },
+    "customModules": []
+  }
+}

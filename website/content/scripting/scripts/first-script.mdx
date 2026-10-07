@@ -1,0 +1,133 @@
+---
+title: "Your first script"
+description: "Create a C# script in the editor, attach it to an entity, expose a field in the inspector and see it run in play mode."
+---
+
+This tutorial writes a small script from scratch. You create it in the editor, open it in your code editor, make the hero walk with the keyboard, expose its speed in the inspector and tune it while the game runs. Each step introduces a piece that the rest of this section explains in depth.
+
+You need a project made from the **Top-down hex adventure** template, named **My Game**. The template has a hero on a hex island and a **Move** action bound to WASD and the arrow keys, which the script reads. Any project works if it has an entity with a sprite and a vector action called **Move**; the namespace in the code then follows your project's name.
+
+## Create the script
+
+<Steps>
+
+1. Choose **Assets › Create › Script…**. The **Create script** dialog opens.
+2. Type `Mover` as the **Class name** and keep the **Script** template selected. Leave the folder empty.
+3. The dialog shows where the file will go, `assets/scripts/Mover.cs`. Click **Create**. The editor writes the file and opens it in your code editor.
+
+</Steps>
+
+<Screenshot name="scripting/create-script" maxWidth={560} />
+
+Every `.cs` file under `assets/scripts` and its subfolders is a script file, except files in folders named `bin` or `obj` and folders whose name starts with a dot. The editor gives the class a namespace made from the project name and the folder: `MyGame` here, and `MyGame.Enemies` for a script created in `Enemies`. The new file looks like this:
+
+```csharp title="assets/scripts/Mover.cs"
+namespace MyGame;
+
+/// <summary>Describe what Mover does.</summary>
+public sealed class Mover : Script
+{
+    [Tooltip("How fast the entity moves, in units per second.")]
+    public float Speed = 100;
+
+    protected override void OnStart()
+    {
+    }
+
+    protected override void Update()
+    {
+    }
+}
+```
+
+There are no `using` directives because every script can already use `System`, `System.Collections.Generic`, `System.Linq`, `System.Numerics`, `System.Threading.Tasks` and the engine namespaces that scripts need most: `Talesmith.Assets`, `Talesmith.Assets.Textures`, `Talesmith.Audio`, `Talesmith.Authoring`, `Talesmith.Ecs`, `Talesmith.Input`, `Talesmith.Mathematics`, `Talesmith.Physics`, `Talesmith.Runtime.Components`, `Talesmith.Scripting` and `Talesmith.Systems`.
+
+The editor compiles the script as soon as the file is saved. The status bar shows **Compiling scripts…** and then **Scripts compiled in** some number of milliseconds.
+
+## Open the project in your IDE
+
+Choose **Assets › Open C# project**. The editor writes `My Game.Scripts.csproj` next to the `assets` folder and opens it in Visual Studio Code or Rider, whichever it finds first, so you get completion and documentation for the whole engine API. To use another editor, set the **External code editor** command on the **Editor** page of [Settings](/guide/workflow/settings).
+
+The project file is only for your IDE. The editor compiles scripts itself and never builds that project, so you do not need to build anything from the IDE. See [Compiling and hot reload](./hot-reload.mdx) for details.
+
+## Make the hero walk
+
+Replace the contents of `Mover.cs` with:
+
+```csharp title="assets/scripts/Mover.cs"
+namespace MyGame;
+
+/// <summary>Moves the entity with the Move action and turns its sprite to face the way it walks.</summary>
+public sealed class Mover : Script
+{
+    [Range(0, 600)]
+    [Tooltip("How fast the entity moves, in units per second.")]
+    public float Speed = 200;
+
+    protected override void OnStart() => Log.Info($"Moving at {Speed} units per second");
+
+    protected override void Update()
+    {
+        var direction = Input.Vector("Move");
+        Position += direction * Speed * Time.DeltaTime;
+        if (direction.X != 0)
+            GetComponent<Sprite>().FlipX = direction.X < 0;
+    }
+}
+```
+
+What each part does:
+
+- `Update` runs once per frame. `Input.Vector("Move")` reads the action as a direction whose length is at most 1, with down as positive Y, the way the world's Y axis points.
+- `Time.DeltaTime` is the number of seconds the frame covers. Multiplying by it makes the hero cover `Speed` units per second whether the game runs at 60 or 144 frames per second.
+- `Position` is the entity's position in world units. Assigning it moves the entity.
+- `GetComponent<Sprite>()` returns a reference to the entity's sprite, so setting `FlipX` changes the sprite itself, not a copy.
+- `OnStart` runs once before the first update and writes a line to the console under the script's name.
+- `[Range(0, 600)]` turns the field into a slider in the inspector, and `[Tooltip]` explains it when you hover the field.
+
+Save the file. If you made a typing mistake, the status bar shows the number of errors and the console lists each one with its file and line; double-click an error to jump to it in your code editor.
+
+## Attach it to the hero
+
+<Steps>
+
+1. Select **Hero** in the **Hierarchy**.
+2. In the **Inspector**, click **Add component**, type `mover` and choose **Mover** under **Scripts**.
+3. A **Mover** section appears with a **Speed** slider set to 200.
+
+</Steps>
+
+The entity now has a **Scripts** component holding one `Mover`. An entity can carry several scripts, and the same script type can sit on any number of entities, each with its own field values.
+
+## Play and tune it
+
+<Steps>
+
+1. Press <Keys>Ctrl+P</Keys>. The scene starts in the **Game** panel and the console shows `Hero: Moving at 200 units per second`.
+2. Click the Game panel and walk with WASD or the arrow keys. The hero turns to face left and right.
+3. With the game still running, drag **Speed** in the inspector to 450. The hero speeds up at once.
+4. In `Update`, change `direction * Speed` to `direction * Speed * 2` and save. The editor recompiles and swaps the new code into the running game without restarting it: the hero stays where it is and keeps the speed you set in the inspector, now doubled.
+5. Stop play mode. Values you changed in the inspector while playing go back to what the scene had before you pressed play.
+
+</Steps>
+
+Changing a field's initializer, such as `Speed = 200`, does not change a running script, because the swap keeps every field's current value. Initializers only give new scripts their starting values. Play mode does not start while the scripts have errors; the console says why.
+
+Scripts never run while you edit the scene. They run in play mode and in exported games, which is why the hero stays put in the **Scene** panel.
+
+## What to read next
+
+<CardGrid columns={2}>
+  <Card title="The script lifecycle" icon="history" to="/scripting/scripts/lifecycle">
+    Every method the engine calls and in which order.
+  </Card>
+  <Card title="Fields and the inspector" icon="sliders" to="/scripting/scripts/fields">
+    Which fields are saved and the attributes that shape them.
+  </Card>
+  <Card title="Working with components" icon="box" to="/scripting/scripts/components">
+    Reading and changing the entity's components and other scripts.
+  </Card>
+  <Card title="Platformer controller" icon="rocket" to="/scripting/recipes/platformer">
+    A complete character controller to learn from.
+  </Card>
+</CardGrid>

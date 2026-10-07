@@ -1,0 +1,221 @@
+---
+title: "Fields and the inspector"
+description: "Which script fields are saved and shown in the inspector, the value types you can use, the attributes that shape them, and how to rename fields safely."
+---
+
+A script's public fields and settable properties are its settings. The editor shows them in the inspector, scenes and prefabs save them per entity, and the game reads them back before the script's `OnCreate` runs. This page covers which members are saved, every value type the inspector can edit, the attributes that control how fields appear, and how to rename fields and classes without losing saved values.
+
+<Screenshot name="scripting/script-fields" maxWidth={480} />
+
+## What is saved
+
+| Member | Saved and shown |
+| --- | --- |
+| Public field | Yes, unless it is `readonly` |
+| Public property with a public getter and setter | Yes |
+| Private or protected field marked `[SerializeField]` | Yes |
+| Auto-property with a private setter, marked `[field: SerializeField]` | Yes, through its backing field |
+| Any of the above marked `[Transient]` | No |
+| Field or property whose type is a script | No, it is runtime state |
+| Everything else: private fields, get-only properties, constants, statics | No |
+
+Saved values are written under the member's name in camel case, so `RunSpeed` becomes `runSpeed`:
+
+```json
+{ "type": "ScriptComponent", "data": { "scripts": [
+  { "type": "LanternGrove.PlayerController", "enabled": true, "fields": { "runSpeed": 320, "jumpSpeed": 860 } }
+] } }
+```
+
+A field's initializer, such as `= 320`, is the value a script starts with. When the scene has a saved value for the field, that value replaces the initializer before `OnCreate` runs. Fields without a saved value, such as a field you add to the class later, start from the initializer. Do not count on a changed initializer to update entities you already placed: wherever a value is saved, the saved value wins.
+
+Use `[SerializeField]` to keep a setting out of your script's public API, and `[field: SerializeField]` for a value other scripts may read but only this script should change:
+
+```csharp
+[SerializeField]
+private float _alertRadius = 160;
+
+[field: SerializeField]
+public int Kills { get; private set; }
+```
+
+Use `[Transient]` for public runtime state that should not end up in the scene, such as a cooldown timer another script reads:
+
+```csharp
+[Transient]
+public float Stamina;
+```
+
+## Value types
+
+| Type | In the inspector |
+| --- | --- |
+| `bool` | A checkbox |
+| `int`, `long`, `short`, `byte` and other integers, `float`, `double`, `decimal` | A number box; a slider with `[Range]` |
+| `string` | A text box; multi-line with `[Multiline]` |
+| Enums | A drop-down; `[Flags]` enums save their names separated by commas |
+| `Vector2` | X and Y boxes |
+| `Color` | A color swatch with a picker |
+| `Rect2` | X, Y, width and height |
+| `Curve`, `Gradient` | The curve and gradient editors |
+| `Guid` | A text box |
+| `Entity` | An entity picker; see [Entity references](#entity-references) |
+| `TextureAsset`, `Texture`, `SoundClip`, `MusicTrack`, `TileMap` | An asset picker that loads the asset before the scene starts |
+| `AssetGuid` | An asset picker that saves the guid without loading anything; filter it with `[AssetFilter]` |
+| Arrays, `List<T>`, `HashSet<T>`, `ImmutableArray<T>` | A list with add, remove and reorder |
+| Nullable value types, such as `float?` | The value with a way to clear it |
+| Structs and classes of your own | A nested group of their public fields and settable properties |
+
+Types the engine has no converter for, such as `Dictionary<TKey, TValue>`, interfaces and delegates, are not saved. `TileMap` lives in the `Talesmith.Assets.Maps` namespace, so add a `using` for it; the other types are available in every script.
+
+This enemy uses most of them:
+
+```csharp title="assets/scripts/Enemy.cs"
+namespace MyGame;
+
+public enum Behavior
+{
+    Wander,
+    Guard,
+    Chase
+}
+
+public struct Loot
+{
+    [AssetFilter(".tprefab")]
+    public AssetGuid Prefab;
+
+    [Range(0, 1)]
+    public float Chance;
+}
+
+/// <summary>An enemy whose fields cover most of what the inspector can edit.</summary>
+public sealed class Enemy : Script
+{
+    [Header("Stats")]
+    [Range(1, 500)]
+    public int Health = 100;
+
+    [Range(0, 600, Step = 10)]
+    [Tooltip("Top speed in units per second.")]
+    public float Speed = 140;
+
+    [Label("AI")]
+    public Behavior Behavior = Behavior.Guard;
+
+    [Header("Looks")]
+    public Color Tint = Color.White;
+
+    [Angle]
+    public float FacingAngle;
+
+    public Curve? SpeedOverHealth;
+
+    public Gradient? HurtColors;
+
+    [Header("References")]
+    public TextureAsset? Portrait;
+
+    public SoundClip? HurtSound;
+
+    [AssetFilter(".tprefab")]
+    public AssetGuid Corpse;
+
+    public Entity Patrol;
+
+    public List<Vector2> Waypoints = [];
+
+    public List<Loot> Drops = [];
+
+    [Multiline(4)]
+    public string Bark = "Halt!";
+
+    [HideInInspector]
+    public int Generation;
+
+    [Transient]
+    public float Stamina;
+}
+```
+
+### Asset references
+
+There are two ways to refer to an asset:
+
+- **Typed references** (`TextureAsset`, `Texture`, `SoundClip`, `MusicTrack`, `TileMap`) are loaded with the scene. The field holds the loaded asset when `OnCreate` runs, so you can use it at once, at the cost of loading it even if the script never does.
+- **`AssetGuid`** saves only the asset's id. Nothing loads until you ask, which suits prefabs to spawn, presets to apply or levels to load later. `[AssetFilter(".tprefab")]` limits the picker to matching files, and you pass the guid to `Spawn`, `Assets.LoadAsync` or similar. For prefabs this is the right choice: see [Spawning and finding entities](./spawning.mdx).
+
+Both survive moving and renaming the asset in the editor, because scenes store the asset's guid, not its path.
+
+### Entity references
+
+An `Entity` field refers to another entity of the same scene or prefab. Pick it in the inspector. The scene saves the target's id and the game resolves it to the live entity when the scene or prefab instance is created, so `Patrol` holds a valid handle in `OnCreate`.
+
+An `Entity` is only a handle. The entity can be destroyed while your script keeps the handle, so check `World.IsAlive(entity)` before using one that might be gone. A reference into another prefab or scene cannot be saved; find such entities at run time instead.
+
+### Fields that hold other scripts
+
+A field whose type is a script, such as `public PlayerController? Player;`, is never saved or shown. Keep the `Entity` in a saved field and look the script up when the scene starts:
+
+```csharp
+public Entity Player;
+
+private PlayerController? _controller;
+
+protected override void OnStart() => _controller = GetScript<PlayerController>(Player);
+```
+
+Hot reload remaps such fields to the new instances, so a cached script reference stays valid after you change code while playing.
+
+## Inspector attributes
+
+The attributes live in `Talesmith.Authoring`, which every script can use. They are the same ones components use.
+
+| Attribute | Effect |
+| --- | --- |
+| `[Range(min, max)]` | Limits a number. With both ends finite the inspector shows a slider; `[Range(0)]` only sets a minimum. `Step` sets the drag and step increment, such as `[Range(0, 600, Step = 10)]`. |
+| `[Tooltip("…")]` | Explains the field when you hover it. |
+| `[Label("…")]` | Shows another name than the one derived from the member name. |
+| `[Header("…")]` | Starts a titled group of fields from this field on. |
+| `[Multiline(lines)]` | Edits a string in a text box of several lines; 3 by default. |
+| `[HideInInspector]` | Saves the field but does not show it. |
+| `[Transient]` | Neither saves nor shows the field. |
+| `[Angle]` | The value is in radians; the inspector edits it in degrees. |
+| `[AssetFilter(".png", ".jpg")]` | Restricts an asset field to these extensions. |
+| `[Layer]`, `[LayerMask]` | Edits an `int` as one collision layer by name, or as a mask with a checkbox per layer. Pass `LayerSet.ShadowCasters` for shadow caster layers. |
+| `[SerializeField]` | Saves and shows a non-public field. |
+
+Field labels come from the member name split into words, so `JumpSpeed` shows as **Jump Speed** and `_alertRadius` as **Alert Radius**. The script's own section title comes from its class name the same way.
+
+## Editing fields while playing
+
+While play mode runs, the inspector shows the selected entity's live values and lets you change them. Changes go to the running game only and are discarded when you stop. When you change a field in the inspector during play, the editor writes the value into the running script instance in place; the script keeps its other state and does not run `OnCreate` or `OnStart` again.
+
+## Renaming fields and classes
+
+Saved values are matched by name, so renames need care.
+
+**Renaming a field** loses its saved values: scenes still hold the old name, which no member reads, and the next save drops it. To rename the C# member and keep the data, give it the old saved name with `[JsonPropertyName]`:
+
+```csharp
+using System.Text.Json.Serialization;
+
+namespace MyGame;
+
+public sealed class Runner : Script
+{
+    [JsonPropertyName("speed")]
+    public float RunSpeed = 200;
+}
+```
+
+The member keeps reading and writing `speed`, so existing scenes and prefabs work unchanged. Talesmith has no attribute that reads an old name and writes a new one. To switch the saved name as well, close the scenes, replace `"speed"` with `"runSpeed"` in the script's entries of the `.tscene` and `.tprefab` files, and remove the attribute.
+
+**Renaming a class or moving it to another namespace** changes its saved type name, such as `MyGame.Runner`. Scenes that use the old name keep the script as a missing script: the inspector shows a **Missing script** section, the console names the type, and the saved data is kept and written back unchanged, so nothing is lost. Rename the class back, or replace the `"type"` value in the `.tscene` and `.tprefab` files with the new full name. A missing script whose type exists again is created at the next play session, or by hot reload while playing.
+
+## Related
+
+- [Working with components](./components.mdx)
+- [The inspector](/guide/scenes/inspector)
+- [Scene and prefab files](/developers/file-formats/scenes-and-prefabs)
+- [Entities and components](../concepts/ecs.mdx)

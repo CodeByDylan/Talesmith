@@ -1,0 +1,89 @@
+---
+title: "The hierarchy"
+description: "Organize a scene's entities as a tree: select, rename, reparent, filter, hide, lock, and create entities from the context menu."
+---
+
+The Hierarchy panel lists the open scene's entities as a tree, each with the icon of its main component. Children follow their parent: moving, hiding or deleting a parent does the same to its children. This page covers selecting, the keyboard, filtering, hiding and locking, drag and drop, the context menu, prefab instances and how the panel shows the running game.
+
+<Screenshot name="guide/hierarchy" caption="Dragging an entity: the line above Torch shows where it will land." priority />
+
+## Select entities
+
+| Do | How |
+| --- | --- |
+| Select one entity | Click it |
+| Add or remove one entity | <Keys>Ctrl</Keys>+click |
+| Select a range | <Keys>Shift</Keys>+click |
+| Select the children of the selection | **Edit › Select children**, or the context menu |
+
+The selection is shared with the [viewport](./viewport.mdx) and the [inspector](./inspector.mdx).
+
+## Keyboard
+
+| Key | Action |
+| --- | --- |
+| <Keys>Up</Keys>, <Keys>Down</Keys> | Move the selection; with <Keys>Shift</Keys>, extend it |
+| <Keys>Home</Keys>, <Keys>End</Keys>, <Keys>Page Up</Keys>, <Keys>Page Down</Keys> | Jump to the first, last, previous page or next page of rows |
+| <Keys>Left</Keys> | Collapse the entity, or go to its parent |
+| <Keys>Right</Keys> | Expand the entity, or go to its first child |
+| <Keys>Enter</Keys> or <Keys>F2</Keys> | Rename; <Keys>Enter</Keys> confirms and <Keys>Escape</Keys> cancels. Double-clicking a row renames too. |
+| <Keys>Ctrl+F</Keys> | Filter by name |
+| <Keys>Delete</Keys> | Delete the selected entities and their children |
+| <Keys>Ctrl+C</Keys>, <Keys>Ctrl+V</Keys> | Copy and paste |
+| <Keys>Ctrl+D</Keys> | Duplicate |
+| <Keys>Ctrl+Shift+N</Keys>, <Keys>Alt+Shift+N</Keys> | Create an empty entity, or an empty child of the selected entity |
+
+Copied entities are put on the clipboard as text, with their children, so you can paste them into another scene or another project.
+
+## Filter
+
+Type in **Filter entities** at the top of the panel, or press <Keys>Ctrl+F</Keys>. The tree shows the entities whose names contain the text, with the matching letters highlighted, and keeps their parents, dimmed, so you can see where each one sits. Clear the box to see everything again.
+
+<Screenshot name="guide/hierarchy-filter" maxWidth={340} />
+
+## Hide and lock
+
+Hover a row to show its eye and lock buttons:
+
+- The **eye** hides the entity in the viewport while you work on something behind it. Hiding only affects the viewport; it is not the same as making the entity inactive.
+- The **lock** stops the entity from being picked in the viewport, so you cannot move it by accident. You can still select it in the hierarchy.
+
+Both buttons stay visible, in the warning color, while they are on. Clicking them on a selected row applies them to the whole selection.
+
+## Drag and drop
+
+- Drag entities **onto** another entity to make them its children.
+- Drag them **between** rows to reorder them or move them to another parent. A line shows where they land.
+- Hovering over a collapsed entity while dragging expands it, and dragging near the top or bottom edge scrolls.
+- Drag **assets** from the Assets panel onto the hierarchy to create entities from them under the row you drop them on. Textures make sprites, maps make tile maps, particle presets make emitters, sounds make audio sources and prefabs make instances, as in the [viewport](./viewport.mdx#drop-assets-into-the-scene).
+
+What draws in front is decided mainly by each sprite's **Layer**, not by the order of the rows.
+
+## The context menu
+
+Right-click a row for:
+
+| Item | What it does |
+| --- | --- |
+| **Create Empty**, **Create Empty Child** | An entity with only a Transform, at the root at the center of the view, or under the clicked entity |
+| **2D Object** | An entity ready for use: **Sprite**, **Camera**, **Tile Map**, a **Light** (point, spot or directional), a **Particle Emitter** playing one of the built-in presets, or an **Audio Source**. Created under the clicked entity. |
+| **Copy**, **Paste**, **Duplicate**, **Rename**, **Delete** | As their shortcuts |
+| **Create prefab** | Saves the entity and its children as a prefab. See [Prefabs](./prefabs.mdx). |
+| **Select children**, **Expand All**, **Collapse All** | Work on the clicked branch |
+| **Frame selection** | Centers the viewport on the selection (<Keys>F</Keys>) |
+
+Right-clicking empty space below the rows offers **Create Empty**, **2D Object** and **Paste**. The **GameObject** menu in the app bar has the same create commands, and the **+** button next to the filter box creates an empty entity.
+
+## Prefab instances
+
+An instance of a [prefab](./prefabs.mdx) shows its icon in the accent color, with the prefab's entities beneath it. A dot at the end of the row marks an instance that differs from its prefab. The entities inside an instance come from the prefab, so you cannot hide them, delete them or add children to them in the scene; open the prefab to change them.
+
+## While playing
+
+During [play mode](../play-and-test/play-mode.mdx) the hierarchy shows the running game's world instead of the scene, under a *Playing · live world* banner. Entities that scripts spawn appear as they are created, and the tree refreshes a few times a second. Select an entity to see its live values in the inspector; the eye button switches it on and off in the game. You cannot create, delete or paste entities while playing, and everything you change ends with Stop.
+
+## Related
+
+- [The inspector](./inspector.mdx)
+- [Prefabs](./prefabs.mdx)
+- [Built-in components](./components.mdx)

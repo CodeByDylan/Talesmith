@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Assets: asset folders, guids and .meta files, the asset database, importers for textures, atlases, fonts, materials, shaders and localization, hot reload and the runtime tile map model.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Talesmith.Core\Talesmith.Core.csproj" />
+    <ProjectReference Include="..\Talesmith.Grids\Talesmith.Grids.csproj" />
+    <ProjectReference Include="..\Talesmith.Rendering\Talesmith.Rendering.csproj" />
+  </ItemGroup>
+</Project>

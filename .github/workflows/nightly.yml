@@ -1,0 +1,113 @@
+# Checks that need a real display or a bare system: drives the editor under Xvfb, and runs an exported Lantern Grove in a minimal Ubuntu
+# container without fontconfig or ICU. Runs nightly, on demand, and on pull requests that change these checks.
+name: Nightly
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/nightly.yml
+      - tools/smoke/**
+      - src/Talesmith.App/**
+      - src/Talesmith.Build/BuildCommandLine.cs
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  editor-smoke:
+    name: Editor smoke test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Set up .NET from global.json
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore the NuGet cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Install Xvfb, xdotool and ImageMagick
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends xvfb xauth xdotool imagemagick
+
+      - name: Build the editor
+        run: dotnet build src/Talesmith.App
+
+      # Creates a project, selects and drags an entity, undoes, plays, searches commands and quits, with a screenshot after each step.
+      - name: Drive the editor
+        run: tools/smoke/editor-smoke.sh "$RUNNER_TEMP/smoke"
+
+      - name: Upload the screenshots and the editor log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: editor-smoke
+          path: ${{ runner.temp }}/smoke
+          retention-days: 14
+          if-no-files-found: ignore
+
+  exported-game:
+    name: Exported game without fontconfig
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Set up .NET from global.json
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore the NuGet cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Export Lantern Grove for Linux
+        run: dotnet run --project src/Talesmith.App -- --export samples/LanternGrove --target linux-x64 --output "$RUNNER_TEMP/export"
+
+      # The image has no fontconfig, FreeType, X11, Vulkan or ICU: the game brings everything it needs.
+      - name: Run it in a minimal Ubuntu container
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/game-output"
+          docker run --rm \
+            -v "$RUNNER_TEMP/export/Lantern Grove-linux-x64:/game:ro" \
+            -v "$RUNNER_TEMP/game-output:/out" \
+            ubuntu:24.04 sh -ec '
+              if ldconfig -p | grep -q libfontconfig; then echo "fontconfig is installed"; exit 1; fi
+              "/game/Lantern Grove" --benchmark --frames 120 --warmup 30 --no-render --report /out/benchmark.json
+            ' 2>&1 | tee "$RUNNER_TEMP/game-output/game.log"
+          test -s "$RUNNER_TEMP/game-output/benchmark.json"
+
+      - name: Upload the game's log and benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exported-game
+          path: ${{ runner.temp }}/game-output
+          retention-days: 14
+          if-no-files-found: ignore

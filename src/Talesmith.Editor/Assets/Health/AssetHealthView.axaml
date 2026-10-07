@@ -1,0 +1,82 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Assets.Health"
+             x:Class="Talesmith.Editor.Assets.Health.AssetHealthView"
+             x:DataType="vm:AssetHealthViewModel">
+  <UserControl.Styles>
+    <Style Selector="Button.entry">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Padding" Value="8,5" />
+      <Setter Property="MinHeight" Value="0" />
+    </Style>
+    <Style Selector="Border.count">
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="Padding" Value="7,0" />
+      <Setter Property="Height" Value="18" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceSunkenBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
+  <ui:Dialog Header="Asset health" Description="{Binding Summary}" Width="620">
+    <Panel MinHeight="200" MaxHeight="460">
+      <StackPanel IsVisible="{Binding IsEmpty}" Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Border Width="52" Height="52" CornerRadius="26" Background="#2422C55E" HorizontalAlignment="Center">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.CheckCircle}" Size="24" Foreground="#22C55E" />
+        </Border>
+        <TextBlock Classes="subtitle" Text="All assets are healthy" HorizontalAlignment="Center" />
+      </StackPanel>
+      <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoading}" VerticalAlignment="Top" />
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <ItemsControl ItemsSource="{Binding Sections}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:AssetHealthSection">
+              <StackPanel Spacing="4" Margin="0,0,0,14">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <ui:SymbolIcon Data="{Binding Icon}" Size="14" Foreground="{DynamicResource TextSecondaryBrush}" />
+                  <TextBlock Text="{Binding Title}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                  <Border Classes="count">
+                    <TextBlock Text="{Binding CountText}" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center" />
+                  </Border>
+                </StackPanel>
+                <TextBlock Text="{Binding Description}" Classes="caption muted" TextWrapping="Wrap" Margin="22,0,0,4" />
+                <ItemsControl ItemsSource="{Binding Entries}" Margin="14,0,0,0">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:AssetHealthEntry">
+                      <Button Classes="subtle entry" Command="{Binding $parent[UserControl].((vm:AssetHealthViewModel)DataContext).GoToCommand}"
+                              CommandParameter="{Binding}" IsEnabled="{Binding CanNavigate}" ToolTip.Tip="Show in the Assets panel">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                          <ui:SymbolIcon Data="{Binding Icon}" Size="13" Foreground="{Binding Brush}" VerticalAlignment="Center" />
+                          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="{Binding Title}" Classes="mono" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Detail}" Classes="caption muted" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                          </StackPanel>
+                          <ui:SymbolIcon Grid.Column="2" Data="{x:Static ui:Icons.ArrowRight}" Size="12" IsVisible="{Binding CanNavigate}"
+                                         Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                        </Grid>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Panel>
+    <ui:Dialog.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Classes="danger" Content="Remove orphaned .meta files" Command="{Binding RemoveOrphansCommand}"
+                IsVisible="{Binding HasOrphans}" />
+        <Button Command="{Binding RefreshCommand}" MinWidth="84">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.Refresh}" Size="13" />
+            <TextBlock Text="Check again" />
+          </StackPanel>
+        </Button>
+        <Button Classes="accent" Content="Done" MinWidth="84" IsDefault="True" IsCancel="True" Command="{Binding DoneCommand}" />
+      </StackPanel>
+    </ui:Dialog.Footer>
+  </ui:Dialog>
+</UserControl>

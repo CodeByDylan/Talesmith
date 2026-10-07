@@ -1,0 +1,35 @@
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+  margin: 1.5rem 0;
+}
+
+.split > :last-child {
+  position: sticky;
+  top: calc(var(--ifm-navbar-height) + 1rem);
+}
+
+.split > :last-child > figure {
+  margin-top: 0;
+}
+
+.reverse > :last-child {
+  order: -1;
+}
+
+@media (max-width: 1100px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .split > :last-child {
+    position: static;
+  }
+
+  .reverse > :last-child {
+    order: 0;
+  }
+}

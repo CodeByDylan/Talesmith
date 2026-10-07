@@ -1,0 +1,56 @@
+---
+title: "Entity icons"
+description: "Choose the icon the scene viewport shows for entities with your components."
+---
+
+Entities without a sprite or a tile map, such as cameras, lights, sound sources and the spinners placed by the Spinners tool, would be invisible in the scene viewport. The viewport draws an icon at their position instead, which can be clicked to select them. This page covers how the editor picks that icon, choosing it with `AddEntityIconProvider`, and priorities between providers.
+
+## The default icon
+
+Usually you do not need a provider. The editor's own provider uses the icon of the entity's first component whose `[Component]` attribute names one, and the camera icon for cameras:
+
+```csharp
+[Component(Category = "Motion", Icon = "rotate-cw", Description = "Turns the entity at a constant speed.")]
+public struct Spinner
+```
+
+Every entity with a Spinner and no sprite shows the turning arrow. Icon names are the editor's icon set in lower case, with or without dashes: `rotate-cw`, `compass`, `shield`, `flag`, `map-pin`, `music`, `lightbulb`, `sparkles` and the rest of `Talesmith.UI.Icons`. A name that is not in the set gives no icon.
+
+## Choose the icon in code
+
+An `IEntityIconProvider` decides the icon itself, for example to color it, or to pick it from the entity's data:
+
+```csharp title="SpinnerIconProvider.cs"
+using Spinners;
+using Talesmith.Ecs;
+using Talesmith.Editor.Viewport;
+using Talesmith.UI;
+
+namespace Spinners.Editor;
+
+/// <summary>Spinners show a turning arrow in the viewport, in amber.</summary>
+public sealed class SpinnerIconProvider : IEntityIconProvider
+{
+    public int Priority => 10;
+
+    public EntityIcon? GetIcon(World world, Entity entity) =>
+        world.Has<Spinner>(entity) ? new EntityIcon(Icons.RotateCw, Avalonia.Media.Color.Parse("#F59E0B")) : null;
+}
+```
+
+```csharp
+services.AddEntityIconProvider<SpinnerIconProvider>();
+```
+
+`GetIcon` receives the edit world and an entity without a visible sprite or tile map, and returns an `EntityIcon` (a 24 × 24 stroke geometry and an optional color; null uses the theme's text color) or null to leave the entity to other providers. Icons are drawn at a constant size of 26 pixels, whatever the zoom.
+
+## Priority between providers
+
+The editor asks the providers from the highest `Priority` down and uses the first icon returned. The built-in provider has priority 0, so a provider with a higher priority wins for the entities it returns an icon for, and the built-in one still covers the rest. Providers of equal priority are asked in registration order, which puts the editor's own provider before any plugin's, so give yours a priority above 0.
+
+`GetIcon` runs whenever the viewport works out what is under the pointer and what to draw, for every entity without visuals. Keep it to a few component checks.
+
+## Related
+
+- [Gizmo providers](./gizmos.mdx)
+- [Systems and components](../runtime/systems-and-components.mdx#components)

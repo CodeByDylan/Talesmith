@@ -1,0 +1,242 @@
+---
+title: "Continuous integration"
+description: "The GitHub Actions workflows that build and test Talesmith and publish this site, when each one runs, how to read its results, and how dependency updates arrive."
+---
+
+GitHub Actions builds the solution and runs the tests for every pull request and every push to `main`, and publishes this site. This page lists the workflows in `.github/workflows`, when each one runs and what it checks, how to read a failed run, how Renovate proposes dependency updates, and the repository settings the workflows rely on.
+
+## Workflows
+
+| Workflow | File | Runs | Checks |
+| --- | --- | --- | --- |
+| CI | `ci.yml` | Every pull request and push to `main`, and on demand | Builds with warnings as errors, then runs every test except the slow ones on Linux and on Windows. See [Windows](#windows). |
+| Checks | `checks.yml` | Every pull request and push to `main`, and on demand | Checks formatting against `.editorconfig`, generated files against their sources, and on pull requests that every commit follows Conventional Commits. See [Formatting, generated files and commit messages](#formatting-generated-files-and-commit-messages). |
+| Slow tests | `slow-tests.yml` | Every push to `main`, nightly, on demand, and pull requests that are labelled `run-slow` or change the build, the player, the asset pipeline or plugins | The tests marked `Category=Slow`. |
+| Nightly | `nightly.yml` | Nightly, on demand, and pull requests that change these checks | Drives the editor under Xvfb, and runs an exported game in a container without fontconfig or ICU. See [Nightly checks](#nightly-checks). |
+| Release | `release.yml` | Version tags such as `v0.2.0`, on demand, and pull requests that change the packaging | Packages the editor for Windows, Debian and Ubuntu, other Linux distributions and NixOS, installs each package on clean systems and publishes a GitHub release. See [Releases](#releases). |
+| Labels | `labels.yml` | Changes to it on `main`, and on demand | Creates and updates the repository's labels. |
+| Dependency review | `dependency-review.yml` | Every pull request | Fails a pull request that adds or updates a package with a known vulnerability. See [Security](#security). |
+| Website | `website.yml` | Pull requests and pushes to `main` that change `website/`, and on demand | Type-checks and builds this site. On `main`, publishes it to GitHub Pages. See [This site](#this-site). |
+
+To run a workflow on demand, open it on the repository's **Actions** tab, choose **Run workflow** and pick a branch.
+
+## The SDK version
+
+`global.json` pins the .NET SDK, so CI and your machine build with the same compiler:
+
+```json title="global.json"
+{
+  "sdk": {
+    "version": "10.0.400",
+    "rollForward": "latestFeature"
+  },
+  "test": {
+    "runner": "Microsoft.Testing.Platform"
+  }
+}
+```
+
+Any SDK from 10.0.400 on works, and CI installs the newest one this allows. The floor comes from the script compiler: its analyzers build against `Microsoft.CodeAnalysis.CSharp` 5.9 from `Directory.Packages.props`, and the C# compiler only loads analyzers built for its own version or older. SDK 10.0.400 is the first with compiler 5.9. An older SDK skips the analyzers with warning CS9057 when it builds a game's script project, and the test that builds one fails. Raise the SDK whenever you raise `Microsoft.CodeAnalysis.CSharp`. Renovate proposes the two in one pull request.
+
+## Build and test
+
+The **Build and test** job in `ci.yml` runs on Ubuntu 24.04, and on Windows Server 2025 as described under [Windows](#windows):
+
+<Steps>
+
+1. Installs the SDK that `global.json` selects and restores NuGet packages from a cache that pushes to `main` refresh.
+2. Installs `mesa-vulkan-drivers`. Its lavapipe driver runs Vulkan on the CPU, so the rendering and lighting tests check the Vulkan renderer as well as Skia. Without a Vulkan driver they check Skia only.
+3. Builds `Talesmith.slnx` with `-warnaserror`. The solution builds without warnings, and NuGet's audit warnings about packages with known vulnerabilities count too. The build hard-links the files that projects copy into their output folders instead of copying them, with `CreateHardLinksForCopyLocalIfPossible` and the two related properties. Every test project carries the native libraries of every platform, about 550 MB, so copies would take about 12 GB, more than a hosted runner has free.
+4. Runs the tests without the slow ones, writes a TRX report per test project and summarizes them.
+
+</Steps>
+
+The same build and tests run locally with:
+
+```bash
+dotnet build Talesmith.slnx -warnaserror
+dotnet test --solution Talesmith.slnx --no-build -- --filter-not-trait "Category=Slow"
+```
+
+## Read a failed run
+
+- **Summary.** The run's summary page has a table with the passed, failed and skipped tests of each project, and the message and stack trace of each failed test.
+- **Annotations.** Each failed test is also marked on the line where it failed. When the pull request changes that file, the mark shows in its **Files changed** tab too.
+- **Artifacts.** `test-results-linux` and `test-results-windows` hold the TRX reports. When a test fails, `render-captures-linux` or `render-captures-windows` holds the PNG files that the rendering and lighting tests write to `captures/lighting` next to their binaries.
+
+`.github/scripts/TestSummary.cs` writes the summary and the annotations. It is a file-based C# program, so `dotnet run .github/scripts/TestSummary.cs -- TestResults` runs it locally on a results folder.
+
+## Hangs
+
+Every test project references `Microsoft.Testing.Extensions.HangDump` through `Directory.Build.props`, and CI passes `--hangdump --hangdump-timeout 10m --hangdump-type Mini`. When no test of a project makes progress for 10 minutes, the test platform saves a dump of the test process and a log that names the tests still running, stops the process and fails the run. Both files are in the run's test results. Open the dump with `dotnet-dump analyze` and run `clrstack -all` to see where each thread waits. The job stops after 45 minutes on Linux and 60 on Windows in any case.
+
+## Slow tests
+
+The tests marked `[Trait("Category", "Slow")]` publish players, export Lantern Grove and build a plugin with `dotnet build`, which takes a few minutes. They run on every push to `main`, every night, and, for a pull request, when it changes one of these:
+
+- `src/Talesmith.Build`, `src/Talesmith.Player`, `src/Talesmith.Assets`, `src/Talesmith.Plugins` or `src/Talesmith.Editor/Plugins`
+- Lantern Grove (`samples/LanternGrove` and `samples/Talesmith.Samples.LanternGrove`)
+- `tests/Talesmith.Build.Tests`, `tests/Talesmith.EndToEnd.Tests` or `tests/Talesmith.Editor.Tests/Plugins`
+- `Directory.Build.props`, `Directory.Packages.props` or `global.json`
+
+For any other pull request, add the `run-slow` label to run them. A small **Decide** job checks the label and the changed files first and skips the slow tests otherwise. The test run filters the whole solution with `--filter-trait "Category=Slow"` and passes `--ignore-exit-code 8`, because projects without slow tests run no tests, which the test platform reports with exit code 8.
+
+## Windows
+
+**Build and test on Windows** runs on `windows-2025`, next to the Linux job, for every pull request. These runners have no Vulkan driver, so the Vulkan tests skip themselves. They also have only a few cores, so the job runs the test projects one at a time with `--max-parallel-test-modules 1`: run in parallel, the editor tests starve the tests that count frames against the clock. The NuGet packages go to the build's drive, because the hard links that keep the build small need them there.
+
+Windows behaves differently from Linux in file paths, the case of file names, line endings and timing, so a change that passes on one can fail on the other.
+
+## Nightly checks
+
+`nightly.yml` runs every night, on demand, and on pull requests that change it, the smoke script or the editor's command line:
+
+- **Editor smoke test.** `tools/smoke/editor-smoke.sh` starts the real editor under Xvfb, creates a platformer project, selects and drags an entity, undoes, plays and stops, searches the command palette and quits, with a screenshot after each step. The `editor-smoke` artifact holds the screenshots and the editor's log.
+- **Exported game on a bare system.** Exports Lantern Grove for Linux with [`talesmith --export`](/guide/exporting#build-from-the-command-line) and runs it for 120 frames in an `ubuntu:24.04` container, which has no fontconfig, FreeType, X11, Vulkan or ICU. This keeps the promise that exported games bring the libraries a bare system lacks. The `exported-game` artifact holds the game's log and its benchmark report.
+
+The slow tests also run every night, so problems from outside the repository show up within a day even when nothing is merged: a new SDK, a new runner image, or a new advisory for a NuGet package, which fails the build. GitHub emails the failures of scheduled runs to whoever last changed the schedule.
+
+## Releases
+
+`release.yml` runs when a version tag is pushed:
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+<Steps>
+
+1. **Package for Linux** publishes the editor for `linux-x64` and adds the development and release players to its `players` folder with `talesmith --publish-player`, so the installed editor exports games without the .NET SDK or the engine's sources. It exports Lantern Grove with the Distribution profile as a game to download, packs the editor into an archive with the launcher from `packaging/linux` in front of it, and builds the Debian package that `packaging/linux/nfpm.yaml` describes with [nFPM](https://nfpm.goreleaser.com).
+2. **Install on** runs `packaging/linux/test-install.sh` in clean Ubuntu 22.04, 24.04 and 26.04, Debian 13, Fedora and Arch Linux containers. It runs Lantern Grove before anything else is installed, installs the Debian package with apt or the archive from the packages its launcher names as missing, then starts the editor under Xvfb and waits for its window.
+3. **Build and start the Nix package** builds the flake's package from the new archive and starts it the same way.
+4. **Package for Windows** publishes the editor and its players on a Windows runner and adds the Visual C++ runtime from the runner's Visual Studio to them, because OpenAL Soft needs it and a clean Windows lacks it. It builds the installer from `packaging/windows/talesmith.iss` with Inno Setup, installs it silently, starts and uninstalls the editor, and runs the exported Lantern Grove.
+5. **Publish the release** writes `SHA256SUMS.txt`, attests the build provenance of every file, and publishes a GitHub release with notes generated from the merged pull requests. A tag with a pre-release part, such as `v0.3.0-rc.1`, makes a pre-release.
+
+</Steps>
+
+The version comes from the tag. The workflow sets the `TalesmithVersion` environment variable, which `Directory.Build.props` uses as every project's version and which reaches the players' builds too. Without it, builds are version 0.1.0.
+
+| File | Contents |
+| --- | --- |
+| `talesmith-<version>-win-x64-setup.exe` | The Windows installer. |
+| `talesmith-<version>-win-x64.zip` | The installer's files, to run from any folder. |
+| `talesmith_<version>_amd64.deb` | The package for Debian and Ubuntu. |
+| `talesmith-<version>-linux-x64.tar.gz` | The editor for other Linux distributions, started by its `talesmith` launcher. |
+| `lantern-grove-<version>-<target>.zip`, `.tar.gz` | The Lantern Grove sample as an exported game. |
+| `SHA256SUMS.txt` | The checksum of every file above. |
+
+Each package holds the editor with .NET inside it and its target's players in `players/`; [Installation](/guide/getting-started/installation#install-a-release) explains them for users. The Windows executables are not signed, so SmartScreen asks before the first start.
+
+The flake installs the release that `packaging/nix/release.json` names. After a release, `packaging/nix/update.sh <version>` points it at the new one, and that change is merged like any other.
+
+Pull requests that change the packaging run every job but the last, and so does **Run workflow** on the **Actions** tab. Their packages are the run's artifacts.
+
+## Formatting, generated files and commit messages
+
+`checks.yml` runs three jobs next to **Build and test**:
+
+- **Formatting** runs `dotnet format whitespace` and `dotnet format style` with `--verify-no-changes`. They check the rules in `.editorconfig`: indentation, line breaks and spacing, `System` directives first, and file-scoped namespaces. Each finding names its file and line. The same commands without `--verify-no-changes` fix them:
+
+  ```bash
+  dotnet format whitespace Talesmith.slnx
+  dotnet format style Talesmith.slnx
+  ```
+
+- **Generated files** recompiles the Vulkan shaders to SPIR-V with `tools/Talesmith.ShaderCompiler`, exports the editor's shortcuts for this site as `npm run shortcuts` does, and fails if either result differs from what is committed. A change to a shader or to an editor command carries the regenerated `.spv` file or `website/src/data/shortcuts.json`.
+- **Commit messages** runs on pull requests and fails when a commit's subject does not start with a type and an optional scope, such as `fix(editor):`, as the [commit rules](./contributing.mdx#commit-messages) describe. It names each such commit. Merge commits are left out.
+
+## This site
+
+`website.yml` checks this site on pull requests that change `website/` and publishes it from `main`:
+
+<Steps>
+
+1. Installs the packages with `npm ci` and type-checks the TypeScript.
+2. Builds the site. The build runs the prose lint first and fails on broken links and anchors.
+3. On `main`, uploads the build and deploys it to GitHub Pages.
+
+</Steps>
+
+The site's address comes from Pages: `actions/configure-pages` reports where Pages serves the site, and the build passes that to Docusaurus as `SITE_URL` and `BASE_URL`. Without them, as on your machine, the site builds for `https://talesmith.dev/`. Until Pages is turned on, the workflow builds the site, skips the deployment and leaves a warning on the run.
+
+To publish the site:
+
+<Steps>
+
+1. Under **Settings › Pages**, set **Source** to **GitHub Actions**. If the setting is missing, an organization owner allows public sites under the organization's **Settings › Member privileges › Pages creation**.
+2. Run the **Website** workflow from the **Actions** tab, or push a change to `website/`. The site appears at `https://codebydylan.github.io/Talesmith/`.
+3. To serve it from `talesmith.dev`, enter the domain under **Settings › Pages › Custom domain**, add the DNS records GitHub shows there, and tick **Enforce HTTPS** once the certificate is ready. The next deployment builds for the new address.
+
+</Steps>
+
+## Dependency updates
+
+[Renovate](https://docs.renovatebot.com) opens a pull request for each new version of the NuGet packages in `Directory.Packages.props`, the SDK in `global.json`, this site's npm packages, the actions in the workflows and the nixpkgs in `flake.lock`. Its configuration is `.github/renovate.json5`; when Renovate cannot read it, it says so in an issue.
+
+- **Nothing merges on its own.** Every update waits for CI and a review.
+- **Commit messages** follow the [commit rules](./contributing.mdx#commit-messages): `chore(deps):` for packages, the SDK and lock files, and `ci(deps):` for the actions in the workflows. Pull request titles match.
+- **Schedule.** Renovate opens pull requests on Mondays before 9:00, Amsterdam time: at most 10 open at once and 5 new ones an hour. Fixes for known vulnerabilities open at any time and carry the `security` label. This site's `package-lock.json` and `flake.lock` are refreshed on the first day of each month.
+- **Dependency Dashboard.** An issue lists every pending update, including those waiting for their schedule or an approval. Tick an update's box to get its pull request now.
+- **New npm releases** wait three days, the time in which a broken or compromised release is usually pulled.
+- **Actions** are pinned to a commit, with the version in a comment next to it. Renovate's first pull request pins them, and later updates change both.
+- **The SDK in `global.json`** only moves to a new feature band, such as 10.0.500. CI installs the newest SDK anyway, and each raise makes every contributor update theirs.
+
+### Groups
+
+Packages that must move together arrive in one pull request:
+
+| Group | Packages | Why |
+| --- | --- | --- |
+| Avalonia | `Avalonia`, `Avalonia.*` | They share `AvaloniaVersion`. |
+| SkiaSharp | `SkiaSharp`, `SkiaSharp.NativeAssets.*` | They share `SkiaSharpVersion`, because the native libraries must match the managed version. |
+| Microsoft.Extensions | `Microsoft.Extensions.*` | They share `MicrosoftExtensionsVersion`. |
+| Roslyn and the .NET SDK | `Microsoft.CodeAnalysis.CSharp` and the SDK in `global.json` | The SDK's compiler must be at least as new as Roslyn. See [The SDK version](#the-sdk-version). |
+| xUnit and the test platform | `xunit.v3`, `xunit.runner.visualstudio`, `Microsoft.NET.Test.Sdk`, `Microsoft.Testing.*` | They run the tests together. |
+| Docusaurus | `@docusaurus/*` | They must share one version. |
+| React | `react`, `react-dom`, `@types/react` | The types follow the version they describe. |
+
+### Updates that wait for approval
+
+A new major version of these opens no pull request until you tick it on the Dependency Dashboard:
+
+- The .NET SDK, `Microsoft.CodeAnalysis.CSharp` and `Microsoft.Extensions.*`, which belong to the next .NET release.
+- Avalonia and SkiaSharp. Avalonia builds on one SkiaSharp major, so the two move together.
+
+Two kinds of pull request carry a note about extra work. A Roslyn update that the SDK in `global.json` cannot load yet waits for an SDK update: until then `TheGeneratedProjectBuildsWithDotnetBuild` fails with CS9057. A `Vortice.ShaderCompiler` update asks you to recompile the shaders and commit any `.spv` file that changes.
+
+## Security
+
+| Check | Runs | What it does |
+| --- | --- | --- |
+| NuGet audit | Every build | While restoring, NuGet checks every package, transitive ones included, against GitHub's advisory database. CI builds with `-warnaserror`, so a package with a known vulnerability of any severity fails **Build and test**. On your machine it is a warning, NU1901 to NU1904. |
+| CodeQL | GitHub's default setup: pull requests, pushes to `main` and weekly | Analyzes the C# code, this site's TypeScript and the workflows, and lists findings under **Security › Code scanning**. |
+| Dependency review | `dependency-review.yml`: pull requests | Fails a pull request that adds or updates a package with a known vulnerability of moderate severity or higher. |
+| Secret scanning | A repository setting | Finds credentials in the repository. Push protection rejects a push that contains one. |
+
+Renovate also opens a pull request for a vulnerable package as soon as a fix is out; see [Dependency updates](#dependency-updates).
+
+## Labels
+
+`labels.yml` creates the repository's labels with their colors and descriptions, and updates them when the list in it changes. `run-slow` runs the [slow tests](#slow-tests) on a pull request. The issue forms add `bug` and `enhancement`, and Renovate adds `dependencies` and `security` to its pull requests.
+
+## Repository settings
+
+The workflows need these settings, which a repository admin makes once:
+
+| Setting | Where | Value |
+| --- | --- | --- |
+| Required checks | **Settings › Rules › Rulesets**, a branch ruleset for `main` | Require pull requests, and the **Build and test on Linux**, **Build and test on Windows**, **Formatting** and **Generated files** status checks. Leave the other workflows out: they run only when their paths change, and a required check that never runs blocks the pull request. |
+| Merging | **Settings › General › Pull Requests** | Allow merge commits, the way the history is kept, and turn on **Automatically delete head branches**. |
+| Labels | **Actions › Labels › Run workflow** | Run it once after merging to create every label; see [Labels](#labels). |
+| Code owners | `.github/CODEOWNERS` | Asks the maintainer to review every pull request. Leave **Require review from Code Owners** off while there is one maintainer, since GitHub does not let authors approve their own pull requests. |
+| GitHub Pages | **Settings › Pages** | **Source** set to **GitHub Actions**; for `talesmith.dev`, the custom domain and **Enforce HTTPS**. See [This site](#this-site). |
+| Code scanning | **Settings › Advanced Security** | **CodeQL analysis** with the default setup. See [Security](#security). |
+| Secret scanning | **Settings › Advanced Security** | **Secret Protection** with push protection. |
+| Renovate | [github.com/apps/renovate](https://github.com/apps/renovate) | Install the app for this repository. It finds `.github/renovate.json5`, so it skips its onboarding pull request. Keep **Issues** turned on for the Dependency Dashboard. |
+
+## Related
+
+- [Building and testing](./building.mdx)
+- [Screenshots, smoke tests and benchmarks](./tools.mdx)
+- [Contributing](./contributing.mdx)

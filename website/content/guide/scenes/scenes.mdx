@@ -1,0 +1,79 @@
+---
+title: "Scenes"
+description: "Create, open and save scenes, set the start scene and edit a scene's environment: background, ambient light, gravity and render layers."
+---
+
+A scene is one level, menu or screen of your game, saved as a `.tscene` file. It holds a tree of entities and the scene's environment. This page covers creating, opening and saving scenes, choosing the scene the game starts with, and the scene settings the Inspector shows when nothing is selected.
+
+## Scene files
+
+Scenes are `.tscene` files in the project's `assets` folder, usually in `assets/scenes`. A scene refers to the assets it uses, such as textures, maps and prefabs, by their guid, so you can rename and move those assets without breaking the scene. The format is described in [Scenes and prefabs](/developers/file-formats/scenes-and-prefabs).
+
+The editor has one scene open at a time. Its file name shows in the app bar next to the project's name, and in the scene picker on the right of the tool options bar.
+
+## Create, open and save
+
+| Command | Shortcut | What it does |
+| --- | --- | --- |
+| **File › New scene** | <Keys>Ctrl+N</Keys> | Opens a new, unsaved scene named *Untitled* with one entity, **Main Camera**. |
+| **File › Open scene…** | <Keys>Ctrl+O</Keys> | Opens a scene from a file dialog that starts in `assets/scenes`. |
+| **File › Open recent** | | The scenes you opened last. |
+| **File › Save scene** | <Keys>Ctrl+S</Keys> | Saves the scene and every tile map with unsaved edits. A scene that was never saved asks for a file name. |
+| **File › Save scene as…** | <Keys>Ctrl+Shift+S</Keys> | Saves the scene under a new name. The `.tscene` extension is added for you. |
+| **File › Revert scene** | | Discards every unsaved change, after asking. |
+
+You can also create a scene in the Assets panel with **Create › Scene**, and open one by double-clicking it there or by choosing it in the scene picker.
+
+Scenes must be inside the project's `assets` folder, so the game can load them. The editor refuses to open or save a scene anywhere else.
+
+### Unsaved changes
+
+When the scene has changes you have not saved, the app bar shows an **Unsaved** badge and the window title starts with ●. Before anything replaces the scene, such as opening another one, closing the project or quitting, the editor asks whether to save, discard or cancel.
+
+To save automatically, turn on **Autosave** in **Edit › Settings… › Editor**. The editor then saves the open scene every few minutes (5 by default) while it has unsaved changes. Scenes that were never saved are not autosaved.
+
+### Undo
+
+Undo and redo (<Keys>Ctrl+Z</Keys> and <Keys>Ctrl+Shift+Z</Keys>) work on the open scene. Opening another scene starts a new history, so you cannot undo into the previous scene. See [Undo and history](../workflow/history.mdx).
+
+### Which scene opens
+
+When a project opens, the editor opens the scene you had open last. The first time, it opens the project's start scene, and if that is missing, the first scene in alphabetical order. A project whose start scene is one or more maps rather than a scene file, as in the Isle Hopper and Hex Quest samples, opens with a new unsaved scene that shows those maps.
+
+## The start scene
+
+The game starts with the scene set in **Edit › Project Settings… › Game › Start scene**. New projects start with `scenes/main.tscene`. To change it, choose another scene in that list and click **Save**. The setting is written to `config/game.json`.
+
+<Keys>Ctrl+P</Keys> plays the scene that is open, whatever the start scene is. To play the game from its start scene instead, use **Scene › Play from start scene** (<Keys>Ctrl+Alt+Shift+P</Keys>). See [Play mode](../play-and-test/play-mode.mdx).
+
+## Scene settings
+
+Click empty space in the hierarchy, or press <Keys>Escape</Keys> to clear the selection. The Inspector then shows the scene's settings, in the **Environment** section.
+
+<Split>
+
+| Setting | What it does |
+| --- | --- |
+| **Background** | The color behind everything. Until you set one, it follows the game's background color from **Project Settings › Game**, marked **Auto**. The reset button returns to that. |
+| **Ambient light** | The light color of areas that no light reaches. |
+| **Intensity** | How bright the ambient light is, from 0 to 4. At white and 1, the default, the scene looks exactly as without lighting. |
+| **Gravity** | The gravity of the scene's physics, in world units per second squared. Y points down, so the default `0, 980` pulls down. |
+| **Render layers** | The named layers that sprites and tile maps choose from, in drawing order. Each has a **Name**, a **Layer** number (lower layers are drawn first) and **Lit**, whether lights affect it. |
+
+<Screenshot name="guide/scene-settings" maxWidth={360} />
+
+</Split>
+
+The [Lighting panel](../effects/lighting.mdx) edits the ambient light too, together with presets and the scene's lighting quality.
+
+## Several scenes in a game
+
+A game can have as many scenes as you like: a title screen, levels, a credits screen. Make each one a scene file and load the next one from a script when the player finishes a level. See [Scenes and scene files](/scripting/concepts/scenes) in the scripting section.
+
+When you export the game, the start scene always ships. Add the scenes your scripts load by name under **Scenes in build** in the Build dialog, so they ship too. See [Exporting a game](../exporting.mdx).
+
+## Related
+
+- [The scene viewport](./viewport.mdx)
+- [The hierarchy](./hierarchy.mdx)
+- [Prefabs](./prefabs.mdx), which you edit the way you edit a scene.

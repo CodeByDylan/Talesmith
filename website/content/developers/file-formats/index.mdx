@@ -1,0 +1,61 @@
+---
+title: "File formats"
+description: "An overview of every file Talesmith reads and writes, with links to each format's reference."
+---
+
+Talesmith stores everything as plain files so projects work with version control. This page lists every format, its extension, what it holds and where it lives, and the rules all the JSON formats share.
+
+## Formats
+
+| File | What it holds | Where it lives | Reference |
+| --- | --- | --- | --- |
+| `.tscene` | A scene: its environment and entities with their components | Anywhere under `assets/`, usually `assets/scenes/` | [Scenes and prefabs](./scenes-and-prefabs.mdx) |
+| `.tprefab` | A reusable group of entities | Usually `assets/prefabs/` | [Scenes and prefabs](./scenes-and-prefabs.mdx) |
+| `.meta` | An asset's guid, importer and import settings | Next to every asset file and folder | [Meta files](./meta-files.mdx) |
+| `assets.index.json` | The `.meta` data of every shipped asset, in one file | The root of an exported game's asset folder | [Meta files](./meta-files.mdx#the-asset-index) |
+| `.tparticles` | A particle preset: emitter settings and modules | Usually `assets/particles/` | [Particle presets](./particles.mdx) |
+| `.tmaterial` | A blend mode, a shader and its parameters | Anywhere under `assets/` | [Materials and shaders](./materials-and-shaders.mdx) |
+| `.tshader` | A shader's SkSL and SPIR-V sources | Next to its `.sksl` and `.spv` files | [Materials and shaders](./materials-and-shaders.mdx) |
+| `.tatlas` | Textures to pack into one sprite atlas | Anywhere under `assets/` | [Sprite atlases](./atlases.mdx) |
+| `.tloc` | Translated strings by key and language | Anywhere under `assets/` | [Localization tables](./localization.mdx) |
+| `.hexy` | A tile map in the Hexy editor's format | Usually `assets/maps/` | [Hexy maps](./hexy-maps.mdx) |
+| `.tlighting` | A lighting preset: ambient light and lighting quality | `assets/lighting/` | [Scenes and prefabs](./scenes-and-prefabs.mdx#lighting-settings) |
+| `game.json` | Title, window, renderer, start scene and frame pacing | `assets/config/` | [Project configuration](./project-config.mdx) |
+| `input.json` | Input actions and their bindings | `assets/config/` | [Project configuration](./project-config.mdx#inputjson) |
+| `physics.json` | Default gravity, layer names and the collision matrix | `assets/config/` | [Project configuration](./project-config.mdx#physicsjson) |
+| `plugin.json` | A plugin's manifest | Each plugin's folder under `assets/plugins/` | [Plugin files](./plugin-files.mdx) |
+| `plugins.json` | Which plugins are on or off, and their settings | `assets/config/` | [Plugin files](./plugin-files.mdx) |
+| `build.json` | A project's export settings | The project folder, next to `assets/` | [Launcher and content packs](./builds.mdx#buildjson) |
+| `launcher.json` | Which game folder an exported player runs | Next to an exported game's executable | [Launcher and content packs](./builds.mdx) |
+| `content.tspack` | An exported game's packed, compressed assets | The exported game folder | [Launcher and content packs](./builds.mdx#content-packs) |
+
+Images (`.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`, `.gif`, `.ico`), fonts (`.ttf`, `.otf`, `.ttc`), sounds (`.wav`, `.ogg`) and scripts (`.cs`) are ordinary files; their settings live in their `.meta` files. Editor state that is not part of the game, such as the layout and caches, lives in `<project>/.talesmith/` and is not described here.
+
+## Shared rules
+
+The JSON formats follow the same conventions, so a value looks the same in every file:
+
+| Value | Written as | Example |
+| --- | --- | --- |
+| Property names | camelCase | `"ambientIntensity"` |
+| Enum values | camelCase strings; reading ignores case | `"additive"`, `"vector"` |
+| Guids | 32 hexadecimal digits without dashes; reading accepts any form .NET parses | `"0bc97c948d6e484b9513f621244aeccd"` |
+| Vectors | `[x, y]` | `[256, 672]` |
+| Rectangles | `[x, y, width, height]` | `[-32, -32, 5120, 1024]` |
+| Colors | `"#RRGGBB"`, or `"#AARRGGBB"` when not opaque; reading also accepts `"#RGB"` | `"#FFB25A"`, `"#70FFC860"` |
+| Curves | A list of keys `{ "time", "value", "inTangent", "outTangent", "interpolation" }`; zero tangents and the default interpolation are left out | `[{ "time": 0, "value": 1 }]` |
+| Gradients | A list of stops `{ "position", "color" }` | `[{ "position": 0, "color": "#FFFFFF" }]` |
+| Angles | Radians, clockwise | `1.9477875` |
+
+- **Guids instead of paths.** Files refer to other assets by the guid in the asset's `.meta` file, so assets can move and be renamed without breaking references. A few fields also accept a path relative to the file, noted on each page.
+- **Comments and trailing commas.** Readers skip `//` and `/* */` comments and accept trailing commas, so hand-edited files can carry notes, as the samples' `game.json` files do. Two formats are stricter: `.tparticles` and `.tlighting` files must be plain JSON. When the editor saves a file it writes it again from its data, so comments in that file are lost.
+- **Versions.** Formats with a `"version"` field are at version 1. A file with a newer version than the running Talesmith understands fails to load with a message that says so, rather than loading partly. Scene and prefab documents run registered migrations when they are older than the current version.
+- **Forward compatibility.** Scenes, prefabs and Hexy maps keep fields and components they do not know and write them back unchanged, so a file opened by an older Talesmith, or with a plugin switched off, does not lose data. Particle presets keep modules of unknown types, but drop unknown fields elsewhere.
+- **Missing values use defaults.** Every field is optional unless a page says otherwise; a missing field takes the default listed on its page. The editor usually writes every field.
+- **Atomic writes.** The engine and editor write files through `AtomicFile`: a hidden temporary file is written and flushed, then replaces the target in one step, so a crash never leaves a half-written file.
+
+## Related
+
+- [Runtime architecture](../architecture.mdx) explains how scenes and assets are loaded.
+- [Editor architecture](../editor-architecture.mdx) explains how the editor edits scene documents.
+- [Exporting a game](/guide/exporting) explains which files a build ships.

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Avalonia.Headless" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Talesmith.Avalonia\Talesmith.Avalonia.csproj" />
+    <!-- Builds the Hex Quest plugins into the sample's plugin folder before the window tests load them. -->
+    <ProjectReference Include="..\..\samples\Talesmith.Samples.HexQuest\Talesmith.Samples.HexQuest.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\samples\Talesmith.Samples.Cutscenes\Talesmith.Samples.Cutscenes.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>

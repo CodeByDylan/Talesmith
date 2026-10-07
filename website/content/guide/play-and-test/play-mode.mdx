@@ -1,0 +1,75 @@
+---
+title: "Play mode"
+description: "Play the game inside the editor, pause and step frames, inspect live values and use the in-game developer keys."
+---
+
+Play mode runs your game inside the editor, in the Game panel, so you can try a change the moment you make it. The game runs as a separate copy of the scene on its own thread: nothing you do while playing changes the scene you are editing, and the editor never slows the game down. This page covers playing, pausing, stepping and stopping, what changes in the editor while the game plays, inspecting and changing live values, scripts in play mode, and the developer keys of a running game.
+
+<Screenshot name="guide/play-mode" caption="The game running in the Game panel. The app bar's tint and strip show the editor is playing." priority />
+
+## Play, pause, step and stop
+
+| Do | Shortcut | App bar |
+| --- | --- | --- |
+| Play the open scene; press again to stop | <Keys>Ctrl+P</Keys> | The play button |
+| Play from the project's start scene | <Keys>Ctrl+Alt+Shift+P</Keys> | |
+| Pause or resume | <Keys>Ctrl+Shift+P</Keys> | The pause button |
+| Run one frame and pause | <Keys>F10</Keys> | The step button |
+| Stop and return to editing | <Keys>Shift+F5</Keys> | The stop button |
+| Stop and play again, with the latest scripts | <Keys>Ctrl+Shift+F5</Keys> | |
+
+All of them are in the **Scene** menu too.
+
+**Play** runs the scene that is open, including changes to the scene and its tile maps that you have not saved yet, so there is no need to save before trying something. **Play from start scene** starts the game the way players start it, from the start scene in [Project Settings](../workflow/project-settings.mdx), and also runs your unsaved scene and map edits.
+
+When you press Play, the Game panel comes to the front and takes the keyboard, so your keys go to the game. It shows the game's [loading screen](../workflow/project-settings.mdx#loading-screen) until the scene is on screen, as the exported game does, and the error if the scene cannot load. Shortcuts with <Keys>Ctrl</Keys> or <Keys>Alt</Keys> and the function keys still reach the editor, so <Keys>Ctrl+Shift+P</Keys> pauses and <Keys>Shift+F5</Keys> stops. Click the Game panel to give the game the keyboard again after working in another panel.
+
+**Stop** returns to exactly the scene, selection and camera you left, and brings the Scene panel back to the front. A game that quits itself, such as from a **Quit** button that calls `GameLifetime.Quit()`, stops play mode the same way, and the console notes "The game quit, so play mode stopped".
+
+## What changes while playing
+
+<Screenshot name="guide/play-paused" caption="Paused: the strip under the app bar and the Game panel's frame turn amber." />
+
+- The app bar takes on a tint of the accent color, with a strip in the accent color along its bottom edge. While the game is paused, the strip and the Game panel's frame turn amber. The status bar reads *Playing* or *Paused* and shows the game's frame rate.
+- The **Hierarchy** shows the running game's world under a *Playing · live world* banner, including entities scripts spawn as they appear. You cannot create, delete or paste entities while playing.
+- The **Inspector** shows the live values of the entity you select in the hierarchy, refreshed about ten times a second, under a *Playing · live values* banner. Removing components and reverting to prefabs are not available.
+- The eye button in the hierarchy switches an entity on and off in the game.
+
+## Change values while playing
+
+Select an entity in the hierarchy and change its values in the Inspector: the running game picks them up at once. Tune a jump height, a light's color or an enemy's speed while you play, and pause and step (<Keys>F10</Keys>) to look at a single frame.
+
+Everything you change while playing ends with Stop: the scene goes back to how it was before you pressed Play. That makes play mode a safe place to experiment. To keep a value, note it, stop, and set it in the scene.
+
+## Scripts in play mode
+
+Play mode always runs the latest scripts. If scripts are still compiling when you press Play, play mode waits for them. If they have errors, it does not start: a message says *Cannot play yet* with the number of errors, and the console lists each one with its file and line. See [Debugging and the console](./console.mdx).
+
+<Screenshot name="guide/play-blocked" caption="Play refuses to start while the scripts have a compile error." />
+
+While the game plays, saving a script recompiles it and swaps the new code into the running game. The scripts keep their field values, so you can change how an enemy moves without starting over; the editor confirms *Scripts reloaded*. Some changes cannot be swapped in, such as new components or systems. Then the status bar shows *Restart play mode to apply script changes*; click it, or press <Keys>Ctrl+Shift+F5</Keys>, to stop and play again. See [Compiling and hot reload](/scripting/scripts/hot-reload).
+
+Errors thrown by scripts while the game plays appear in the console. They never take the editor down.
+
+## Developer keys
+
+Every running game has developer keys, in the Game panel, in the player and in exported development builds:
+
+| Key | Action |
+| --- | --- |
+| <Keys>F3</Keys> | Shows or hides the performance overlay: frame times, the cost of each part of the frame, and counters such as draw calls, particles and lights |
+| <Keys>F4</Keys> | Cycles through the debug views: the map grid, then its chunks, then objects and colliders, then off |
+| <Keys>F9</Keys> | Saves a profiler report of the last 600 frames, as JSON and CSV |
+| <Keys>F12</Keys> | Saves a screenshot |
+
+The overlay and the log confirm where a report or screenshot was saved. Files from the Game panel go to `.talesmith/captures` in the project; the player saves them to `captures` in the current folder, and exported games to the user's local data folder under the game's title. See [Performance](../performance.mdx) for reading reports.
+
+## Play outside the editor
+
+To see the game in its own window, at its real window size, export it with **Build and Run** (<Keys>Ctrl+Alt+B</Keys>), or run the project in the player. See [Exporting a game](../exporting.mdx) and [Installation](../getting-started/installation.mdx#run-a-game-without-the-editor).
+
+## Related
+
+- [Debugging and the console](./console.mdx)
+- [The hierarchy](../scenes/hierarchy.mdx#while-playing)
+- [The inspector](../scenes/inspector.mdx#while-playing)

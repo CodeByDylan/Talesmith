@@ -1,0 +1,21 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Viewport"
+             x:Class="Talesmith.Editor.Viewport.SceneViewportActions"
+             x:DataType="vm:SceneViewportPanel">
+  <StackPanel Orientation="Horizontal" Spacing="2">
+    <ToggleButton Classes="header" IsChecked="{Binding Grid.IsShown}" ToolTip.Tip="{Binding Grid.ToolTip}">
+      <ui:SymbolIcon Data="{Binding Grid.Icon}" Size="14" />
+    </ToggleButton>
+    <ToggleButton Classes="header" IsChecked="{Binding Viewport.Options.SnapToGrid}" ToolTip.Tip="Snap to grid (Ctrl+Shift+G)">
+      <ui:SymbolIcon Data="{x:Static ui:Icons.Magnet}" Size="14" />
+    </ToggleButton>
+    <ToggleButton Classes="header" IsChecked="{Binding Viewport.Options.ShowIcons}" ToolTip.Tip="Entity icons">
+      <ui:SymbolIcon Data="{x:Static ui:Icons.Eye}" Size="14" />
+    </ToggleButton>
+    <ToggleButton Classes="header" IsChecked="{Binding Viewport.Options.IsPreviewing}" ToolTip.Tip="Preview animations and effects (Ctrl+Alt+P)">
+      <ui:SymbolIcon Data="{x:Static ui:Icons.Sparkles}" Size="14" />
+    </ToggleButton>
+  </StackPanel>
+</UserControl>

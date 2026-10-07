@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>The Avalonia host: game view with Skia and Vulkan presentation, input bridging, UI overlays, the performance overlay and desktop bootstrap.</Description>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Talesmith.Runtime\Talesmith.Runtime.csproj" />
+    <ProjectReference Include="..\Talesmith.Plugins\Talesmith.Plugins.csproj" />
+    <ProjectReference Include="..\Talesmith.Rendering.Skia\Talesmith.Rendering.Skia.csproj" />
+    <ProjectReference Include="..\Talesmith.Rendering.Vulkan\Talesmith.Rendering.Vulkan.csproj" />
+    <ProjectReference Include="..\Talesmith.Audio.OpenAL\Talesmith.Audio.OpenAL.csproj" />
+    <ProjectReference Include="..\Talesmith.Physics\Talesmith.Physics.csproj" />
+    <ProjectReference Include="..\Talesmith.VFX\Talesmith.VFX.csproj" />
+    <ProjectReference Include="..\Talesmith.Lighting\Talesmith.Lighting.csproj" />
+    <ProjectReference Include="..\Talesmith.Scripting\Talesmith.Scripting.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Talesmith.Avalonia.Tests" />
+  </ItemGroup>
+</Project>

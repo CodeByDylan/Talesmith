@@ -1,0 +1,81 @@
+---
+title: "Prefabs"
+description: "Turn entities into reusable prefabs, place instances, edit a prefab and apply or revert instance changes."
+---
+
+A prefab is a saved entity, with its children and components, that you can place many times: an enemy, a coin, a lantern, a house. Each placed copy is an instance that follows the prefab, so a change to the prefab reaches every instance. This page covers creating a prefab, placing instances, editing the prefab, and changing single instances with overrides you can apply or revert.
+
+## Create a prefab
+
+<Steps>
+
+1. Set up the entity in the scene, with its children and components, and give it a good name, such as `Coin`.
+2. Select it and choose **GameObject › Prefab › Create prefab**, or right-click it in the hierarchy and choose **Create prefab**.
+
+</Steps>
+
+The editor saves the entity and its children as `assets/prefabs/Coin.tprefab`, named after the entity, and turns the entity in the scene into an instance of it. If the name is taken, it adds a number: `Coin 2.tprefab`. With several entities selected, each becomes a prefab of its own.
+
+The prefab's root is saved at position `0, 0`; the instance keeps the entity's place in the scene. Select the prefab in the Assets panel to see what it contains in the Inspector, and which scenes use it under **Used by**.
+
+<Screenshot name="guide/asset-prefab" caption="A prefab selected in the Assets panel, with its contents in the Inspector." />
+
+## Place instances
+
+- Drag the prefab from the Assets panel into the viewport. The instance is created where you drop it.
+- Drag it onto the hierarchy to create it under a particular entity.
+- Select the prefab in the Assets panel and choose **GameObject › Prefab › Instantiate prefab** to create it in the middle of the view.
+- Duplicate an instance with <Keys>Ctrl+D</Keys>.
+
+Instances show their icon in the accent color in the hierarchy, with the prefab's entities beneath them. The Inspector's header shows a badge, **Prefab: Coin**, on the instance's root, and **In prefab: Coin** on the entities inside it.
+
+Prefabs can contain instances of other prefabs: a house prefab can hold lantern prefabs. A prefab cannot contain itself.
+
+## Change one instance: overrides
+
+You can change an instance's values in the Inspector like any entity's. Each change is recorded as an override: the instance keeps its own value while every other value still follows the prefab.
+
+<Screenshot name="guide/prefab-instance" caption="Coin 1 spins twice as fast as the other coins. The marked Speed row and the dot in the badge and the hierarchy show the override." />
+
+- A value that differs from the prefab has a marker at the start of its row and a button that reverts that value.
+- The instance's badge ends with **•**, and the hierarchy shows a dot at the end of its row.
+- **Revert to prefab** in a component's menu drops every change to that component.
+
+Overrides are kept when the prefab changes. If you change the prefab's speed from 1 to 3, every coin spins at 3 except Coin 1, which keeps its 2.
+
+### Apply or revert all changes
+
+Open the badge's menu on the instance's root, or the **GameObject › Prefab** menu:
+
+| Command | What it does |
+| --- | --- |
+| **Apply overrides to prefab** (**Apply prefab overrides** in the menu) | Writes the instance's changes, including components you added or removed, into the prefab file. Every instance gets them. |
+| **Revert to prefab** (**Revert prefab overrides** in the menu) | Drops every change, so the instance matches the prefab again. |
+
+Both are undoable.
+
+## Edit a prefab
+
+<Steps>
+
+1. Select an instance, or the prefab in the Assets panel, and choose **GameObject › Prefab › Open prefab**. The badge menu on an instance has **Open prefab** too.
+2. The prefab replaces the scene in the editor. The hierarchy shows a breadcrumb at the top, such as **main › Coin**, and the viewport shows the prefab around the origin.
+3. Edit the prefab as you would edit a scene: add children and components, change values, move things.
+4. Press <Keys>Ctrl+S</Keys> to save the prefab.
+5. Click the back arrow in the breadcrumb, or choose **GameObject › Prefab › Back to scene**, to return to the scene.
+
+</Steps>
+
+<Screenshot name="guide/prefab-editing" caption="The Hero prefab open for editing. The breadcrumb leads back to the main scene." />
+
+Saving the prefab updates every instance in the scene. Entities inside an instance cannot be renamed, deleted or given new components in the scene; open the prefab to change them.
+
+## Spawn prefabs from scripts
+
+Prefabs are also how scripts create things while the game runs: bullets, enemies, coins dropped by a chest. See [Spawning and finding entities](/scripting/scripts/spawning). A prefab that the scene does not use but a script spawns by path still ships in exported games, as long as the script names it in a string; see [Exporting a game](../exporting.mdx).
+
+## Related
+
+- [The hierarchy](./hierarchy.mdx#prefab-instances)
+- [The inspector](./inspector.mdx)
+- [Scenes and prefabs](/developers/file-formats/scenes-and-prefabs), the file format.

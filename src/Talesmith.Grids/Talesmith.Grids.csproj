@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Grid geometry for tile maps: hexagonal and square layouts, chunk addressing and pathfinding.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Talesmith.Core\Talesmith.Core.csproj" />
+  </ItemGroup>
+</Project>

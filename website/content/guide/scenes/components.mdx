@@ -1,0 +1,220 @@
+---
+title: "Built-in components"
+description: "A reference of the components that come with the engine, what each one does and its most important fields."
+---
+
+An entity on its own is only a name and a place in the hierarchy. Components give it everything else: a sprite to draw, a collider to bump into, a light to shine. This page lists every component that comes with Talesmith, grouped as in the **Add component** list, with what each one does and its main fields and defaults.
+
+Add components with **Add component** at the bottom of the [Inspector](./inspector.mdx), or from the **Component** menu. To use components from code, see [Entities and components](/scripting/concepts/ecs) in the scripting section.
+
+## Core
+
+### Transform
+
+Position, rotation and scale. Every entity has one, and it cannot be removed. For a child entity, the values are relative to its parent.
+
+| Field | Default | |
+| --- | --- | --- |
+| **Position** | `0, 0` | In world units. One unit is one pixel at 100% zoom. Y points down. |
+| **Rotation** | `0` | In degrees. |
+| **Scale** | `1, 1` | |
+
+### Tags
+
+Labels for finding and grouping entities from scripts, such as `enemy` or `pickup`. You edit them with the **+ Tag** chip in the Inspector's header rather than as a section.
+
+## Rendering
+
+### Sprite
+
+Draws a texture, or one sprite of a texture that is sliced into several. See [Sprites and the sprite editor](../assets/sprites.mdx).
+
+| Field | Default | |
+| --- | --- | --- |
+| **Texture** | | The image to draw |
+| **Sprite** | | One of the texture's sprites, or the whole texture |
+| **Tint** | white | Multiplied with the image's colors |
+| **Layer** | 300 (Entities) | The render layer. Lower layers are drawn first, behind higher ones. |
+| **Flip X**, **Flip Y** | off | Mirror the image |
+| **Sort By Y** | off | Draws sprites lower on screen in front of those above them, for top-down games |
+| **Visible** | on | |
+| **Source**, **Size**, **Origin** | Auto | The part of the texture to draw, the size in world units and the pivot from 0 to 1. They follow the chosen sprite until you set them. |
+
+### Sprite Animator
+
+Plays one of a texture's animations on the entity's Sprite. Animations are made in the [sprite editor](../assets/sprites.mdx).
+
+| Field | Default | |
+| --- | --- | --- |
+| **Texture**, **Animation** | | The texture and the name of its animation |
+| **Speed** | 1 | Playback speed, from 0 to 10 |
+| **Playing** | on | |
+| **Play On Start** | on | Plays as soon as the scene starts |
+
+### Camera
+
+Shows the scene. When several cameras are active, the one with the highest **Priority** draws. The viewport draws its frame as a [gizmo](./viewport.mdx#gizmos).
+
+| Field | Default | |
+| --- | --- | --- |
+| **Priority** | 0 | |
+| **Active** | on | |
+| **Follow target** | none | An entity to follow, such as the player |
+| **Follow Sharpness** | 8 | How quickly it catches up; 0 snaps at once |
+| **Bounds** | unset | Keeps the visible area inside a rectangle of the world |
+| **Min Zoom**, **Max Zoom** | 0.05, 16 | |
+| **Zoom** | 1 | 2 shows everything twice as large |
+| **Pixel Snap** | off | Rounds the view to whole device pixels at the final scale, which keeps pixel art from shimmering |
+
+### Tile Map Renderer
+
+Shows a tile map and spawns its objects as child entities. See [Maps and grids](../tile-maps/maps-and-grids.mdx).
+
+| Field | Default | |
+| --- | --- | --- |
+| **Map** | | The `.hexy` file |
+| **Render Layer** | 100 (Terrain) | The render layer of the map's first tile layer. Each further tile layer is drawn one layer higher. |
+
+## Physics
+
+Physics runs in play mode and in the game. See [Physics](/scripting/concepts/physics) in the scripting section for how bodies behave.
+
+### Collider 2D
+
+A solid shape for collisions, or a trigger area that reports what enters it. Without a Rigidbody 2D, the collider is static: things bump into it, but nothing moves it.
+
+| Field | Default | |
+| --- | --- | --- |
+| **Shape** | Box | **Box**, **Circle**, **Capsule** or **Polygon** |
+| **Size** | `32, 32` | Width and height of a box or capsule |
+| **Radius** | 16 | Of a circle |
+| **Points** | | The outline of a polygon, in order |
+| **Offset**, **Rotation** | `0, 0`, 0 | The shape's place relative to the entity |
+| **Is Trigger** | off | Reports overlaps to scripts instead of blocking |
+| **One Way** | off | Blocks only from above, like a platform you can jump through from below |
+| **Friction** | 0.4 | |
+| **Restitution** | 0 | Bounciness: 0 stops dead, 1 bounces back at full speed |
+| **Density** | 1 | Used when a rigid body computes its mass |
+| **Layer**, **Collision Mask** | Default, Everything | The collision layer, and the layers it collides with. Layer names come from [Project Settings › Physics](../workflow/project-settings.mdx). |
+
+### Rigidbody 2D
+
+Moves the entity with gravity, forces and collisions.
+
+| Field | Default | |
+| --- | --- | --- |
+| **Type** | Dynamic | **Dynamic** moves with the simulation. **Kinematic** moves only by its velocity, pushes dynamic bodies and is never pushed, for moving platforms. **Static** never moves. |
+| **Auto Mass**, **Mass** | off, 1 | A fixed mass, or one computed from the colliders' area and density |
+| **Gravity Scale** | 1 | 0 floats |
+| **Linear Drag**, **Angular Drag** | 0, 0.05 | |
+| **Fixed Rotation** | off | Keeps the body upright |
+| **Velocity**, **Angular Velocity** | 0 | The starting velocity |
+| **Interpolation** | None | **Interpolate** draws the body smoothly between physics steps on fast displays |
+| **Collision Detection** | Discrete | **Continuous** for fast bodies such as bullets |
+| **Can Sleep** | on | Lets a resting body stop simulating until something touches it |
+
+### Character Controller 2D
+
+Moves the entity with its Collider 2D by sliding along floors and walls, for platformer and top-down characters. A script moves it each physics step; [Your first game](../getting-started/first-game.mdx) shows how.
+
+| Field | Default | |
+| --- | --- | --- |
+| **Slope Limit** | 50° | The steepest slope the character can walk up |
+| **Step Offset** | 0 | The highest step it climbs without jumping |
+| **Skin Width** | 0.5 | The gap kept between the character and what it touches |
+| **Ground Snap Distance** | 4 | How far it is pulled down to stay on the ground walking down slopes |
+| **Up** | `0, -1` | Which way is up, deciding what is ground, wall and ceiling |
+| **Interpolate** | off | Draws the character smoothly between physics steps |
+
+### Tile Map Collider 2D
+
+Collision settings for the tile map on the same entity. A map collides through its [collision layers](../tile-maps/collision-and-objects.mdx) without this component; add it to change the defaults.
+
+| Field | Default | |
+| --- | --- | --- |
+| **Enabled** | on | Turns the map's collision off |
+| **Friction**, **Restitution** | 0.4, 0 | |
+| **Layer**, **Collision Mask** | Default, Everything | |
+
+## Lighting
+
+See [Lighting](../effects/lighting.mdx) for how lights, shadows and glowing sprites work together.
+
+### Light 2D
+
+A point, spot or directional light, with optional soft shadows.
+
+| Field | Default | |
+| --- | --- | --- |
+| **Type** | Point | **Point** shines in every direction, **Spot** in a cone, **Directional** everywhere from one direction, like the sun |
+| **Blend** | Additive | **Additive** adds light; **Mix** replaces the light underneath; **Multiply** darkens or tints it |
+| **Color**, **Intensity** | white, 1 | Intensity from 0 to 8 |
+| **Radius**, **Inner Radius**, **Falloff** | 256, 0, 1.6 | How far it reaches, the part at full strength, and how quickly it fades |
+| **Spot Angle**, **Spot Inner Angle** | 60°, 30° | The cone of a spot light |
+| **Cookie** | | An image the light shines through |
+| **Casts Shadows** | off | Shadows from shadow casters and collision layers |
+| **Shadow Strength**, **Shadow Softness**, **Shadow Length** | 1, 0.4, 0 | |
+| **Shadow Layers** | Everything | The caster layers that block this light |
+| **Animation** | None | **Flicker** or **Pulse**, with **Animation Speed** and **Animation Amount** |
+
+### Shadow Caster 2D
+
+A box, circle or polygon that blocks shadow-casting lights.
+
+| Field | Default | |
+| --- | --- | --- |
+| **Shape**, **Size**, **Radius**, **Points**, **Offset** | Box, `32, 32` | |
+| **Self Shadows** | off | Darkens the caster itself; otherwise its shape stays lit, even in other casters' shadows, and its shadow starts behind it |
+| **Layer** | 0 | The caster layer, for lights that ignore some layers |
+
+### Emissive
+
+Keeps the entity's sprite bright in the dark, for windows, lava and glowing eyes.
+
+| Field | Default | |
+| --- | --- | --- |
+| **Color**, **Intensity** | white, 1 | 1 shows the sprite at full brightness in complete darkness; 2 brightens it up to twice |
+
+## Effects
+
+### Particle Emitter
+
+Emits particles such as fire, smoke, sparks, rain and magic. Edit it in the [Particles panel](../effects/particles.mdx), which shows a live preview; the Inspector shows the same settings as fields.
+
+| Field | Default | |
+| --- | --- | --- |
+| **Preset** | none | A `.tparticles` preset to play instead of the settings below |
+| **Settings** | | Playback (duration, looping, prewarm, play on start, simulation space, maximum particles) and the modules |
+
+## Audio
+
+See [Audio](../assets/audio.mdx) for importing sounds.
+
+### Audio Source
+
+Plays a sound or music track, optionally placed in the world.
+
+| Field | Default | |
+| --- | --- | --- |
+| **Clip** | | A sound, loaded into memory |
+| **Music** | | A music track, streamed; plays instead of the clip |
+| **Volume**, **Pitch** | 1, 1 | Pitch from 0.1 to 3; music ignores it |
+| **Loop** | off | |
+| **Play On Start** | on | |
+| **Bus** | from the sound | The mixer bus: Effects, Music, Voice or Interface |
+| **Spatial** | off | Fades the sound with distance from the listener and pans it left or right |
+| **Min Distance**, **Max Distance** | 128, 1024 | Full volume within the first, silent beyond the second |
+
+### Audio Listener
+
+Hears spatial sounds from this entity's position, such as the player. Without one, the active camera listens. It has no fields.
+
+## Scripting
+
+### Scripts
+
+Your C# scripts. They are not listed under a category: they appear under **Scripts** at the bottom of the **Add component** list, each with its own section in the Inspector. See [Your first script](/scripting/scripts/first-script).
+
+## Components from plugins and scripts
+
+Plugins and scripts can define components of their own. They appear in the **Add component** list and the **Component** menu like the built-in ones, under the category they choose, and their fields get the same editors. See [Systems and components](/plugins/runtime/systems-and-components).

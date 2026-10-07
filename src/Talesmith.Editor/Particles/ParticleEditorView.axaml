@@ -1,0 +1,595 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Particles"
+             xmlns:m="using:Talesmith.Editor.Particles.Modules"
+             xmlns:p="using:Talesmith.Editor.Particles.Presets"
+             xmlns:pv="using:Talesmith.Editor.Particles.Preview"
+             xmlns:vfx="using:Talesmith.VFX"
+             x:Class="Talesmith.Editor.Particles.ParticleEditorView"
+             x:DataType="vm:ParticleEditorViewModel">
+  <UserControl.Styles>
+    <!-- Module cards -->
+    <Style Selector="Border.module">
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusLarge}" />
+      <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+    <Style Selector="Border.module.off Border.module-body, Border.module.off TextBlock.module-title, Border.module.off Border.module-icon">
+      <Setter Property="Opacity" Value="0.5" />
+    </Style>
+    <Style Selector="ToggleButton.module-header">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="8,0" />
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="ToggleButton.module-header /template/ Border#PART_Root">
+      <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
+    </Style>
+    <Style Selector="ToggleButton.module-header:checked">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.module-header:pointerover">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.module-header ui|SymbolIcon.chevron">
+      <Setter Property="RenderTransform" Value="rotate(-90deg)" />
+    </Style>
+    <Style Selector="ToggleButton.module-header:checked ui|SymbolIcon.chevron">
+      <Setter Property="RenderTransform" Value="none" />
+    </Style>
+    <Style Selector="Border.module-icon">
+      <Setter Property="Width" Value="24" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="Border.module-icon.motion">
+      <Setter Property="Background" Value="#2238BDF8" />
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource InfoBrush}" />
+    </Style>
+    <Style Selector="Border.module-icon.look">
+      <Setter Property="Background" Value="#22F59E0B" />
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource WarningBrush}" />
+    </Style>
+    <Style Selector="Border.module-icon.collision">
+      <Setter Property="Background" Value="#22EF4444" />
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource DangerBrush}" />
+    </Style>
+    <Style Selector="Border.module-icon.plugin, Border.module-icon.playback">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    </Style>
+    <Style Selector="Border.module-icon ui|SymbolIcon">
+      <Setter Property="Foreground" Value="{Binding $parent[Border].(TextElement.Foreground)}" />
+    </Style>
+    <Style Selector="Border.module-body">
+      <Setter Property="Padding" Value="12,2,10,10" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+      <Setter Property="BorderThickness" Value="0,1,0,0" />
+    </Style>
+    <Style Selector="Border.list-item">
+      <Setter Property="Background" Value="{DynamicResource SurfaceSunkenBrush}" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+      <Setter Property="Padding" Value="8,4,6,6" />
+    </Style>
+    <Style Selector="ToggleButton.range-toggle">
+      <Setter Property="Width" Value="26" />
+      <Setter Property="Height" Value="26" />
+    </Style>
+    <Style Selector="ToggleButton.range-toggle:checked">
+      <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="ToggleSwitch.compact">
+      <Setter Property="OnContent" Value="{x:Null}" />
+      <Setter Property="OffContent" Value="{x:Null}" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0,0,-6,0" />
+    </Style>
+
+    <!-- Preview -->
+    <Style Selector="Border.preview">
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusLarge}" />
+      <Setter Property="ClipToBounds" Value="True" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Background" Value="#14161C" />
+    </Style>
+    <Style Selector="Border.overlay">
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="3" />
+      <Setter Property="Opacity" Value="0.94" />
+    </Style>
+    <Style Selector="Border.overlay Button, Border.overlay ToggleButton">
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <Style Selector="Border.overlay ToggleButton:checked">
+      <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="Border.overlay ui|SegmentedControlItem">
+      <Setter Property="MinHeight" Value="22" />
+      <Setter Property="Padding" Value="8,0" />
+      <Setter Property="FontSize" Value="11.5" />
+    </Style>
+
+    <!-- Statistics -->
+    <Style Selector="Border.stat">
+      <Setter Property="Background" Value="{DynamicResource SurfaceSunkenBrush}" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+      <Setter Property="Padding" Value="9,6,9,5" />
+    </Style>
+    <Style Selector="Border.stat TextBlock.value">
+      <Setter Property="FontFamily" Value="{DynamicResource MonoFontFamily}" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <!-- Preset tiles -->
+    <Style Selector="Button.preset">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Width" Value="96" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Stretch" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+    </Style>
+    <Style Selector="Button.preset /template/ Border#PART_Root">
+      <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
+    </Style>
+    <Style Selector="Button.preset Border.thumb">
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+      <Setter Property="ClipToBounds" Value="True" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Height" Value="64" />
+    </Style>
+    <Style Selector="Button.preset:pointerover Border.thumb">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="Button.preset:pointerover /template/ Border#PART_StateLayer">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+
+    <!-- The gallery shown when nothing is edited: larger tiles with descriptions -->
+    <Style Selector="ItemsControl.large Button.preset">
+      <Setter Property="Width" Value="172" />
+    </Style>
+    <Style Selector="ItemsControl.large Button.preset Border.thumb">
+      <Setter Property="Height" Value="116" />
+    </Style>
+    <Style Selector="ItemsControl.large TextBlock.tile-name">
+      <Setter Property="FontSize" Value="12.5" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.tile-description">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="ItemsControl.large TextBlock.tile-description">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+
+    <Style Selector="Border.banner">
+      <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusLarge}" />
+      <Setter Property="Padding" Value="10,7" />
+    </Style>
+  </UserControl.Styles>
+
+  <UserControl.DataTemplates>
+    <DataTemplate DataType="p:ParticlePresetTile">
+      <Button Classes="preset" Command="{Binding ApplyCommand}">
+        <ToolTip.Tip>
+          <StackPanel Spacing="2" MaxWidth="240">
+            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding Description}" TextWrapping="Wrap" Classes="caption" />
+            <TextBlock Text="Click to apply to the edited effect, or to add it to the scene when nothing is selected." TextWrapping="Wrap" Classes="caption muted" />
+          </StackPanel>
+        </ToolTip.Tip>
+        <Button.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="Apply" Command="{Binding ApplyCommand}" />
+            <MenuItem Header="Link emitter to this preset" Command="{Binding LinkCommand}" IsVisible="{Binding IsAsset}" />
+            <MenuItem Header="Edit preset" Command="{Binding EditCommand}" IsVisible="{Binding IsAsset}" />
+          </ContextMenu>
+        </Button.ContextMenu>
+        <StackPanel Spacing="4">
+          <Border Classes="thumb">
+            <pv:ParticlePreviewCanvas Player="{Binding Player}" MaxFramesPerSecond="30"
+                                      PreviewRenderer="{Binding $parent[UserControl].((vm:ParticleEditorViewModel)DataContext).Renderer}" />
+          </Border>
+          <StackPanel Orientation="Horizontal" Spacing="4" Margin="2,0">
+            <ui:SymbolIcon Data="{Binding Icon}" Size="11" Foreground="{DynamicResource TextMutedBrush}" />
+            <TextBlock Text="{Binding Name}" FontSize="11" TextTrimming="CharacterEllipsis" Classes="tile-name" />
+          </StackPanel>
+          <TextBlock Text="{Binding Description}" Classes="caption muted tile-description" TextWrapping="Wrap" Margin="2,0" />
+        </StackPanel>
+      </Button>
+    </DataTemplate>
+  </UserControl.DataTemplates>
+
+  <Grid RowDefinitions="Auto,*">
+    <!-- Header -->
+    <Border Classes="toolbar" Padding="10,6" MinHeight="0">
+      <ui:SplitBar Spacing="12">
+        <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
+          <Border Classes="module-icon" Width="28" Height="28" CornerRadius="7">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.Sparkles}" Size="15" />
+          </Border>
+          <StackPanel VerticalAlignment="Center" Spacing="0">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="13" MaxWidth="220" TextTrimming="CharacterEllipsis" />
+              <ui:Badge Classes="accent" Content="{Binding KindText}" IsVisible="{Binding HasSource}" VerticalAlignment="Center" />
+              <ui:Badge Classes="warning" Content="Unsaved" IsVisible="{Binding IsDirty}" VerticalAlignment="Center" />
+            </StackPanel>
+            <TextBlock Text="{Binding Location}" Classes="caption muted" MaxWidth="260" TextTrimming="CharacterEllipsis" IsVisible="{Binding HasSource}" />
+          </StackPanel>
+        </StackPanel>
+
+        <Grid ColumnDefinitions="*,Auto">
+          <WrapPanel ItemsAlignment="End" VerticalAlignment="Center" Margin="0,0,8,0" ItemSpacing="8" LineSpacing="6"
+                     IsVisible="{Binding HasSource}">
+            <Border Classes="playbar">
+              <StackPanel>
+                <ToggleButton IsChecked="{Binding IsPlaying, Mode=OneWay}" Command="{Binding TogglePlayCommand}" ToolTip.Tip="Play or pause the preview">
+                  <Panel>
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.Pause}" IsFilled="True" IsVisible="{Binding IsPlaying}" />
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.Play}" IsFilled="True" IsVisible="{Binding !IsPlaying}" />
+                  </Panel>
+                </ToggleButton>
+                <Button Command="{Binding RestartCommand}" ToolTip.Tip="Restart from the beginning">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.RotateCcw}" />
+                </Button>
+                <Button Command="{Binding StopCommand}" ToolTip.Tip="Stop emitting; alive particles finish">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Stop}" IsFilled="True" />
+                </Button>
+                <Button Command="{Binding BurstNowCommand}" ToolTip.Tip="Burst now">
+                  <ui:SymbolIcon Data="{x:Static vm:ParticleIcons.Burst}" />
+                </Button>
+              </StackPanel>
+            </Border>
+            <ToggleButton Classes="chip" IsChecked="{Binding IsLooping}" VerticalAlignment="Center" ToolTip.Tip="Start a new cycle when one ends">
+              <StackPanel Orientation="Horizontal" Spacing="5">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Refresh}" Size="12" />
+                <TextBlock Text="Loop" />
+              </StackPanel>
+            </ToggleButton>
+            <StackPanel x:Name="SeedBox" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+              <ui:NumberField Value="{Binding Seed}" IsInteger="True" Minimum="0" Maximum="1000000000" Label="Seed" Width="104"
+                              ToolTip.Tip="A fixed seed plays the same way every time; 0 picks a new seed each time" />
+              <Button Classes="icon small" Command="{Binding RandomizeSeedCommand}" ToolTip.Tip="Pick a random seed">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Dice}" Size="14" />
+              </Button>
+            </StackPanel>
+            <Border Classes="divider-v" Height="18" Margin="0" />
+            <ToggleButton Classes="chip" IsChecked="{Binding IsLiveInViewport}" VerticalAlignment="Center"
+                          ToolTip.Tip="Animate particles, sprites and lights in the scene viewport (Ctrl+Alt+P)">
+              <StackPanel Orientation="Horizontal" Spacing="5">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Clapperboard}" Size="12" />
+                <TextBlock x:Name="LiveText" Text="Live in scene" />
+              </StackPanel>
+            </ToggleButton>
+          </WrapPanel>
+
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+            <Button Classes="accent small" Command="{Binding SavePresetCommand}" IsVisible="{Binding IsPreset}" ToolTip.Tip="Save the preset">
+              <StackPanel Orientation="Horizontal" Spacing="5">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Save}" Size="13" />
+                <TextBlock Text="Save" />
+              </StackPanel>
+            </Button>
+            <Button Classes="icon" Command="{Binding ClosePresetDocumentCommand}" IsVisible="{Binding IsPreset}" ToolTip.Tip="Close the preset">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.X}" />
+            </Button>
+            <Button Classes="icon" ToolTip.Tip="Presets and files">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.MoreHorizontal}" />
+              <Button.Flyout>
+                <MenuFlyout Placement="BottomEdgeAlignedRight">
+                  <MenuItem Header="Open preset…" Command="{Binding OpenPresetFileCommand}">
+                    <MenuItem.Icon><ui:SymbolIcon Data="{x:Static ui:Icons.FolderOpen}" Size="14" /></MenuItem.Icon>
+                  </MenuItem>
+                  <MenuItem Header="Save preset" Command="{Binding SavePresetCommand}" IsVisible="{Binding IsPreset}">
+                    <MenuItem.Icon><ui:SymbolIcon Data="{x:Static ui:Icons.Save}" Size="14" /></MenuItem.Icon>
+                  </MenuItem>
+                  <Separator />
+                  <MenuItem Header="Save as preset…" Command="{Binding SaveAsPresetCommand}" IsEnabled="{Binding HasSource}">
+                    <MenuItem.Icon><ui:SymbolIcon Data="{x:Static ui:Icons.FilePlus}" Size="14" /></MenuItem.Icon>
+                  </MenuItem>
+                  <MenuItem Header="Save as preset and link emitter…" Command="{Binding SaveAsLinkedPresetCommand}" IsVisible="{Binding IsEmitter}">
+                    <MenuItem.Icon><ui:SymbolIcon Data="{x:Static ui:Icons.Link}" Size="14" /></MenuItem.Icon>
+                  </MenuItem>
+                  <MenuItem Header="Save as preset in folder…" Command="{Binding SaveAsPresetInFolderCommand}" IsEnabled="{Binding HasSource}">
+                    <MenuItem.Icon><ui:SymbolIcon Data="{x:Static ui:Icons.FolderPlus}" Size="14" /></MenuItem.Icon>
+                  </MenuItem>
+                  <Separator />
+                  <MenuItem Header="Collapse or expand all modules" Command="{Binding ToggleAllCardsCommand}" IsEnabled="{Binding HasSource}">
+                    <MenuItem.Icon><ui:SymbolIcon Data="{x:Static ui:Icons.ChevronsUpDown}" Size="14" /></MenuItem.Icon>
+                  </MenuItem>
+                  <MenuItem Header="Pop out preview" Command="{Binding PopOutCommand}" IsEnabled="{Binding HasSource}">
+                    <MenuItem.Icon><ui:SymbolIcon Data="{x:Static ui:Icons.Maximize2}" Size="14" /></MenuItem.Icon>
+                  </MenuItem>
+                </MenuFlyout>
+              </Button.Flyout>
+            </Button>
+          </StackPanel>
+        </Grid>
+      </ui:SplitBar>
+    </Border>
+
+    <!-- Nothing to edit -->
+    <ScrollViewer Grid.Row="1" IsVisible="{Binding IsEmpty}" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Margin="16" Spacing="14" HorizontalAlignment="Center" MaxWidth="820">
+        <ui:EmptyState Icon="{x:Static ui:Icons.Sparkles}" Title="No emitter selected"
+                       Hint="Select an entity with a particle emitter or open a preset. Click an effect below to add it to the scene." />
+        <Button HorizontalAlignment="Center" Command="{Binding OpenPresetFileCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.FolderOpen}" Size="14" />
+            <TextBlock Text="Open preset…" />
+          </StackPanel>
+        </Button>
+        <ItemsControl ItemsSource="{Binding Gallery.Tiles}" x:Name="EmptyGallery" Classes="large" HorizontalAlignment="Center">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel ItemSpacing="8" LineSpacing="8" HorizontalAlignment="Center" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+        </ItemsControl>
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- Editing -->
+    <ScrollViewer Grid.Row="1" x:Name="BodyScroll" IsVisible="{Binding HasSource}" HorizontalScrollBarVisibility="Disabled">
+      <Grid x:Name="Body" VerticalAlignment="Top" ColumnDefinitions="5*,6*" RowDefinitions="*">
+        <Grid x:Name="PreviewColumn" RowDefinitions="*,Auto,Auto" Margin="10,10,5,10">
+          <Border Classes="preview" MinHeight="100">
+            <Panel>
+              <pv:ParticlePreviewCanvas x:Name="Canvas" Player="{Binding Player}" PreviewRenderer="{Binding Renderer}" BackgroundMode="{Binding Background}"
+                                        SceneColor="{Binding SceneColor}" ShowGrid="{Binding ShowGrid}" ShowShape="{Binding ShowShape}"
+                                        ShowBounds="{Binding ShowBounds}" IsInteractive="True" />
+              <Border Classes="overlay" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8">
+                <StackPanel Orientation="Horizontal" Spacing="1">
+                  <Button Classes="subtle small" ToolTip.Tip="Background" Padding="6,0" MinHeight="24">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                      <ui:SymbolIcon Data="{x:Static ui:Icons.Palette}" Size="13" />
+                      <TextBlock Text="{Binding BackgroundName}" FontSize="11.5" VerticalAlignment="Center" />
+                      <ui:SymbolIcon Data="{x:Static ui:Icons.ChevronDown}" Size="10" />
+                    </StackPanel>
+                    <Button.Flyout>
+                      <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                        <MenuItem Header="Dark" Command="{Binding SetBackgroundCommand}" CommandParameter="0" />
+                        <MenuItem Header="Light" Command="{Binding SetBackgroundCommand}" CommandParameter="1" />
+                        <MenuItem Header="Checker" Command="{Binding SetBackgroundCommand}" CommandParameter="2" />
+                        <MenuItem Header="Scene color" Command="{Binding SetBackgroundCommand}" CommandParameter="3" />
+                      </MenuFlyout>
+                    </Button.Flyout>
+                  </Button>
+                  <Border Classes="divider-v" Height="14" Margin="3,0" Background="#40FFFFFF" />
+                  <ToggleButton Classes="icon small" IsChecked="{Binding ShowGrid}" ToolTip.Tip="Grid">
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.Grid}" Size="14" />
+                  </ToggleButton>
+                  <ToggleButton Classes="icon small" IsChecked="{Binding ShowShape}" ToolTip.Tip="Emitter shape">
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.Hexagon}" Size="14" />
+                  </ToggleButton>
+                  <ToggleButton Classes="icon small" IsChecked="{Binding ShowBounds}" ToolTip.Tip="Bounds">
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.SquareDashed}" Size="14" />
+                  </ToggleButton>
+                  <Button Classes="icon small" Click="OnFrameClick" ToolTip.Tip="Frame the effect (double-click the preview)">
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.Crosshair}" Size="14" />
+                  </Button>
+                  <Button Classes="icon small" Command="{Binding PopOutCommand}" ToolTip.Tip="Pop out a larger preview">
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.Maximize2}" Size="14" />
+                  </Button>
+                </StackPanel>
+              </Border>
+              <Border Classes="overlay" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8" Padding="8,3">
+                <TextBlock Classes="mono" FontSize="11" x:Name="TimeText" Text="0.00 s" />
+              </Border>
+              <Border Classes="overlay" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="8">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock x:Name="CompactStats" Classes="mono" FontSize="11" VerticalAlignment="Center" Margin="6,0,0,0" IsVisible="False">
+                    <Run Text="{Binding Player.Alive}" /><Run Text=" alive · " Foreground="{DynamicResource TextMutedBrush}" /><Run Text="{Binding Player.SimulationMilliseconds, StringFormat={}{0:0.00} ms}" />
+                  </TextBlock>
+                  <ui:SegmentedControl SelectedIndex="{Binding SpeedIndex}" ToolTip.Tip="Preview speed">
+                    <ui:SegmentedControlItem Content="¼×" />
+                    <ui:SegmentedControlItem Content="½×" />
+                    <ui:SegmentedControlItem Content="1×" />
+                    <ui:SegmentedControlItem Content="2×" />
+                  </ui:SegmentedControl>
+                </StackPanel>
+              </Border>
+            </Panel>
+          </Border>
+
+          <!-- Statistics -->
+          <Grid Grid.Row="1" x:Name="StatsGrid" ColumnDefinitions="*,*,*,*" ColumnSpacing="6" Margin="0,8,0,0">
+            <Border Classes="stat">
+              <StackPanel Spacing="1">
+                <TextBlock Text="Alive" Classes="caption muted" />
+                <TextBlock Text="{Binding Player.Alive, StringFormat={}{0:N0}}" Classes="value" Foreground="{DynamicResource AccentBrush}" />
+                <ui:Sparkline History="{Binding Player.AliveHistory}" Height="20" Stroke="{DynamicResource AccentBrush}" Fill="{DynamicResource AccentSubtleBrush}" />
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="1" Classes="stat">
+              <StackPanel Spacing="1">
+                <TextBlock Text="Emitted / s" Classes="caption muted" />
+                <TextBlock Text="{Binding Player.EmittedPerSecond, StringFormat={}{0:N0}}" Classes="value" />
+                <ui:Sparkline History="{Binding Player.EmissionHistory}" Height="20" Stroke="{DynamicResource InfoBrush}" />
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Classes="stat">
+              <StackPanel Spacing="1">
+                <TextBlock Text="Simulation" Classes="caption muted" />
+                <TextBlock Text="{Binding Player.SimulationMilliseconds, StringFormat={}{0:0.000} ms}" Classes="value" />
+                <ui:Sparkline History="{Binding Player.TimeHistory}" Height="20" Stroke="{DynamicResource SuccessBrush}" />
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="3" Classes="stat">
+              <StackPanel Spacing="1">
+                <TextBlock Text="Drawn" Classes="caption muted" />
+                <TextBlock Text="{Binding Player.DrawInstances, StringFormat={}{0:N0}}" Classes="value" />
+                <ProgressBar Value="{Binding Player.BudgetUsage}" Maximum="1" Height="4" MinHeight="4" MinWidth="0" Margin="0,8,0,0"
+                             ToolTip.Tip="Alive particles out of the emitter's maximum" />
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <!-- Presets -->
+          <StackPanel Grid.Row="2" x:Name="PresetStrip" Spacing="5" Margin="0,10,0,0">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Presets" Classes="section" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Text="Click to apply · right-click for more" Classes="caption muted" VerticalAlignment="Center" />
+            </Grid>
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+              <ItemsControl ItemsSource="{Binding Gallery.Tiles}" Margin="0,0,0,4">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" Spacing="6" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+              </ItemsControl>
+            </ScrollViewer>
+          </StackPanel>
+        </Grid>
+
+        <!-- Modules -->
+        <ScrollViewer Grid.Column="1" x:Name="Modules" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="5,10,10,12" Spacing="6" x:Name="ModuleStack">
+            <Border Classes="banner" IsVisible="{Binding IsLinked}">
+              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Link}" Size="14" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" TextWrapping="Wrap" VerticalAlignment="Center" FontSize="12">
+                  <Run Text="Plays " /><Run Text="{Binding LinkedPresetName}" FontWeight="SemiBold" /><Run Text=". The settings below take over when you unlink it." />
+                </TextBlock>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
+                  <Button Classes="small" Content="Edit preset" Command="{Binding EditLinkedPresetCommand}" />
+                  <Button Classes="subtle small" Content="Unlink" Command="{Binding UnlinkCommand}" />
+                </StackPanel>
+              </Grid>
+            </Border>
+
+            <ItemsControl ItemsSource="{Binding Cards}" x:Name="CardList">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Spacing="6" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="m:ParticleModuleCard">
+                  <Border Classes="module" Classes.off="{Binding !IsEnabled}">
+                    <DockPanel>
+                      <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto">
+                        <ToggleButton Classes="module-header" IsChecked="{Binding IsExpanded}">
+                          <Grid ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="8">
+                            <ui:SymbolIcon Classes="chevron" Data="{x:Static ui:Icons.ChevronDown}" Size="12" StrokeThickness="2.5"
+                                           Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                            <Border Grid.Column="1" Classes="module-icon" Classes.motion="{Binding Category, Converter={x:Static vm:ModuleCategoryConverter.Motion}}"
+                                    Classes.look="{Binding Category, Converter={x:Static vm:ModuleCategoryConverter.Look}}"
+                                    Classes.collision="{Binding Category, Converter={x:Static vm:ModuleCategoryConverter.Collision}}"
+                                    Classes.plugin="{Binding Category, Converter={x:Static vm:ModuleCategoryConverter.Plugin}}"
+                                    Classes.playback="{Binding Category, Converter={x:Static vm:ModuleCategoryConverter.Playback}}">
+                              <ui:SymbolIcon Data="{Binding Icon}" Size="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <TextBlock Grid.Column="2" Classes="module-title" Text="{Binding Title}" FontWeight="SemiBold" FontSize="12.5" VerticalAlignment="Center" />
+                            <Grid Grid.Column="3" ColumnDefinitions="*,Auto" ColumnSpacing="8" VerticalAlignment="Center">
+                              <TextBlock Text="{Binding Summary}" Classes="caption muted" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                              <Panel Grid.Column="1" IsVisible="{Binding ShowSummary}">
+                                <ui:GradientSwatch Gradient="{Binding SummaryGradient}" Width="64" Height="12" CornerRadius="3" IsVisible="{Binding HasSummaryGradient}" />
+                                <ui:CurveSwatch Curve="{Binding SummaryCurve}" Width="44" Height="18" IsVisible="{Binding HasSummaryCurve}" />
+                              </Panel>
+                            </Grid>
+                          </Grid>
+                        </ToggleButton>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" Margin="4,0,6,0" VerticalAlignment="Center">
+                          <Border Classes="grip" IsVisible="{Binding IsPlugin}" Background="Transparent" Cursor="SizeNorthSouth" Padding="2"
+                                  ToolTip.Tip="Drag to reorder" PointerPressed="OnGripPressed" PointerReleased="OnGripReleased">
+                            <ui:SymbolIcon Data="{x:Static ui:Icons.GripVertical}" Size="14" Foreground="{DynamicResource TextMutedBrush}" />
+                          </Border>
+                          <ToggleSwitch Classes="compact" IsChecked="{Binding IsEnabled}" IsVisible="{Binding CanToggle}" ToolTip.Tip="Enable or disable the module" />
+                          <Button Classes="icon small" ToolTip.Tip="More">
+                            <ui:SymbolIcon Data="{x:Static ui:Icons.MoreHorizontal}" Size="14" />
+                            <Button.Flyout>
+                              <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                <MenuItem Header="Reset" Command="{Binding ResetCommand}" IsEnabled="{Binding CanReset}">
+                                  <MenuItem.Icon><ui:SymbolIcon Data="{x:Static ui:Icons.RotateCcw}" Size="14" /></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Copy settings" Command="{Binding CopyCommand}">
+                                  <MenuItem.Icon><ui:SymbolIcon Data="{x:Static ui:Icons.Copy}" Size="14" /></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Paste settings" Command="{Binding PasteCommand}">
+                                  <MenuItem.Icon><ui:SymbolIcon Data="{x:Static ui:Icons.Paste}" Size="14" /></MenuItem.Icon>
+                                </MenuItem>
+                                <Separator IsVisible="{Binding IsPlugin}" />
+                                <MenuItem Header="Move up" Command="{Binding MoveUpCommand}" IsVisible="{Binding IsPlugin}" IsEnabled="{Binding CanMoveUp}">
+                                  <MenuItem.Icon><ui:SymbolIcon Data="{x:Static ui:Icons.ArrowUp}" Size="14" /></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Move down" Command="{Binding MoveDownCommand}" IsVisible="{Binding IsPlugin}" IsEnabled="{Binding CanMoveDown}">
+                                  <MenuItem.Icon><ui:SymbolIcon Data="{x:Static ui:Icons.ArrowDown}" Size="14" /></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Remove module" Command="{Binding RemoveCommand}" IsVisible="{Binding IsPlugin}">
+                                  <MenuItem.Icon><ui:SymbolIcon Data="{x:Static ui:Icons.Trash}" Size="14" /></MenuItem.Icon>
+                                </MenuItem>
+                              </MenuFlyout>
+                            </Button.Flyout>
+                          </Button>
+                        </StackPanel>
+                      </Grid>
+                      <Border Classes="module-body" IsVisible="{Binding IsExpanded}">
+                        <StackPanel Spacing="2">
+                          <pv:ShapeVisual Shape="{Binding Shape}" IsVisible="{Binding HasShape}" Height="92" Margin="0,8,0,4" />
+                          <ItemsControl ItemsSource="{Binding Fields}" />
+                        </StackPanel>
+                      </Border>
+                    </DockPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Button HorizontalAlignment="Stretch" Classes="subtle" IsVisible="{Binding HasPluginModules}" Margin="0,2,0,0">
+              <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Plus}" Size="14" />
+                <TextBlock Text="Add plugin module" />
+              </StackPanel>
+              <Button.Flyout>
+                <Flyout Placement="TopEdgeAlignedLeft">
+                  <ItemsControl ItemsSource="{Binding AvailableModules}" MinWidth="220">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vfx:ParticleModuleRegistration">
+                        <Button Classes="subtle" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Command="{Binding $parent[UserControl].((vm:ParticleEditorViewModel)DataContext).AddModuleCommand}" CommandParameter="{Binding}">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ui:SymbolIcon Data="{x:Static ui:Icons.Puzzle}" Size="14" />
+                            <StackPanel>
+                              <TextBlock Text="{Binding DisplayName}" />
+                              <TextBlock Text="{Binding TypeName}" Classes="caption muted" />
+                            </StackPanel>
+                          </StackPanel>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </Flyout>
+              </Button.Flyout>
+            </Button>
+          </StackPanel>
+        </ScrollViewer>
+      </Grid>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

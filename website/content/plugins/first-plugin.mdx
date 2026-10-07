@@ -1,0 +1,338 @@
+---
+title: "Your first plugin"
+description: "A complete walkthrough from an empty folder to a plugin that adds a system and a component, loaded in the editor and in the game."
+---
+
+This tutorial builds Spinners, a plugin with a **Spinner** component and a system that turns every entity that has one. You create the project from the editor, write the component and the system, build the plugin into the game, load it in the editor, play it, run it outside the editor and switch it off again. Every file is shown in full.
+
+You need Talesmith built from source (see [Installation](/guide/getting-started/installation)), the .NET 10 SDK on the `PATH`, and a project to add the plugin to. The steps use a project called Coral Cove made from the Platformer template; any project works.
+
+## Create the plugin project
+
+<Steps>
+
+1. Open the project in the editor and choose **Window › Panels › Plugins**. The Plugins panel opens on the right side of the window. A new project has no plugins, so it shows **No plugins installed**.
+2. Click the **+** button at the top of the panel (**New plugin project…**).
+3. Type `Spinners` as the plugin name and click **Create**.
+
+</Steps>
+
+<Screenshot name="plugins/new-plugin-dialog" maxWidth={560} />
+
+The editor writes three files into `plugins-src/Spinners` in the project folder, next to `assets`, and the console links to the plugin class:
+
+```text
+Coral Cove/
+  assets/
+  plugins-src/
+    Spinners/
+      plugin.json
+      Spinners.csproj
+      SpinnersPlugin.cs
+```
+
+`plugins-src` is outside the asset folder, so the editor does not treat the source as assets and builds do not ship it.
+
+The generated `plugin.json` gives the plugin an id made of the project's name and the plugin's name, and declares the `runtimeScene` permission, which a plugin needs to add systems:
+
+```json title="plugins-src/Spinners/plugin.json"
+{
+  "id": "coral-cove.spinners",
+  "name": "Spinners",
+  "version": "1.0.0",
+  "description": "",
+  "authors": [
+    "dylan"
+  ],
+  "assembly": "Spinners.dll",
+  "contractVersion": 1,
+  "permissions": [
+    "runtimeScene"
+  ],
+  "extensions": [
+    "systems"
+  ]
+}
+```
+
+The project file references the engine assemblies in the editor's folder without copying them, and installs the plugin into the game after each build, together with any NuGet packages you add later. The real file has one `Reference` per engine assembly with the full path of your editor's folder; two are shown here:
+
+```xml title="plugins-src/Spinners/Spinners.csproj"
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <PluginDestination>$(MSBuildThisFileDirectory)../../assets/plugins/spinners/</PluginDestination>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Talesmith.Core">
+      <HintPath>/home/you/Talesmith/src/Talesmith.App/bin/Debug/net10.0/Talesmith.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Talesmith.Runtime">
+      <HintPath>/home/you/Talesmith/src/Talesmith.App/bin/Debug/net10.0/Talesmith.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="plugin.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <!-- Copies the plugin and its private dependencies, such as NuGet packages, but not what the editor and games share with plugins. -->
+  <Target Name="InstallPlugin" AfterTargets="Build">
+    <PropertyGroup>
+      <HostSharedPattern>^(Talesmith|Microsoft\.Extensions|Avalonia|SkiaSharp|CommunityToolkit|System|mscorlib|netstandard|HarfBuzzSharp|Silk\.NET)(\.|$)</HostSharedPattern>
+    </PropertyGroup>
+    <ItemGroup>
+      <PluginFiles Include="$(TargetDir)$(TargetName).dll;$(TargetDir)$(TargetName).pdb;$(TargetDir)$(TargetName).deps.json;$(TargetDir)plugin.json" />
+      <PluginDependencies Include="@(ReferenceCopyLocalPaths)" Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('%(ReferenceCopyLocalPaths.Filename)', '$(HostSharedPattern)')) And !$([System.Text.RegularExpressions.Regex]::IsMatch('%(ReferenceCopyLocalPaths.NuGetPackageId)', '$(HostSharedPattern)'))" />
+    </ItemGroup>
+    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(PluginDestination)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(PluginDependencies)" DestinationFiles="@(PluginDependencies->'$(PluginDestination)%(DestinationSubDirectory)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+</Project>
+```
+
+[The project file](./package/project-file.mdx) explains each line. `SpinnersPlugin.cs` holds a plugin class that registers an empty system. You replace it in the next steps.
+
+## Write the component
+
+A component is a plain struct. The `[Component]` attribute names the group it appears in under **Add component** and its icon; `[Range]` gives the inspector a slider and `[Tooltip]` explains the field. Create `Spinner.cs`:
+
+```csharp title="plugins-src/Spinners/Spinner.cs"
+using Talesmith.Authoring;
+
+namespace Spinners;
+
+[Component(Category = "Motion", Icon = "rotate-cw", Description = "Turns the entity at a constant speed.")]
+public struct Spinner
+{
+    [Range(-720, 720)]
+    [Tooltip("Degrees per second. Negative values turn counterclockwise.")]
+    public float Speed;
+
+    public Spinner()
+    {
+        Speed = 90;
+    }
+}
+```
+
+The constructor sets the value a newly added Spinner starts with. Scenes save the component under its full type name, `Spinners.Spinner`, and its field as `speed`.
+
+## Write the system
+
+A system runs every frame over the entities that have the components it asks for. Entities at the top of the hierarchy have only a `Transform`; children also have a `LocalTransform`, from which the engine computes their `Transform` later in the frame, so the system turns whichever one is the source. Create `SpinSystem.cs`:
+
+```csharp title="plugins-src/Spinners/SpinSystem.cs"
+using Talesmith.Ecs;
+using Talesmith.Runtime.Components;
+using Talesmith.Systems;
+
+namespace Spinners;
+
+[UpdateIn(SystemPhase.Update)]
+public sealed class SpinSystem : ISystem
+{
+    private static readonly QueryDescription TopLevel = QueryDescription.With<Spinner>().And<Transform>().Without<LocalTransform>();
+    private static readonly QueryDescription Children = QueryDescription.With<Spinner>().And<LocalTransform>();
+
+    public void Update(in SystemContext context)
+    {
+        var radians = context.Time.DeltaTime * MathF.PI / 180;
+        foreach (var archetype in context.World.Query(TopLevel))
+        {
+            var spinners = archetype.GetSpan<Spinner>();
+            var transforms = archetype.GetSpan<Transform>();
+            for (var i = 0; i < archetype.Count; i++)
+                transforms[i].Rotation += spinners[i].Speed * radians;
+        }
+
+        foreach (var archetype in context.World.Query(Children))
+        {
+            var spinners = archetype.GetSpan<Spinner>();
+            var locals = archetype.GetSpan<LocalTransform>();
+            for (var i = 0; i < archetype.Count; i++)
+                locals[i].Rotation += spinners[i].Speed * radians;
+        }
+    }
+}
+```
+
+Systems in the `Update` phase run only while the game plays, not in the editor's scene viewport. [Systems and components](./runtime/systems-and-components.mdx) covers phases, ordering and execution modes.
+
+## Register them
+
+Replace the contents of `SpinnersPlugin.cs`. `AddComponent` makes the component available to scenes, prefabs and the **Add component** menu; `AddSystem` adds the system to every scene:
+
+```csharp title="plugins-src/Spinners/SpinnersPlugin.cs"
+using Microsoft.Extensions.DependencyInjection;
+using Talesmith.Authoring;
+using Talesmith.Plugins;
+using Talesmith.Systems;
+
+namespace Spinners;
+
+public sealed class SpinnersPlugin : IPlugin
+{
+    public void Configure(IPluginBuilder builder)
+    {
+        builder.Services.AddComponent<Spinner>();
+        builder.Services.AddSystem<SpinSystem>();
+    }
+}
+```
+
+Then fill in the description in `plugin.json` and list what the plugin extends. The `extensions` list is shown on the plugin's card; it does not change what loads.
+
+```json title="plugins-src/Spinners/plugin.json"
+{
+  "id": "coral-cove.spinners",
+  "name": "Spinners",
+  "version": "1.0.0",
+  "description": "Turns entities with a Spinner component.",
+  "authors": [
+    "dylan"
+  ],
+  "assembly": "Spinners.dll",
+  "contractVersion": 1,
+  "permissions": [
+    "runtimeScene"
+  ],
+  "extensions": [
+    "components",
+    "systems"
+  ]
+}
+```
+
+## Build it into the game
+
+Run the build from the project folder:
+
+```bash
+cd "Coral Cove"
+dotnet build plugins-src/Spinners
+```
+
+The build ends with `Build succeeded.` and the `InstallPlugin` step copies four files into the game:
+
+```text
+Coral Cove/assets/plugins/spinners/
+  plugin.json
+  Spinners.dll
+  Spinners.deps.json
+  Spinners.pdb
+```
+
+## Load it in the editor
+
+<Steps>
+
+1. In the Plugins panel, click the refresh button (**Rescan the plugins folder**). A **Spinners** card appears with the state **Not loaded**, and a **Restart required** bar appears at the top of the panel: plugins load when the project opens.
+2. Click **Reload now**. The editor saves or asks about unsaved changes, then reopens the project. The card now shows **Loaded**, a green badge, and the **Runtime scene access** permission.
+3. Select **Coin 9** in the Hierarchy (inside **Coins**).
+4. Click **Add component** at the bottom of the inspector, type `spin` and choose **Spinner**. The inspector shows the **Spinner** section with a **Speed** slider at 90.
+
+</Steps>
+
+<Screenshot name="plugins/restart-required" maxWidth={420} caption="After a rescan: the new plugin is installed but not loaded until the project reloads." />
+
+<Screenshot name="plugins/spinner-inspector" maxWidth={420} />
+
+Press <Keys>Ctrl+P</Keys> to play. The coin turns a quarter turn per second in the Game panel. Stop with <Keys>Ctrl+P</Keys> again, set **Speed** to `-360` and play again: it turns the other way, once per second. Save the scene with <Keys>Ctrl+S</Keys>.
+
+## Run it outside the editor
+
+Exported games load the same plugin folder. You can check without exporting: the player runs a project folder directly. From the Talesmith repository folder:
+
+```bash
+dotnet run --project src/Talesmith.Player -- "/path/to/Coral Cove"
+```
+
+The game window opens with the coin turning, and the log names the plugin:
+
+```text
+info: Talesmith.Avalonia.Hosting.GameSession[1] Loaded plugin coral-cove.spinners 1.0.0 from /path/to/Coral Cove/assets/plugins/spinners
+info: Talesmith.Avalonia.Hosting.GameSession[4] Plugins: 1 loaded, 0 failed, 0 skipped, 0 disabled
+```
+
+To check without a window, add `--benchmark --no-render --frames 120`. The player runs 120 frames headlessly and prints a report in which `Systems/SpinSystem` appears next to the engine's systems. When you [export the game](/guide/exporting), the build log lists **Shipping the plugin Spinners 1.0.0**.
+
+## Switch it off and on
+
+<Steps>
+
+1. Turn off the switch on the **Spinners** card. The editor writes the choice to `assets/config/plugins.json` and asks whether to reload the project now.
+2. Click **Reload now**. The card shows **Disabled**.
+3. Select **Coin 9** again. The inspector shows **Unknown component: Spinner** with the message **No plugin or script defines Spinners.Spinner. Its data is kept and saved unchanged.** Play mode runs without it, and the coin no longer turns.
+4. Turn the switch back on and reload. The component and its speed are back.
+
+</Steps>
+
+Switching a plugin off changes only this project. The plugin's folder stays where it is.
+
+## Change the code
+
+Edit the plugin, then build it again with `dotnet build plugins-src/Spinners`; the editor can stay open, because it loaded the plugin into memory and does not lock its files. The editor keeps running the copy it loaded, so click **Rescan the plugins folder**: the **Restart required** bar appears because the assembly changed. Click **Reload now** to load the new build. [Debugging and reloading](./debugging.mdx) covers breakpoints and what a reload keeps.
+
+## Make the project by hand
+
+The **New plugin project…** button is a shortcut; a plugin project is an ordinary class library. To start without the editor, make a folder such as `plugins-src/Spinners`, put the three `.cs` files and `plugin.json` from above in it, and add this project file, with `TalesmithDir` pointing to the folder of your editor build:
+
+```xml title="plugins-src/Spinners/Spinners.csproj"
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <TalesmithDir>/home/you/Talesmith/src/Talesmith.App/bin/Debug/net10.0/</TalesmithDir>
+    <PluginDestination>$(MSBuildThisFileDirectory)../../assets/plugins/spinners/</PluginDestination>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="$(TalesmithDir)Talesmith.Core.dll;$(TalesmithDir)Talesmith.Runtime.dll;$(TalesmithDir)Talesmith.Plugins.dll" Private="false" />
+    <Reference Include="$(TalesmithDir)Talesmith.Assets.dll;$(TalesmithDir)Talesmith.Rendering.dll" Private="false" />
+    <Reference Include="$(TalesmithDir)Microsoft.Extensions.DependencyInjection.Abstractions.dll" Private="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="plugin.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <!-- Copies the plugin and its private dependencies, such as NuGet packages, but not what the editor and games share with plugins. -->
+  <Target Name="InstallPlugin" AfterTargets="Build">
+    <PropertyGroup>
+      <HostSharedPattern>^(Talesmith|Microsoft\.Extensions|Avalonia|SkiaSharp|CommunityToolkit|System|mscorlib|netstandard|HarfBuzzSharp|Silk\.NET)(\.|$)</HostSharedPattern>
+    </PropertyGroup>
+    <ItemGroup>
+      <PluginFiles Include="$(TargetDir)$(TargetName).dll;$(TargetDir)$(TargetName).pdb;$(TargetDir)$(TargetName).deps.json;$(TargetDir)plugin.json" />
+      <PluginDependencies Include="@(ReferenceCopyLocalPaths)" Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('%(ReferenceCopyLocalPaths.Filename)', '$(HostSharedPattern)')) And !$([System.Text.RegularExpressions.Regex]::IsMatch('%(ReferenceCopyLocalPaths.NuGetPackageId)', '$(HostSharedPattern)'))" />
+    </ItemGroup>
+    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(PluginDestination)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(PluginDependencies)" DestinationFiles="@(PluginDependencies->'$(PluginDestination)%(DestinationSubDirectory)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+</Project>
+```
+
+`dotnet build` installs it exactly as before. The `contractVersion` in `plugin.json` must match the engine's (it is 1); the editor's scaffold fills it in for you.
+
+## Next steps
+
+<CardGrid columns={2}>
+  <Card title="Editor plugins" icon="hammer" to="/plugins/editor">
+    Give Spinners a panel, a command, a viewport tool and a gizmo.
+  </Card>
+  <Card title="Plugin settings" icon="sliders" to="/plugins/package/settings">
+    Let each project tune the plugin without rebuilding it.
+  </Card>
+  <Card title="Permissions" icon="lightbulb" to="/plugins/package/permissions">
+    What each permission means and what the engine checks.
+  </Card>
+  <Card title="Testing plugins" icon="check" to="/plugins/testing">
+    Test SpinSystem against a world and in a headless game.
+  </Card>
+</CardGrid>

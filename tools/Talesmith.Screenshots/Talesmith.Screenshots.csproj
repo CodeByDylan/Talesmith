@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Renders the editor and toolkit screenshots headlessly to PNG files in light and dark themes.</Description>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Headless" />
+    <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Talesmith.UI\Talesmith.UI.csproj" />
+    <ProjectReference Include="..\..\src\Talesmith.Editor\Talesmith.Editor.csproj" />
+  </ItemGroup>
+  <!-- Built first so their plugins are in the sample game folders the screenshots copy. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\samples\Talesmith.Samples.HexQuest\Talesmith.Samples.HexQuest.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="..\..\samples\Talesmith.Samples.Cutscenes\Talesmith.Samples.Cutscenes.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="..\..\samples\Talesmith.Samples.IsleHopper\Talesmith.Samples.IsleHopper.csproj" ReferenceOutputAssembly="false" Private="false" />
+  </ItemGroup>
+</Project>

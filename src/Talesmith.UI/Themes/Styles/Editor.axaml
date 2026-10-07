@@ -1,0 +1,246 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="https://talesmith.dev/ui">
+
+  <!-- The text box inside a NumberField: no chrome of its own -->
+  <Style Selector="TextBox.number-field">
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="Padding" Value="6,0,6,0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBox.number-field /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="ui|NumberField:not(:editing) TextBox.number-field">
+    <Setter Property="Cursor" Value="SizeWestEast" />
+  </Style>
+
+  <!-- Search fields -->
+  <Style Selector="TextBox.search">
+    <Setter Property="Padding" Value="6,4,6,4" />
+    <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+  </Style>
+
+  <!-- Swatch buttons of curve and gradient previews -->
+  <Style Selector="Button.field-swatch">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="{DynamicResource TextControlBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrush}" />
+  </Style>
+  <Style Selector="Button.field-swatch /template/ Border#PART_Root">
+    <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
+  </Style>
+  <Style Selector="Button.field-swatch:pointerover">
+    <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrushPointerOver}" />
+  </Style>
+  <Style Selector="Button.field-swatch:pointerover /template/ Border#PART_StateLayer">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.field-swatch:flyout-open, Button.field-swatch:pressed">
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+  </Style>
+
+  <!-- Curve preset buttons -->
+  <Style Selector="Button.curve-preset">
+    <Setter Property="Width" Value="34" />
+    <Setter Property="Height" Value="26" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="3" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+    <Setter Property="Background" Value="{DynamicResource SurfaceSunkenBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusSmall}" />
+  </Style>
+  <Style Selector="Button.curve-preset /template/ Border#PART_Root">
+    <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
+  </Style>
+  <Style Selector="Button.curve-preset:pointerover">
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+  </Style>
+  <Style Selector="Button.curve-preset ui|CurveSwatch">
+    <Setter Property="StrokeThickness" Value="1.25" />
+    <Setter Property="Fill" Value="{x:Null}" />
+    <Setter Property="Stroke" Value="{DynamicResource TextSecondaryBrush}" />
+  </Style>
+  <Style Selector="Button.curve-preset:pointerover ui|CurveSwatch">
+    <Setter Property="Stroke" Value="{DynamicResource AccentBrush}" />
+  </Style>
+
+  <!-- Play controls: a segmented group of icon toggles; the checked one fills with the accent -->
+  <Style Selector="Border.playbar">
+    <Setter Property="Background" Value="{DynamicResource SurfaceSunkenBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="2" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.playbar > StackPanel">
+    <Setter Property="Orientation" Value="Horizontal" />
+    <Setter Property="Spacing" Value="2" />
+  </Style>
+  <Style Selector="Border.playbar Button, Border.playbar ToggleButton">
+    <Setter Property="Width" Value="30" />
+    <Setter Property="Height" Value="24" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+  </Style>
+  <Style Selector="Border.playbar Button /template/ Border#PART_Root, Border.playbar ToggleButton /template/ Border#PART_Root">
+    <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
+  </Style>
+  <Style Selector="Border.playbar Button:pointerover, Border.playbar ToggleButton:pointerover">
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+  </Style>
+  <Style Selector="Border.playbar ToggleButton:checked">
+    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentForegroundBrush}" />
+  </Style>
+  <Style Selector="Border.playbar ToggleButton:checked /template/ Border#PART_StateLayer">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="Border.playbar ToggleButton.warning:checked">
+    <Setter Property="Background" Value="{DynamicResource WarningBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource WarningBrush}" />
+  </Style>
+  <Style Selector="Border.playbar ui|SymbolIcon">
+    <Setter Property="Size" Value="13" />
+  </Style>
+
+  <!-- Filter chips, such as console severities: checked chips are raised, unchecked ones fade -->
+  <Style Selector="ToggleButton.chip">
+    <Setter Property="MinHeight" Value="24" />
+    <Setter Property="Height" Value="24" />
+    <Setter Property="Padding" Value="8,0" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+  </Style>
+  <Style Selector="ToggleButton.chip /template/ Border#PART_Root">
+    <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
+  </Style>
+  <Style Selector="ToggleButton.chip:checked">
+    <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+  </Style>
+  <Style Selector="ToggleButton.chip:not(:checked)">
+    <Setter Property="Opacity" Value="0.55" />
+  </Style>
+  <Style Selector="ToggleButton.chip:not(:checked):pointerover">
+    <Setter Property="Opacity" Value="0.85" />
+  </Style>
+
+  <!-- Asset grids: ListBox.tiles wraps AssetTiles and leaves selection visuals to them -->
+  <Style Selector="ListBox.tiles">
+    <Setter Property="Padding" Value="6" />
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <WrapPanel ItemSpacing="4" LineSpacing="4" />
+      </ItemsPanelTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.tiles ListBoxItem">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+  </Style>
+  <Style Selector="ListBox.tiles ListBoxItem:pointerover, ListBox.tiles ListBoxItem:selected, ListBox.tiles ListBoxItem:pressed">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="ListBox.tiles ListBoxItem:selected ui|AssetTile">
+    <Setter Property="IsSelected" Value="True" />
+  </Style>
+
+  <!-- Dock drag feedback -->
+  <Style Selector="Border.dock-drop-indicator">
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="BorderThickness" Value="2" />
+    <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+  </Style>
+  <Style Selector="Border.dock-drop-fill">
+    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="Opacity" Value="0.18" />
+    <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+  </Style>
+  <Style Selector="Border.dock-guide">
+    <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="7" />
+    <Setter Property="BoxShadow" Value="{DynamicResource ShadowRaised}" />
+  </Style>
+  <Style Selector="Border.dock-guide.active">
+    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+  </Style>
+  <Style Selector="Border.dock-new-window">
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="BorderThickness" Value="2" />
+    <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+  <Style Selector="Border.dock-new-window-header">
+    <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="Height" Value="34" />
+    <Setter Property="Padding" Value="12,0" />
+  </Style>
+  <Style Selector="Border.dock-new-window-header TextBlock">
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Border.dock-new-window-header ui|SymbolIcon">
+    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+  </Style>
+  <Style Selector="TextBlock.dock-new-window-hint">
+    <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+  </Style>
+  <Style Selector="Border.dock-landing">
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="BorderThickness" Value="2" />
+    <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+  </Style>
+  <Style Selector="Border.dock-drop-caret">
+    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="CornerRadius" Value="1" />
+  </Style>
+  <Style Selector="Border.dock-drag-ghost">
+    <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+    <Setter Property="BoxShadow" Value="{DynamicResource ShadowPopup}" />
+    <Setter Property="Padding" Value="10,5" />
+    <Setter Property="Opacity" Value="0.95" />
+    <Setter Property="TextElement.FontSize" Value="12" />
+    <Setter Property="TextElement.FontWeight" Value="Medium" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+  </Style>
+  <Style Selector="Border.dock-drag-ghost ui|SymbolIcon">
+    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+  </Style>
+  <Style Selector="Border.dock-drag-ghost ui|SymbolIcon.dock-drag-arrow">
+    <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+  </Style>
+  <Style Selector="Border.dock-drag-ghost TextBlock.dock-drag-target">
+    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+</Styles>

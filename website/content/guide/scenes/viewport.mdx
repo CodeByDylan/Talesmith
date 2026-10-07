@@ -1,0 +1,115 @@
+---
+title: "The scene viewport"
+description: "Navigate the scene, select entities, move, rotate and scale them with the transform tools, and use gizmos, snapping and preview."
+---
+
+The Scene panel shows the open scene as the game draws it, through the editor's own camera. This page covers moving around, selecting, the Move, Rotate, Scale and Rect tools with their handles and snapping, the gizmos components draw, Preview, and dropping assets into the scene.
+
+<Screenshot name="guide/gizmos" caption="A sprite and a light selected together with the Move tool. The light's gizmo shows its radius." priority />
+
+## Navigate
+
+| Do | How |
+| --- | --- |
+| Pan | Drag with the middle or right mouse button, or hold <Keys>Space</Keys> and drag. Works with any tool. The **Hand** tool (<Keys>H</Keys>) pans with the left button. |
+| Zoom around the pointer | Mouse wheel |
+| Zoom in steps | <Keys>Ctrl+=</Keys> and <Keys>Ctrl+-</Keys> step through 12.5%, 25%, 50%, 100%, 200%, 300%, 400%, 600%, 800%, 1200% and 1600% |
+| Show at 100% | <Keys>Ctrl+1</Keys> |
+| Pan sideways | <Keys>Shift</Keys> and the wheel, or a touchpad's horizontal scroll |
+| Frame the selection | <Keys>F</Keys> |
+| Frame the whole scene | <Keys>Shift+F</Keys> |
+| Go to the origin | <Keys>Home</Keys> |
+
+The zoom bar in the bottom right corner of the panel shows the zoom and has buttons for the same steps and for framing. In a narrow Scene panel it leaves out the framing buttons, and then the step buttons, whose keys and the wheel still work. The commands are also in **Scene › View**. **Edit › Settings… › Viewport** sets how far one wheel notch zooms and whether zooming is smooth.
+
+The grid adapts to the zoom: when cells get too small, it doubles its spacing, and every fourth line is drawn stronger. The red and green lines are the X and Y axes through the origin. Y points down, as in the game. While a tile tool is active, the grid shows the edited map's cells instead; see [Tile grid](../tile-maps/painting.mdx#tile-grid).
+
+The viewport remembers its camera for each scene, so a scene opens where you left it. A scene opened for the first time is framed to fit.
+
+## Select
+
+The **Select** tool (<Keys>Q</Keys>) is the default tool.
+
+| Do | How |
+| --- | --- |
+| Select an entity | Click it |
+| Add to the selection | <Keys>Shift</Keys>+click |
+| Add or remove one entity | <Keys>Ctrl</Keys>+click |
+| Select everything in an area | Drag on empty space. Everything the rectangle touches is selected. |
+| Move the selection | Drag a selected entity |
+| Select everything, nothing | <Keys>Ctrl+A</Keys>, <Keys>Escape</Keys> |
+
+Entities without anything visible, such as cameras, lights and empty groups, show an icon you can click. The **Entity icons** toggle at the top right of the Scene panel hides those icons.
+
+The selection is shared with the hierarchy and the inspector: whatever you select in one is selected in the others. Locked entities cannot be picked in the viewport, and hidden entities are not drawn; you set both in the [hierarchy](./hierarchy.mdx).
+
+## Transform tools
+
+The tool rail on the left of the Scene panel holds the tools. When the panel is too short for all of them, the rail continues in another column. When it is too narrow for that as well, the last button lists the tools left over with their keys, and shows the active tool when it is one of them.
+
+The transform tools work on every selected entity at once.
+
+| Tool | Key | Handles | Modifiers |
+| --- | --- | --- | --- |
+| **Move** | <Keys>W</Keys> | Drag an arrow to move along it, or the square to move freely. | <Keys>Shift</Keys> keeps to one axis. <Keys>Ctrl</Keys> snaps to the grid. |
+| **Rotate** | <Keys>E</Keys> | Drag the ring to turn around the pivot. | <Keys>Ctrl</Keys> snaps to 15°. |
+| **Scale** | <Keys>R</Keys> | Drag an axis handle to stretch along it, or the center to scale evenly. | <Keys>Ctrl</Keys> snaps to tenths. |
+| **Rect** | <Keys>T</Keys> | Drag an edge or corner to resize, inside to move. | <Keys>Alt</Keys> resizes around the center, <Keys>Shift</Keys> keeps the aspect ratio, <Keys>Ctrl</Keys> snaps. |
+
+<Screenshot name="guide/viewport-rotate" caption="The Rotate tool's ring around the hero's pivot, at its feet." />
+
+While you drag, the entities change at once and a readout next to the pointer shows the change: the distance moved, the angle, the scale factor or the new size. When you release, the whole drag becomes one undo step. Press <Keys>Escape</Keys> during a drag to cancel it.
+
+### Where the handles sit
+
+Two toggles in the tool options bar decide where the handles are and which way they point:
+
+| Toggle | Key | Off | On |
+| --- | --- | --- | --- |
+| **Center** | <Keys>Z</Keys> | The handles sit at the pivot of the last selected entity. | The handles sit at the center of the selection. |
+| **Local** | <Keys>X</Keys> | The handles follow the world axes. | The handles turn with the entity's rotation. |
+
+### Snapping
+
+The **Snap** toggle (<Keys>Ctrl+Shift+G</Keys>) snaps moves to the grid. The field next to it sets the grid size in world units, 32 by default. Holding <Keys>Ctrl</Keys> while you drag snaps without turning snapping on. Rotation snaps to the rotation step, 15° by default, which you can change in **Edit › Settings… › Viewport**. The grid toggle (<Keys>Ctrl+G</Keys>) shows or hides the grid without changing snapping.
+
+## Gizmos
+
+Selected entities show gizmos for their components: shapes you can see, often with round handles you can drag with any tool. Unselected entities show their gizmos faintly, so you can see where lights and colliders are.
+
+| Component | Gizmo | Handles |
+| --- | --- | --- |
+| **Camera** | The area the game shows at the camera's zoom, labeled with its name, design size, scale mode and zoom; with **Expand** and **Crop** also a fainter dashed frame for what the window size shows; and its bounds when set | |
+| **Light 2D** | The radius, the inner radius and a spot light's cone | Radius, inner radius, cone (<Keys>Ctrl</Keys> snaps to 15°), direction |
+| **Collider 2D** | The outline in green; triggers are dashed | Width, height, radius and polygon points |
+| **Shadow Caster 2D** | A dashed violet outline | |
+| **Particle Emitter** | The emission shape and the live bounds of the particles, with their count | |
+| **Audio Source** (spatial) | The minimum and maximum distance | Both distances |
+
+<Screenshot name="guide/viewport-camera" caption="The main camera's frame at the platformer's 640 × 360 design size, with the scale mode and zoom in the label." />
+
+As with the transform tools, <Keys>Ctrl</Keys> snaps while you drag a gizmo handle and <Keys>Escape</Keys> cancels.
+
+## Preview
+
+The viewport only redraws when something changes, so sprites stand still, particles do not emit and lights do not flicker while you edit. That keeps the editor quiet and saves power. Turn on **Preview** in the tool options bar (<Keys>Ctrl+Alt+P</Keys>) to run animations, particles and lights in the viewport without running gameplay: scripts and physics stay off. A **Preview** badge appears in the corner of the Scene panel while it is on.
+
+## Drop assets into the scene
+
+Drag assets from the [Assets panel](../assets/assets-panel.mdx) into the viewport to create entities where you drop them:
+
+| Asset | Creates |
+| --- | --- |
+| A texture | An entity with a **Sprite** |
+| A `.hexy` map | An entity with a **Tile Map Renderer** |
+| A `.tparticles` preset | An entity with a **Particle Emitter** playing the preset |
+| A `.wav` or `.ogg` sound | An entity with an **Audio Source** |
+| A `.tprefab` prefab | An instance of the prefab |
+
+The entity is named after the file. With snapping on, the drop point snaps to the grid. Dropping several assets at once creates one entity for each, as one undo step. You can drop the same assets on the [hierarchy](./hierarchy.mdx) to create them under a particular entity.
+
+## Related
+
+- [The hierarchy](./hierarchy.mdx)
+- [The inspector](./inspector.mdx)
+- [Painting tools](../tile-maps/painting.mdx), the tools the rail shows while you edit a tile map.

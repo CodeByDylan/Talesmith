@@ -1,0 +1,605 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="https://talesmith.dev/ui">
+
+  <!-- NumberField -->
+  <ControlTheme x:Key="{x:Type ui:NumberField}" TargetType="ui:NumberField">
+    <Setter Property="Background" Value="{DynamicResource TextControlBackground}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="MinWidth" Value="44" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="LabelForeground" Value="{DynamicResource TextMutedBrush}" />
+    <Setter Property="Cursor" Value="SizeWestEast" />
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_Border"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                MinHeight="{TemplateBinding MinHeight}"
+                ClipToBounds="True">
+          <Border.Transitions>
+            <Transitions>
+              <BrushTransition Property="BorderBrush" Duration="0:0:0.08" />
+            </Transitions>
+          </Border.Transitions>
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <Border Name="PART_Label"
+                    MinWidth="20"
+                    Padding="6,0,4,0"
+                    Background="Transparent"
+                    IsVisible="{TemplateBinding Label, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+              <TextBlock Text="{TemplateBinding Label}"
+                         Foreground="{TemplateBinding LabelForeground}"
+                         FontSize="11"
+                         FontWeight="SemiBold"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center" />
+            </Border>
+            <TextBox Name="PART_TextBox"
+                     Grid.Column="1"
+                     Classes="number-field"
+                     FontSize="{TemplateBinding FontSize}"
+                     Foreground="{TemplateBinding Foreground}" />
+            <TextBlock Grid.Column="2"
+                       Margin="0,0,7,0"
+                       VerticalAlignment="Center"
+                       FontSize="11"
+                       Foreground="{DynamicResource TextMutedBrush}"
+                       Text="{TemplateBinding Suffix}"
+                       IsHitTestVisible="False"
+                       IsVisible="{TemplateBinding Suffix, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </Grid>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pointerover /template/ Border#PART_Border">
+      <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrushPointerOver}" />
+    </Style>
+    <Style Selector="^:editing /template/ Border#PART_Border">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="^:scrubbing /template/ Border#PART_Border">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+    </Style>
+    <Style Selector="^:focus-visible /template/ Border#PART_Border">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="^:not(:editing) /template/ TextBox#PART_TextBox">
+      <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+    <Style Selector="^:mixed /template/ TextBox#PART_TextBox">
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+    </Style>
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="0.5" />
+      <Setter Property="Cursor" Value="Arrow" />
+    </Style>
+    <Style Selector="^.axis-x">
+      <Setter Property="LabelForeground" Value="{DynamicResource AxisXBrush}" />
+    </Style>
+    <Style Selector="^.axis-y">
+      <Setter Property="LabelForeground" Value="{DynamicResource AxisYBrush}" />
+    </Style>
+    <Style Selector="^.axis-z">
+      <Setter Property="LabelForeground" Value="{DynamicResource AxisZBrush}" />
+    </Style>
+  </ControlTheme>
+
+  <!-- Vector2Field -->
+  <ControlTheme x:Key="{x:Type ui:Vector2Field}" TargetType="ui:Vector2Field">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="4">
+          <ui:NumberField Name="PART_X"
+                          Classes="axis-x"
+                          Label="X"
+                          Minimum="{TemplateBinding Minimum}"
+                          Maximum="{TemplateBinding Maximum}"
+                          Step="{TemplateBinding Step}"
+                          FormatString="{TemplateBinding FormatString}"
+                          Suffix="{TemplateBinding Suffix}" />
+          <ui:NumberField Name="PART_Y"
+                          Grid.Column="1"
+                          Classes="axis-y"
+                          Label="Y"
+                          Minimum="{TemplateBinding Minimum}"
+                          Maximum="{TemplateBinding Maximum}"
+                          Step="{TemplateBinding Step}"
+                          FormatString="{TemplateBinding FormatString}"
+                          Suffix="{TemplateBinding Suffix}" />
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <!-- SearchBox -->
+  <ControlTheme x:Key="{x:Type ui:SearchBox}" TargetType="ui:SearchBox">
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="Focusable" Value="True" />
+    <Setter Property="IsTabStop" Value="False" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <TextBox Name="PART_TextBox"
+                 Classes="search"
+                 MinHeight="{TemplateBinding MinHeight}"
+                 Text="{Binding Text, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                 PlaceholderText="{TemplateBinding PlaceholderText}">
+          <TextBox.InnerLeftContent>
+            <ui:SymbolIcon Data="{x:Static ui:Icons.Search}"
+                           Size="14"
+                           Margin="9,0,0,0"
+                           Foreground="{DynamicResource TextMutedBrush}"
+                           IsHitTestVisible="False" />
+          </TextBox.InnerLeftContent>
+          <TextBox.InnerRightContent>
+            <Button Name="PART_Clear"
+                    Classes="icon small"
+                    Width="20"
+                    Height="20"
+                    Margin="0,0,4,0"
+                    Focusable="False"
+                    IsVisible="False"
+                    ToolTip.Tip="Clear (Esc)">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.X}" Size="12" StrokeThickness="2.25" />
+            </Button>
+          </TextBox.InnerRightContent>
+        </TextBox>
+      </ControlTemplate>
+    </Setter>
+    <Style Selector="^:has-text /template/ Button#PART_Clear">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+  </ControlTheme>
+
+  <!-- EmptyState -->
+  <ControlTheme x:Key="{x:Type ui:EmptyState}" TargetType="ui:EmptyState">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="Padding" Value="24" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel Background="Transparent">
+          <StackPanel HorizontalAlignment="Center"
+                      VerticalAlignment="Center"
+                      Margin="{TemplateBinding Padding}"
+                      MaxWidth="280"
+                      Spacing="4">
+            <Border Width="44"
+                    Height="44"
+                    Margin="0,0,0,10"
+                    HorizontalAlignment="Center"
+                    CornerRadius="12"
+                    Background="{DynamicResource SurfaceHoverBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                    BorderThickness="1"
+                    IsVisible="{TemplateBinding Icon, Converter={x:Static ObjectConverters.IsNotNull}}">
+              <ui:SymbolIcon Data="{TemplateBinding Icon}" Size="20" Foreground="{DynamicResource TextMutedBrush}" />
+            </Border>
+            <TextBlock Text="{TemplateBinding Title}"
+                       FontWeight="SemiBold"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
+            <TextBlock Text="{TemplateBinding Hint}"
+                       FontSize="12"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextMutedBrush}"
+                       IsVisible="{TemplateBinding Hint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <Button Classes="small"
+                    Margin="0,12,0,0"
+                    HorizontalAlignment="Center"
+                    Content="{TemplateBinding ActionText}"
+                    Command="{TemplateBinding ActionCommand}"
+                    CommandParameter="{TemplateBinding ActionCommandParameter}"
+                    IsVisible="{TemplateBinding ActionText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </StackPanel>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <!-- PropertyRow -->
+  <ControlTheme x:Key="{x:Type ui:PropertyRow}" TargetType="ui:PropertyRow">
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="ClipToBounds" Value="False" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="Padding" Value="0,1" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid Background="Transparent" MinHeight="{TemplateBinding MinHeight}" ColumnDefinitions="Auto,*">
+          <Border Name="PART_Marker"
+                  Width="2"
+                  Margin="0,5"
+                  HorizontalAlignment="Left"
+                  RenderTransform="translate(-9px, 0px)"
+                  CornerRadius="1"
+                  Background="{DynamicResource AccentBrush}"
+                  IsVisible="False" />
+          <Panel Width="{TemplateBinding LabelColumnWidth}" Background="Transparent">
+            <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,10,0">
+              <TextBlock Name="PART_Label"
+                         Text="{TemplateBinding Label}"
+                         FontSize="12"
+                         VerticalAlignment="Center"
+                         TextTrimming="CharacterEllipsis"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         ToolTip.Tip="{TemplateBinding Description}" />
+              <ContentPresenter Name="PART_Accessory"
+                                Grid.Column="1"
+                                Margin="4,0,0,0"
+                                VerticalAlignment="Center"
+                                Content="{TemplateBinding Accessory}"
+                                IsVisible="{TemplateBinding Accessory, Converter={x:Static ObjectConverters.IsNotNull}}" />
+              <Button Name="PART_Reset"
+                      Grid.Column="2"
+                      Classes="icon small"
+                      Width="18"
+                      Height="18"
+                      Margin="4,0,0,0"
+                      Focusable="False"
+                      IsVisible="False"
+                      ToolTip.Tip="Reset to default">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.RotateCcw}" Size="11" StrokeThickness="2.25" />
+              </Button>
+            </Grid>
+            <Border Name="PART_Resizer"
+                    Width="7"
+                    Margin="0,0,-3,0"
+                    HorizontalAlignment="Right"
+                    Background="Transparent"
+                    Cursor="SizeWestEast">
+              <Border Name="PART_ResizerLine" Width="1" Background="Transparent" />
+            </Border>
+          </Panel>
+          <ContentPresenter Name="PART_ContentPresenter"
+                            Grid.Column="1"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            Padding="{TemplateBinding Padding}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pointerover /template/ TextBlock#PART_Label">
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="^:modified">
+      <Style Selector="^ /template/ Border#PART_Marker">
+        <Setter Property="IsVisible" Value="True" />
+      </Style>
+      <Style Selector="^ /template/ TextBlock#PART_Label">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+      </Style>
+    </Style>
+    <Style Selector="^:modified:pointerover /template/ Button#PART_Reset">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^ /template/ Border#PART_Resizer:pointerover > Border#PART_ResizerLine, ^:resizing /template/ Border#PART_ResizerLine">
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+    </Style>
+  </ControlTheme>
+
+  <!-- PropertyGroup -->
+  <ControlTheme x:Key="PropertyGroupHeaderToggle" TargetType="ToggleButton">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_Root" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CornerRadiusSmall}">
+          <ContentPresenter Content="{TemplateBinding Content}" VerticalContentAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+    <Style Selector="^:focus-visible /template/ Border#PART_Root">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type ui:PropertyGroup}" TargetType="ui:PropertyGroup">
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="IconForeground" Value="{DynamicResource TextSecondaryBrush}" />
+    <Setter Property="Padding" Value="20,0,10,10" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                Background="{TemplateBinding Background}">
+          <DockPanel>
+            <Border Name="PART_Header"
+                    DockPanel.Dock="Top"
+                    Height="32"
+                    Padding="6,0,6,0"
+                    Background="Transparent">
+              <Grid ColumnDefinitions="*,Auto,Auto">
+                <ToggleButton Theme="{StaticResource PropertyGroupHeaderToggle}"
+                              IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                  <StackPanel Orientation="Horizontal" Spacing="7">
+                    <ui:SymbolIcon Name="PART_Chevron"
+                                   Data="{x:Static ui:Icons.ChevronDown}"
+                                   Size="12"
+                                   StrokeThickness="2.5"
+                                   Foreground="{DynamicResource TextMutedBrush}">
+                      <ui:SymbolIcon.Transitions>
+                        <Transitions>
+                          <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1" />
+                        </Transitions>
+                      </ui:SymbolIcon.Transitions>
+                    </ui:SymbolIcon>
+                    <ui:SymbolIcon Data="{TemplateBinding Icon}"
+                                   Size="14"
+                                   Foreground="{TemplateBinding IconForeground}"
+                                   IsVisible="{TemplateBinding Icon, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    <ContentPresenter Content="{TemplateBinding Header}"
+                                      ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                      FontSize="12"
+                                      FontWeight="SemiBold"
+                                      VerticalAlignment="Center" />
+                  </StackPanel>
+                </ToggleButton>
+                <ContentPresenter Grid.Column="1" VerticalAlignment="Center" Content="{TemplateBinding HeaderActions}" />
+                <Button Name="PART_MenuButton"
+                        Grid.Column="2"
+                        Classes="icon small"
+                        Margin="2,0,0,0"
+                        Focusable="False"
+                        IsVisible="False"
+                        ToolTip.Tip="More">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.MoreHorizontal}" Size="14" />
+                </Button>
+              </Grid>
+            </Border>
+            <ContentPresenter Name="PART_ContentPresenter"
+                              Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              Padding="{TemplateBinding Padding}"
+                              HorizontalContentAlignment="Stretch" />
+          </DockPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^ /template/ Border#PART_Header:pointerover">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+    <Style Selector="^:has-menu /template/ Button#PART_MenuButton">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:collapsed">
+      <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="IsVisible" Value="False" />
+      </Style>
+      <Style Selector="^ /template/ ui|SymbolIcon#PART_Chevron">
+        <Setter Property="RenderTransform" Value="rotate(-90deg)" />
+      </Style>
+    </Style>
+  </ControlTheme>
+
+  <!-- AssetTile -->
+  <ControlTheme x:Key="{x:Type ui:AssetTile}" TargetType="ui:AssetTile">
+    <Setter Property="Width" Value="92" />
+    <Setter Property="Padding" Value="6,6,6,5" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusLarge}" />
+    <Setter Property="TypeBrush" Value="{DynamicResource TextMutedBrush}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_Root"
+                Padding="{TemplateBinding Padding}"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}">
+          <Border.Transitions>
+            <Transitions>
+              <BrushTransition Property="Background" Duration="0:0:0.08" />
+            </Transitions>
+          </Border.Transitions>
+          <StackPanel Spacing="6">
+            <Panel Height="{TemplateBinding ThumbnailSize}">
+              <Border Name="PART_Thumbnail"
+                      CornerRadius="{DynamicResource CornerRadiusMedium}"
+                      Background="{DynamicResource SurfaceSunkenBrush}"
+                      BorderBrush="{DynamicResource BorderSubtleBrush}"
+                      BorderThickness="1"
+                      ClipToBounds="True">
+                <Panel>
+                  <ui:SymbolIcon Data="{TemplateBinding Icon}"
+                                 Size="26"
+                                 StrokeThickness="1.75"
+                                 Foreground="{TemplateBinding TypeBrush}"
+                                 IsVisible="{TemplateBinding Thumbnail, Converter={x:Static ObjectConverters.IsNull}}" />
+                  <Image Source="{TemplateBinding Thumbnail}"
+                         Margin="4"
+                         Stretch="Uniform"
+                         RenderOptions.BitmapInterpolationMode="None" />
+                </Panel>
+              </Border>
+              <Border HorizontalAlignment="Left"
+                      VerticalAlignment="Bottom"
+                      Margin="4"
+                      Padding="4,0,4,1"
+                      CornerRadius="3"
+                      Background="{DynamicResource SurfaceRaisedBrush}"
+                      BorderBrush="{DynamicResource BorderSubtleBrush}"
+                      BorderThickness="1"
+                      IsVisible="{TemplateBinding TypeLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Text="{TemplateBinding TypeLabel}"
+                           FontSize="9"
+                           FontWeight="Bold"
+                           LetterSpacing="0.4"
+                           Foreground="{TemplateBinding TypeBrush}" />
+              </Border>
+            </Panel>
+            <TextBlock Name="PART_Title"
+                       Text="{TemplateBinding Title}"
+                       FontSize="11.5"
+                       TextAlignment="Center"
+                       TextTrimming="CharacterEllipsis"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       ToolTip.Tip="{TemplateBinding Title}" />
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pointerover">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+      <Style Selector="^ /template/ TextBlock#PART_Title">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      </Style>
+    </Style>
+    <Style Selector="^:selected">
+      <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Style Selector="^ /template/ TextBlock#PART_Title">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      </Style>
+    </Style>
+  </ControlTheme>
+
+  <!-- Curves -->
+  <ControlTheme x:Key="{x:Type ui:CurveSwatch}" TargetType="ui:CurveSwatch">
+    <Setter Property="Stroke" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="Fill" Value="{DynamicResource AccentSubtleBrush}" />
+    <Setter Property="Padding" Value="2" />
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type ui:CurveCanvas}" TargetType="ui:CurveCanvas">
+    <Setter Property="Background" Value="{DynamicResource SurfaceSunkenBrush}" />
+    <Setter Property="RangeBrush" Value="{DynamicResource SurfaceHoverBrush}" />
+    <Setter Property="GridBrush" Value="{DynamicResource BorderSubtleBrush}" />
+    <Setter Property="AxisBrush" Value="{DynamicResource BorderStrongBrush}" />
+    <Setter Property="LabelBrush" Value="{DynamicResource TextMutedBrush}" />
+    <Setter Property="CurveBrush" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="CurveFill" Value="{DynamicResource AccentSubtleBrush}" />
+    <Setter Property="KeyBrush" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="KeyFill" Value="{DynamicResource SurfaceRaisedBrush}" />
+    <Setter Property="HandleBrush" Value="{DynamicResource TextMutedBrush}" />
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type ui:CurveEditor}" TargetType="ui:CurveEditor">
+    <Setter Property="Width" Value="460" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid RowDefinitions="Auto,*,Auto" RowSpacing="8">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Name="PART_Presets" Orientation="Horizontal" Spacing="4" />
+            <Button Name="PART_Fit" Grid.Column="1" Classes="icon small" ToolTip.Tip="Fit view (F)">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Maximize}" Size="14" />
+            </Button>
+          </Grid>
+          <Border Grid.Row="1"
+                  MinHeight="200"
+                  CornerRadius="{DynamicResource CornerRadiusMedium}"
+                  BorderBrush="{DynamicResource BorderSubtleBrush}"
+                  BorderThickness="1"
+                  ClipToBounds="True">
+            <ui:CurveCanvas Name="PART_Canvas" />
+          </Border>
+          <Grid Grid.Row="2" ColumnDefinitions="Auto,*,*,Auto" ColumnSpacing="6">
+            <ui:SegmentedControl Name="PART_Interpolation" ToolTip.Tip="Interpolation of the segment after the key" />
+            <ui:NumberField Name="PART_Time" Grid.Column="1" Label="Time" Step="0.01" FormatString="0.###" ToolTip.Tip="Time of the selected key" />
+            <ui:NumberField Name="PART_Value" Grid.Column="2" Label="Value" Step="0.01" FormatString="0.###" ToolTip.Tip="Value of the selected key" />
+            <Button Name="PART_Delete" Grid.Column="3" Classes="icon small" ToolTip.Tip="Delete key (Del)">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Trash}" Size="14" />
+            </Button>
+          </Grid>
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+    <Style Selector="^ /template/ ui|SegmentedControl#PART_Interpolation">
+      <Setter Property="Padding" Value="2" />
+    </Style>
+    <Style Selector="^ /template/ ui|SegmentedControl#PART_Interpolation ui|SegmentedControlItem">
+      <Setter Property="MinHeight" Value="20" />
+      <Setter Property="Padding" Value="8,0" />
+      <Setter Property="FontSize" Value="11.5" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type ui:CurvePreview}" TargetType="ui:CurvePreview">
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Button Name="PART_Button"
+                Classes="field-swatch"
+                MinHeight="{TemplateBinding MinHeight}"
+                ToolTip.Tip="Edit curve">
+          <ui:CurveSwatch Curve="{Binding Curve, RelativeSource={RelativeSource TemplatedParent}}" Padding="6,4" />
+        </Button>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <!-- Gradients -->
+  <ControlTheme x:Key="{x:Type ui:GradientSwatch}" TargetType="ui:GradientSwatch">
+    <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusSmall}" />
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type ui:GradientBar}" TargetType="ui:GradientBar">
+    <Setter Property="Height" Value="44" />
+    <Setter Property="MarkerBrush" Value="{DynamicResource TextMutedBrush}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}" />
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type ui:GradientEditor}" TargetType="ui:GradientEditor">
+    <Setter Property="Width" Value="252" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <StackPanel Spacing="10">
+          <ui:GradientBar Name="PART_Bar" />
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+            <ui:NumberField Name="PART_Location" Label="Location" Suffix="%" Minimum="0" Maximum="100" Step="0.5" FormatString="0.#" />
+            <Button Name="PART_Delete" Grid.Column="1" Classes="icon small" ToolTip.Tip="Delete stop (Del)">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Trash}" Size="14" />
+            </Button>
+          </Grid>
+          <Border Height="1" Background="{DynamicResource BorderSubtleBrush}" />
+          <ui:ColorPicker Name="PART_Picker" />
+        </StackPanel>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type ui:GradientPreview}" TargetType="ui:GradientPreview">
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Button Name="PART_Button"
+                Classes="field-swatch"
+                MinHeight="{TemplateBinding MinHeight}"
+                ToolTip.Tip="Edit gradient">
+          <ui:GradientSwatch Gradient="{Binding Gradient, RelativeSource={RelativeSource TemplatedParent}}"
+                             CornerRadius="3"
+                             Margin="3" />
+        </Button>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+</ResourceDictionary>

@@ -1,0 +1,128 @@
+---
+title: "Gizmo providers"
+description: "Draw gizmos and editable handles for your components in the scene viewport."
+---
+
+Gizmos are the outlines and handles the scene viewport draws for components: a light's radius, a collider's shape, a camera's frame. A plugin draws gizmos for its own components with an `IGizmoProvider`, and can offer handles that edit a value by dragging, with undo. This page covers registering a provider, drawing, handles, and showing selected and unselected entities.
+
+## Register a provider
+
+```csharp
+services.AddGizmoProvider<SpinnerGizmo>();
+```
+
+The viewport calls every provider each time it draws its overlay, whichever tool is active.
+
+## A gizmo with a handle
+
+The Spinners gizmo draws an arc around a selected spinner, three quarters of a turn in its direction, whose radius grows with the speed, and a diamond handle that changes the speed when dragged left or right:
+
+```csharp title="plugins-src/Spinners.Editor/SpinnerGizmo.cs"
+using System.Numerics;
+using System.Text.Json.Nodes;
+using Talesmith.Editor.Viewport.Gizmos;
+using Talesmith.Runtime.Components;
+
+namespace Spinners.Editor;
+
+public sealed class SpinnerGizmo : IGizmoProvider
+{
+    private const float UnitsPerDegree = 0.25f;
+
+    public void Draw(GizmoContext context)
+    {
+        foreach (var archetype in context.World.Query<Transform, Spinner>())
+        {
+            var transforms = archetype.GetSpan<Transform>();
+            var spinners = archetype.GetSpan<Spinner>();
+            for (var i = 0; i < archetype.Count; i++)
+            {
+                var entity = archetype.Entities[i];
+                var selected = context.IsSelected(entity);
+                if (!selected && !context.IsHovered(entity))
+                    continue;
+                var speed = spinners[i].Speed;
+                var radius = MathF.Max(MathF.Abs(speed) * UnitsPerDegree, 12 * context.PixelSize);
+                context.Arc(transforms[i].Position, radius, transforms[i].Rotation, MathF.Sign(speed) * MathF.PI * 1.5f, context.Palette.Accent,
+                    thickness: 2, opacity: selected ? 1 : GizmoContext.Faint);
+            }
+        }
+    }
+
+    public void CollectHandles(GizmoContext context, ICollection<GizmoHandle> handles)
+    {
+        foreach (var archetype in context.World.Query<Transform, Spinner>())
+        {
+            var transforms = archetype.GetSpan<Transform>();
+            var spinners = archetype.GetSpan<Spinner>();
+            for (var i = 0; i < archetype.Count; i++)
+            {
+                var entity = archetype.Entities[i];
+                var id = GizmoMath.DocumentId(context.World, entity);
+                if (!context.IsSelected(entity) || id == Guid.Empty)
+                    continue;
+                var center = transforms[i].Position;
+                handles.Add(new GizmoHandle(id, SpinnerCommands.ComponentType, "speed", center + new Vector2(spinners[i].Speed * UnitsPerDegree, 0),
+                    drag => JsonValue.Create(Math.Clamp(GizmoMath.Snap((drag.World.X - center.X) / UnitsPerDegree, 15, drag.Snap), -720, 720)))
+                {
+                    Shape = GizmoHandleShape.Diamond,
+                    Hint = "Drag left or right to change the speed"
+                });
+            }
+        }
+    }
+}
+```
+
+## Drawing
+
+`Draw` queries the edit world, the live copy of the open scene, for the provider's components and draws in world coordinates through the context's helpers. Line widths and handle sizes are in screen pixels, so gizmos keep their size at every zoom, and shapes outside the view are skipped.
+
+| Member | What it draws or gives |
+| --- | --- |
+| `Line(from, to, color, thickness, opacity, dashed)` | A line between two world points. |
+| `Polyline(points, color, closed, thickness, opacity, dashed, fillOpacity)` | A polyline, or a polygon when `closed`. |
+| `Circle(center, radius, color, …, fillOpacity)` | A circle with a radius in world units. |
+| `Arc(center, radius, start, sweep, color, …)` | An arc from `start` through `sweep` radians, clockwise. |
+| `Rectangle(rect, color, …)` | A `Rect2` in world units. |
+| `Dot(world, color, radius)` | A dot of constant screen size. |
+| `Label(world, text, color)` | A small label above a point, such as a camera's name. |
+| `Handle(world, color, shape, highlighted)` | A handle drawn like the viewport's own, for handles you draw yourself. |
+| `World`, `EditWorld` | The edit world, and the mapping between its entities and the document. |
+| `Camera`, `PixelSize`, `ToScreen` | The viewport camera, world units per screen pixel, and conversion to screen points. |
+| `Palette` | The gizmo colors of the current theme: `Accent`, `Light`, `Collider`, `Trigger`, `Shadow`, `Audio`, `Particles`, `Camera`, `Highlight`, `AxisX`, `AxisY`. |
+| `Drawing` | The Avalonia `DrawingContext`, in screen coordinates, for anything else. |
+
+Use one palette color per kind of thing, so the same component always looks the same. `GizmoMath` has helpers for transforms (`ToWorld`, `ToLocal`, `Rotate`), snapping (`Snap`, `SnapAngle`) and `DocumentId`.
+
+## Selected and unselected
+
+A provider sees every entity of its components, most of them not selected. Draw selected entities fully and the rest faintly or not at all:
+
+- `context.IsSelected(entity)` and `context.IsHovered(entity)` say whether the entity is selected or under the pointer.
+- `GizmoContext.Faint` (0.32) is the opacity the built-in gizmos use for unselected entities that stay visible, such as colliders.
+- `context.HasSelection` lets a provider that draws only selected entities skip the query when nothing is selected.
+
+The Spinners gizmo draws only selected and hovered spinners, which keeps a scene with hundreds of them readable.
+
+## Handles
+
+`CollectHandles` adds handles for selected entities only. A `GizmoHandle` edits one property of one component:
+
+| Property | Meaning |
+| --- | --- |
+| `Entity` | The document id of the entity, from `GizmoMath.DocumentId(world, entity)`. Skip entities whose id is empty: they are created at run time, such as objects spawned from a map, and are not in the document. |
+| `Component` | The component's saved type name, such as `Spinners.Spinner` (`ComponentRegistry.GetTypeName(typeof(Spinner))`). |
+| `Path` | The property within the component's data, such as `speed`, or `frames.2.duration` for nested values. |
+| `Position` | Where the handle is, in world coordinates. |
+| `Drag` | A function from the drag's state to the property's new JSON value, or null to leave it unchanged. |
+| `Shape`, `Color`, `Cursor`, `Hint` | How the handle looks, its pointer cursor, and the status bar text while hovering it. |
+| `Key` | Tells apart handles that edit the same property, such as a box's width and height handles. |
+
+`GizmoDrag` gives the pointer's `World` position, where the drag started (`Start`), the property's value then (`StartValue`), the `Modifiers` held, and `Snap`, which is true when snapping is on or <Keys>Ctrl</Keys> is held. While the user drags, each new value is applied to the viewport at once; when the drag ends, the whole drag becomes one undo step. Handles get the pointer before the active tool, so they work with every tool, and <Keys>Escape</Keys> cancels a drag in progress.
+
+## Related
+
+- [Viewport tools](./viewport-tools.mdx)
+- [Entity icons](./entity-icons.mdx)
+- [Gizmos in the guide](/guide/scenes/viewport)

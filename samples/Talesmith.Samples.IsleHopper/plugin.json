@@ -1,0 +1,12 @@
+{
+  "id": "samples.islehopper",
+  "name": "Isle Hopper gameplay",
+  "version": "1.0.0",
+  "description": "The hero, platformer physics, crabs, emeralds, checkpoints, the parallax backdrop and the HUD of the Isle Hopper sample.",
+  "authors": [ "Talesmith" ],
+  "assembly": "Talesmith.Samples.IsleHopper.dll",
+  "contractVersion": 1,
+  "minEngineVersion": "0.1.0",
+  "permissions": [ "runtimeScene", "fileSystem" ],
+  "extensions": [ "systems", "scene.listeners", "overlays", "services" ]
+}

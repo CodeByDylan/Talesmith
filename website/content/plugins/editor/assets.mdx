@@ -1,0 +1,232 @@
+---
+title: "Asset inspectors, handlers and thumbnails"
+description: "Inspect, open, preview and create your own asset types in the editor."
+---
+
+Once a plugin has an [importer](../runtime/importers.mdx) for a file type, its editor part can make those files first-class in the Assets panel. This page covers the four asset extension points, asset inspectors (`AddAssetInspector`), open handlers for double-click (`AddAssetOpenHandler`), thumbnail renderers (`AddThumbnailRenderer`) and asset factories for the **Create** menu (`AddAssetFactory`), with an editor part for the cutscene sample's `.cutscene` files as the example.
+
+## The example
+
+The cutscene sample's runtime plugin imports `.cutscene` files, but has no editor part, so the Assets panel shows them as plain files. This editor plugin gives them a kind, a **Create** menu entry, an inspector, a double-click action and thumbnails:
+
+```csharp title="CutscenesEditorPlugin.cs"
+using Microsoft.Extensions.DependencyInjection;
+using Talesmith.Assets;
+using Talesmith.Editor.Assets.Creation;
+using Talesmith.Editor.Assets.Inspectors;
+using Talesmith.Editor.Assets.Opening;
+using Talesmith.Editor.Assets.Thumbnails;
+using Talesmith.Editor.Plugins;
+using Talesmith.Samples.Cutscenes;
+
+namespace Talesmith.Samples.Cutscenes.Editor;
+
+public sealed class CutscenesEditorPlugin : IEditorPlugin
+{
+    public static AssetKind Cutscene { get; } = new("cutscene", "Cutscene", "clapperboard");
+
+    public void ConfigureServices(IServiceCollection services)
+    {
+        services.AddAssetKind(Cutscene, CutsceneScript.Extension);
+        services.AddAssetFactory<CutsceneFactory>();
+        services.AddAssetInspector<CutsceneInspector>();
+        services.AddAssetOpenHandler<CutsceneOpenHandler>();
+        services.AddThumbnailRenderer<CutsceneThumbnailRenderer>();
+    }
+}
+```
+
+## Asset kinds
+
+Inspectors, factories and thumbnail renderers name the kinds they handle, so start with a kind. `AssetKind(id, displayName, icon)` takes a stable id, the name the editor shows, and an icon name from the editor's set. Kinds added by plugins get a color derived from their id and a badge with their name in capitals. A kind registered by the runtime plugin with [`AddAssetKind`](../runtime/importers.mdx#asset-kinds) works the same; register it in the editor part when only the editor needs it.
+
+## Create menu entries
+
+An `IAssetFactory` is an entry of the Assets panel's **Create** menu:
+
+```csharp title="CutsceneFactory.cs"
+using System.Text;
+using Talesmith.Assets;
+using Talesmith.Assets.Database;
+using Talesmith.Editor.Assets.Creation;
+
+namespace Talesmith.Samples.Cutscenes.Editor;
+
+/// <summary>Create › Cutscene: a cutscene with one line of dialogue.</summary>
+public sealed class CutsceneFactory : IAssetFactory
+{
+    private const string Template = """
+        {
+          "steps": [
+            { "type": "say", "speaker": "Narrator", "text": "Once upon a time..." }
+          ]
+        }
+        """;
+
+    public string Title => "Cutscene";
+
+    public AssetKind Kind => CutscenesEditorPlugin.Cutscene;
+
+    public string Group => "documents";
+
+    public int Order => 10;
+
+    public Task<AssetRecord?> CreateAsync(AssetCreationContext context) =>
+        context.Operations.CreateFileAsync(context.Folder, "New Cutscene.cutscene", Encoding.UTF8.GetBytes(Template));
+}
+```
+
+| Member | Meaning |
+| --- | --- |
+| `Title`, `Kind` | The entry's name; its icon comes from the kind. |
+| `Group`, `Order` | Entries of a group stay together, groups are separated by lines. The built-in groups are `documents` (scene, prefab, tile map), `rendering`, `data`, `effects` and `code`. |
+| `Submenu` | A submenu to put the entry in, or null. |
+| `AsksForName` | `false` (the default) creates the file at once and lets the user rename it in place; `true` when the factory shows its own dialog with a name field. |
+| `CreateAsync(context)` | Creates the asset and returns its record, or null when cancelled or failed. |
+
+`AssetCreationContext` has the `Folder` the panel shows, the `Selection` of assets (to start from, as a new atlas starts from the selected textures), `Operations`, `Dialogs` and `Project`. `Operations.CreateFileAsync` picks a unique name, such as `New Cutscene 1.cutscene`, and records the creation for undo.
+
+## Asset inspectors
+
+When an asset is selected, the inspector shows its guid, path, labels, dependencies and dependents, plus what an `IAssetInspector` for its kind adds:
+
+```csharp title="CutsceneInspector.cs"
+using Avalonia;
+using Avalonia.Controls;
+using Talesmith.Assets;
+using Talesmith.Editor.Assets.Inspectors;
+using Talesmith.Samples.Cutscenes;
+
+namespace Talesmith.Samples.Cutscenes.Editor;
+
+/// <summary>Lists a cutscene's steps in the asset inspector.</summary>
+public sealed class CutsceneInspector : IAssetInspector
+{
+    public IReadOnlyList<AssetKind> Kinds { get; } = [CutscenesEditorPlugin.Cutscene];
+
+    public AssetInspection Inspect(AssetInspectionContext context) => new Inspection(context);
+
+    private sealed class Inspection(AssetInspectionContext context) : AssetInspection(context)
+    {
+        private readonly StackPanel _steps = new() { Spacing = 4, Margin = new Thickness(0, 8) };
+
+        public override Control CreateView()
+        {
+            Fill();
+            return _steps;
+        }
+
+        protected override void OnContentChanged() => Fill();
+
+        private void Fill()
+        {
+            _steps.Children.Clear();
+            try
+            {
+                using var stream = File.OpenRead(Context.FullPath);
+                foreach (var step in CutsceneScript.Parse(stream).Steps)
+                    _steps.Children.Add(new TextBlock { Text = Describe(step), TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+            }
+            catch (Exception ex) when (ex is IOException or System.Text.Json.JsonException)
+            {
+                _steps.Children.Add(new TextBlock { Text = ex.Message, Classes = { "caption" } });
+            }
+        }
+
+        private static string Describe(CutsceneStep step) => step switch
+        {
+            SayStep say => $"{say.Speaker}: {say.Text}",
+            ChoiceStep choice => $"{choice.Speaker} asks: {choice.Text} ({choice.Options.Count} options)",
+            CameraStep camera => $"Camera to {camera.Target}",
+            LabelStep label => $"Label {label.Name}",
+            _ => step.GetType().Name.Replace("Step", "", StringComparison.Ordinal)
+        };
+    }
+}
+```
+
+`Inspect` starts an inspection, which is disposed when another asset is shown. The inspection's `CreateView` is called once. `OnContentChanged` runs when the file changed on disk, and `Update` hands the inspection a newer record of the asset.
+
+`AssetInspectionContext` has the `Asset` record, its `FullPath`, `Operations`, `Project` and `Services`. The editor reads the file directly here, which is fine in the editor; games read assets through the asset manager.
+
+### Import settings with Apply and Revert
+
+For importers with [settings](../runtime/importers.mdx#import-settings), override `HasSettings` to return `true`. The inspector then shows **Apply** and **Revert**:
+
+- Set `IsDirty = true` when the user changes a setting.
+- `ApplyCoreAsync` writes the settings, usually with `Context.Operations.SetImportSettingsAsync(Asset, settings)`, and returns the updated record (or null when it failed). The asset is imported again with the new settings.
+- `RevertCore` reads the settings from `Asset` back into the fields; it also runs when the settings changed elsewhere and the user has no edits in progress.
+
+The last registered inspector for a kind wins, so a plugin can replace a built-in inspector.
+
+## Open handlers
+
+Double-clicking an asset in the Assets panel, or choosing it in the command palette, asks the open handlers. The last registered handler whose `CanOpen` returns true opens it; without one, the asset is selected and the inspector shown:
+
+```csharp title="CutsceneOpenHandler.cs"
+using Talesmith.Assets.Database;
+using Talesmith.Editor.Assets.Opening;
+using Talesmith.Editor.Projects;
+using Talesmith.Editor.Scripting;
+
+namespace Talesmith.Samples.Cutscenes.Editor;
+
+/// <summary>Double-clicking a cutscene opens it in the code editor.</summary>
+public sealed class CutsceneOpenHandler(IProjectService project, ICodeEditor editor) : IAssetOpenHandler
+{
+    public bool CanOpen(AssetRecord asset) => asset.Kind == CutscenesEditorPlugin.Cutscene;
+
+    public Task OpenAsync(AssetRecord asset)
+    {
+        editor.OpenFile(Path.Combine(project.Project.AssetRoot, asset.Path));
+        return Task.CompletedTask;
+    }
+}
+```
+
+The editor's own handlers open scenes in the viewport and scripts in the code editor. A handler of yours registered later can take over those kinds too.
+
+## Thumbnails
+
+An `IThumbnailRenderer` draws the Assets panel's thumbnail of an asset as a PNG:
+
+```csharp title="CutsceneThumbnailRenderer.cs"
+using SkiaSharp;
+using Talesmith.Assets.Database;
+using Talesmith.Editor.Assets.Thumbnails;
+using Talesmith.Samples.Cutscenes;
+
+namespace Talesmith.Samples.Cutscenes.Editor;
+
+/// <summary>Thumbnails show how many lines of dialogue a cutscene has.</summary>
+public sealed class CutsceneThumbnailRenderer : IThumbnailRenderer
+{
+    public bool CanRender(AssetRecord asset) => asset.Kind == CutscenesEditorPlugin.Cutscene;
+
+    public byte[]? Render(string file, AssetRecord asset, int size, CancellationToken cancellationToken)
+    {
+        CutsceneScript script;
+        using (var stream = File.OpenRead(file))
+            script = CutsceneScript.Parse(stream);
+        var lines = script.Steps.Count(s => s is SayStep or ChoiceStep);
+
+        using var surface = SKSurface.Create(new SKImageInfo(size, size));
+        var canvas = surface.Canvas;
+        canvas.Clear(new SKColor(30, 41, 59));
+        using var font = new SKFont(SKTypeface.Default, size * 0.3f);
+        using var paint = new SKPaint { Color = new SKColor(251, 191, 36), IsAntialias = true };
+        canvas.DrawText(lines.ToString(System.Globalization.CultureInfo.InvariantCulture), size / 2f, size * 0.6f, SKTextAlign.Center, font, paint);
+        using var image = surface.Snapshot();
+        using var png = image.Encode(SKEncodedImageFormat.Png, 100);
+        return png.ToArray();
+    }
+}
+```
+
+`Render` runs on a thread pool thread and returns a PNG that fits in a square of `size` pixels, or null when there is nothing to show; assets without a thumbnail show their kind's icon. The last registered renderer that can render an asset is used. The example uses SkiaSharp, which the editor ships; reference `SkiaSharp.dll` from the editor's folder with `Private="false"`.
+
+## Related
+
+- [Asset importers and value converters](../runtime/importers.mdx)
+- [The Assets panel in the guide](/guide/assets/assets-panel)
+- [Example: the cutscene plugin](../cutscenes-example.mdx)

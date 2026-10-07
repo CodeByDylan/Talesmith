@@ -1,0 +1,171 @@
+---
+title: "Input actions"
+description: "Define input actions and bindings in input.json, read them in scripts and systems, and let players rebind keys and keep their bindings."
+---
+
+Talesmith reads the keyboard and mouse through named actions: "Move", "Jump", "Interact". Your code asks for the action, the input profile says which keys and buttons drive it, and players can rebind it without touching code. This page covers actions and their bindings, the input profile file, reading input in systems, and rebinding at run time. The script side is in [Input](../scripts/input.mdx).
+
+## Actions and bindings
+
+An action has a name, a kind and one or more bindings. Names are case-insensitive.
+
+| Kind | Value | Read with | Example |
+| --- | --- | --- | --- |
+| `button` | On or off | `IsDown`, `WasPressed`, `WasReleased` | Jump, Interact, Dash |
+| `axis` | -1 to 1 | `Value` (`Input.Axis` in scripts) | Zoom, throttle |
+| `vector` | A direction of length up to 1, down is +Y | `Vector` (`Input.Vector` in scripts) | Move |
+
+| Binding | Fields | On a button | On an axis | On a vector |
+| --- | --- | --- | --- | --- |
+| `key` | `key`, optional `modifiers` such as `"Control, Shift"` | Held while the key is | +1 | nothing |
+| `mouse` | `button`: `Left`, `Right`, `Middle` | Held while the button is | +1 | nothing |
+| `axis` | `negative`, `positive` | Either key | -1 or +1 | X |
+| `vector` | `up`, `down`, `left`, `right` | Any of the keys | X | The direction |
+
+Every kind reports `IsDown` while any binding is held, so a vector action also has `WasPressed` the moment the player starts moving. A press and release within one frame still counts as pressed in that frame. A diagonal from a vector binding is normalized, so moving diagonally is not faster.
+
+## The input profile
+
+The game's default bindings live in `config/input.json`, edited in **Project Settings › Input** or by hand:
+
+```json
+{
+  "actions": {
+    "Move": {
+      "kind": "vector",
+      "bindings": [
+        { "type": "vector", "up": "W", "down": "S", "left": "A", "right": "D" },
+        { "type": "vector", "up": "Up", "down": "Down", "left": "Left", "right": "Right" }
+      ]
+    },
+    "Jump": { "kind": "button", "bindings": [ { "type": "key", "key": "Space" }, { "type": "key", "key": "Z" } ] },
+    "Interact": { "kind": "button", "bindings": [ { "type": "key", "key": "E" }, { "type": "mouse", "button": "Left" } ] },
+    "Zoom": { "kind": "axis", "bindings": [ { "type": "axis", "negative": "Minus", "positive": "Plus" } ] }
+  }
+}
+```
+
+The game applies the profile named by `inputProfile` in `game.json` when it starts. Keys are `Key` names or common aliases. Comments and trailing commas are allowed. See [Project configuration](/developers/file-formats/project-config) for the format and [Project settings](/guide/workflow/project-settings) for the editor.
+
+An action name that the profile does not define reads as idle: not down, zero value. That keeps code from crashing over a typo, and also means a typo fails silently. If a control does nothing, check the name first.
+
+### Profiles in code
+
+`InputProfile` is the file in memory: `InputProfile.Load(path)`, `FromJson`, `Save(path)` and `ToJson`. The live actions are an `InputActionMap`, `Input.Service.Actions` in a script or `IInputService.Actions` in a system:
+
+| Member | |
+| --- | --- |
+| `TryGet(name, out action)`, `this[name]` | An action and its state this frame |
+| `Define(name, kind, bindings…)` | Adds an action in code, or replaces the default bindings of one |
+| `Apply(profile)` | Replaces the bindings of every action in a profile |
+| `Rebind(name, index, binding)` | Replaces one binding; an index equal to the binding count adds one |
+| `FindConflicts(binding)` | The actions that already use the binding's key or button |
+| `ResetToDefaults()` | Back to the profile the game started with |
+| `ToProfile()` | The current bindings, for saving |
+
+## How input reaches the game
+
+The window's keyboard and mouse events are buffered as they arrive on the UI thread and applied on the game thread at the start of the next frame, in the frame's Input step. Every system and script sees the same input for the whole frame, and "pressed" and "released" are true only in the frame the change happened.
+
+- Input reaches the game only while the game view has keyboard focus. Typing in an overlay's text box does not move the player; `Input.IsEnabled` is false meanwhile and nothing reads as held.
+- Switching to another program releases every held key and button.
+- Mouse positions are in device pixels of the game view. `Input.MouseWorldPosition` in scripts, or `RenderContext.ScreenToWorld`, converts them through the camera; `Input.MouseViewPosition`, or `RenderContext.ScreenToView`, converts them to view units for hit testing a HUD drawn in screen space.
+- Besides polling, the event bus raises `KeyPressed`, `KeyReleased`, `MouseButtonPressed`, `MouseButtonReleased`, `ActionTriggered` and `ActionReleased` during the Input step.
+
+## Reading input in systems
+
+A system receives `IInputService` in its constructor. A common shape, used by the Isle Hopper sample, is to read input once in `PreUpdate` into a component, and act on it in the fixed update. That way a press is never missed in a frame that runs no fixed step, and movement code does not depend on input at all, which makes it easy to drive from an AI or a replay:
+
+```csharp title="assets/scripts/PlayerInput.cs"
+namespace MyGame;
+
+/// <summary>What the player wants to do this frame, read from input once and used by the movement system.</summary>
+[Component(Category = "Gameplay")]
+public struct PlayerIntent
+{
+    [Transient]
+    public Vector2 Move;
+
+    [Transient]
+    public bool Jump;
+}
+
+/// <summary>Turns input into intent at the start of each frame, so fixed steps later in the frame see it.</summary>
+[UpdateIn(SystemPhase.PreUpdate)]
+public sealed class PlayerInputSystem(IInputService input) : ISystem
+{
+    public void Update(in SystemContext context)
+    {
+        var actions = input.Actions;
+        var move = actions.TryGet("Move", out var moveAction) ? moveAction.Vector : Vector2.Zero;
+        var jump = actions.TryGet("Jump", out var jumpAction) && jumpAction.WasPressed;
+        foreach (var archetype in context.World.Query<PlayerIntent>())
+        {
+            foreach (ref var intent in archetype.GetSpan<PlayerIntent>())
+            {
+                intent.Move = move;
+                intent.Jump |= jump;
+            }
+        }
+    }
+}
+```
+
+`Jump` is set with `|=` and cleared by whatever consumes it in the fixed update, so a press survives until a fixed step uses it. Add the component to the player under **Add component** in the inspector, or from its script with `AddComponent(new PlayerIntent())`. Cutscenes and dialogs take control away through `PlayerControl.Suspend(reason)` (in `Talesmith.Runtime.Hosting`); input systems check `PlayerControl.IsSuspended` before acting.
+
+## Rebinding at run time and saving
+
+Rebinding changes the live action map, so it applies at once. Saving the result is up to the game: write `ToProfile()` to the player's application data and `Apply` it when the game starts. This script rebinds Jump to the next key the player presses:
+
+```csharp title="assets/scripts/JumpRebinder.cs"
+using System.IO;
+
+namespace MyGame;
+
+/// <summary>Lets the player rebind Jump to the next key they press, and keeps their bindings between sessions.</summary>
+public sealed class JumpRebinder : Script
+{
+    private string _path = "";
+    private bool _listening;
+
+    protected override void OnStart()
+    {
+        _path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MyGame", "input.json");
+        if (File.Exists(_path))
+            Input.Service.Actions.Apply(InputProfile.Load(_path));
+        Events.Subscribe((ref KeyPressed e) => OnKey(e.Key));
+    }
+
+    protected override void Update()
+    {
+        if (Input.WasPressed(Key.F6))
+        {
+            _listening = true;
+            Log.Info("Press a key for Jump");
+        }
+    }
+
+    private void OnKey(Key key)
+    {
+        if (!_listening || key == Key.F6)
+            return;
+        _listening = false;
+        var binding = new KeyBinding(key);
+        var actions = Input.Service.Actions;
+        foreach (var other in actions.FindConflicts(binding))
+            Log.Warning($"{key} is also bound to {other.Name}");
+        actions.Rebind("Jump", 0, binding);
+        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+        actions.ToProfile().Save(_path);
+    }
+}
+```
+
+`System.IO` is not among the scripts' default namespaces, so the file adds it. File access belongs in event handlers and `OnStart`, not in update methods; the analyzers warn about it there. The action map belongs to the game thread: a rebinding screen built as an Avalonia overlay sends its changes with `Game.Post`. See [Game UI](./game-ui.mdx).
+
+## Related
+
+- [Input from scripts](../scripts/input.mdx)
+- [Project settings](/guide/workflow/project-settings)
+- [The game loop and threads](./game-loop.mdx)
+- [Platformer controller](../recipes/platformer.mdx)

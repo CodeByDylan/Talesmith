@@ -1,0 +1,42 @@
+{
+  "home/editor": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The Talesmith editor painting a hex island in the Tile Mapping layout, with the map's layers, tileset palette and inspector"
+  },
+  "home/lighting": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The Lighting panel on a night scene with torches, a lamp and shadow casters"
+  },
+  "home/particles": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The particle editor on a campfire effect with a live preview"
+  },
+  "home/play-mode": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "Play mode with the game running inside the editor"
+  },
+  "home/plugins": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The Plugins panel listing a game's plugins"
+  },
+  "home/scripts": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "A script compile error in the console with its file and line, and the status bar item"
+  },
+  "home/sprite-editor": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The sprite editor slicing a character sheet into sprites and animations"
+  },
+  "home/tile-maps": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "A rectangular platformer level in the Tile Mapping layout with the brush over the ground"
+  }
+}

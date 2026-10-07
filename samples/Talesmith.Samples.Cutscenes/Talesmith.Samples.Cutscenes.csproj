@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>A cutscene and dialogue plugin: scripted camera moves, dialogue with choices and a dialogue overlay, started by map triggers.</Description>
+    <PluginFolder>cutscenes</PluginFolder>
+  </PropertyGroup>
+  <Import Project="..\Plugin.targets" />
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Talesmith.Runtime\Talesmith.Runtime.csproj" Private="false" ExcludeAssets="runtime" />
+    <ProjectReference Include="..\..\src\Talesmith.Avalonia\Talesmith.Avalonia.csproj" Private="false" ExcludeAssets="runtime" />
+  </ItemGroup>
+</Project>

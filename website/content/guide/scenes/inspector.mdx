@@ -1,0 +1,122 @@
+---
+title: "The inspector"
+description: "Edit the selected entities and their components: the header, component sections and every kind of field editor."
+---
+
+The Inspector edits whatever is selected: the entities selected in the hierarchy or the viewport, an asset selected in the Assets panel, or, with nothing selected, the [scene's settings](./scenes.mdx#scene-settings). This page covers the entity header, component sections and their menus, the editor for each kind of value, editing several entities at once, and adding components and scripts.
+
+<Split>
+
+Open it with <Keys>Ctrl+Shift+I</Keys> or **Window › Panels › Inspector** if you closed it.
+
+Every change you make in the Inspector applies to the scene at once and is one undo step. Dragging a value, such as a slider or a number you scrub, is one step for the whole drag.
+
+<Screenshot name="guide/inspector" maxWidth={420} caption="The hero with a collider, a light, a particle emitter, two scripts and a script that no longer compiles." />
+
+</Split>
+
+## The header
+
+The top of the Inspector shows the selected entity:
+
+| Part | What it does |
+| --- | --- |
+| Icon and name | The icon of the entity's main component and its name. Click the name to rename it. |
+| Eye and lock | Hide the entity in the viewport, or stop it from being picked there. The same buttons as in the [hierarchy](./hierarchy.mdx#hide-and-lock). |
+| **+ Tag** | Adds a tag, a label scripts use to find and group entities, such as `enemy`. Type it and press <Keys>Enter</Keys>. Click a tag to remove it. |
+| **Active** | Click to deactivate the entity. An inactive entity is switched off in the game: it is not drawn, its scripts are disabled and a camera on it is not used. The chip then reads **Inactive**. |
+| Prefab badge | On a [prefab instance](./prefabs.mdx), **Prefab: Coin** and a menu to open the prefab, select its asset, and apply or revert the instance's changes. |
+
+## Component sections
+
+Below the header, each component has a section with its fields. Click the header to fold the section; the editor remembers which sections you folded, per kind of component. Components that can be switched off, such as lights and emitters, have a checkbox in the header: off dims the fields and turns the component off in the game.
+
+The **⋯** menu of a section has:
+
+| Item | What it does |
+| --- | --- |
+| **Reset** | Sets every field back to its default |
+| **Copy values**, **Paste values** | Copies the fields, to paste into the same kind of component on another entity |
+| **Revert to prefab** | On a prefab instance, drops the changes made to this component |
+| **Move up**, **Move down** | Reorders the components |
+| **Remove component** | Removes it. The Transform cannot be removed. |
+| **Open documentation** | Opens the documentation of the component |
+
+Hover a section header to read what the component does, and a field's label to read what the field does.
+
+## Field editors
+
+Every kind of value has an editor:
+
+| Value | Editor |
+| --- | --- |
+| Numbers | A field you can drag to scrub: one step per pixel, <Keys>Shift</Keys> for ten times finer, <Keys>Ctrl</Keys> for ten times coarser. Click to type a value, or an expression such as `16*2+4`. <Keys>Up</Keys> and <Keys>Down</Keys> step the value, <Keys>Enter</Keys> confirms and <Keys>Escape</Keys> reverts. |
+| Ranges | A slider next to the number field, for fields with a minimum and maximum |
+| Angles | Degrees, with a ° suffix. They are saved in radians. |
+| Text | A text box |
+| Yes or no | A checkbox |
+| Choices | A drop-down; values that can combine, such as flags, get a drop-down of checkboxes |
+| Vectors and rectangles | X and Y fields, or X, Y, W and H, each scrubbable |
+| Colors | A swatch with the hex value. Click it for a color picker. |
+| Curves and gradients | A small preview. Click it to edit the curve's keys or the gradient's stops. |
+| Assets | The asset's name. Click it to search the project's assets of the right kind, or drop an asset on it from the Assets panel. The crosshair selects the asset in the Assets panel and the cross clears the field. A reference to a deleted asset shows *Missing asset*. |
+| Sprites and animations | A list of the names in the chosen texture, for the **Sprite** and **Animation** fields |
+| Entities | The entity's name. Click to search the scene's entities, drop a row from the hierarchy on it, or click the eyedropper and then an entity in the viewport. |
+| Collision layers and masks | Drop-downs of the layer names from **Project Settings › Physics**. Masks have a checkbox per layer, **Everything** and **Nothing**. |
+| Lists | A foldout with a count and a **+** button. Each item has a grip to drag it and a menu to duplicate, move or remove it. |
+| Optional values | A checkbox that sets the value or leaves it unset, such as a camera's **Bounds** |
+| Nested values | A foldout with their own fields |
+
+### Auto values
+
+Some values follow something else until you set them yourself. A sprite's **Source**, **Size** and **Origin** follow the chosen sprite, and the scene's **Background** follows the game's background color. They show the value they follow, dimmed, with an **Auto** chip next to the label. Edit the value to set your own; the chip turns into a button that goes back to following.
+
+## Edit several entities
+
+Select several entities to edit them together. The Inspector reads *Editing 3 entities · only components they share are shown* and shows the components every selected entity has.
+
+<Screenshot name="guide/first-game-coins" caption="Five coins selected. Is Trigger was ticked once for all of them." />
+
+- A value that differs between the entities shows a dash. A checkbox shows a mixed state.
+- Changing a value changes it on all of them, as one undo step. Changing one axis of a vector keeps each entity's other axis, so you can line entities up on X without moving them on Y.
+- **Add component** adds to all of them.
+- When the entities have different scripts, the script sections are hidden.
+
+## Add components and scripts
+
+Click **Add component** at the bottom of the Inspector to open a searchable list.
+
+<Screenshot name="guide/add-component" maxWidth={520} />
+
+- With an empty search box, the list starts with the components you added recently, then every component by category (**Audio**, **Core**, **Effects**, **Lighting**, **Physics**, **Rendering** and categories that plugins add), and finally your **Scripts**.
+- Type to search. Names that start with the text come first, then names that contain it, then categories and descriptions.
+- <Keys>Up</Keys> and <Keys>Down</Keys> move through the list, <Keys>Enter</Keys> adds the highlighted item, or the first one, and <Keys>Escape</Keys> closes the list.
+- Components the entity already has are left out.
+
+[Built-in components](./components.mdx) lists what each component does.
+
+## Scripts
+
+Each script on an entity gets its own section, titled with the script's class name split into words, such as **Hero Controller**, with a checkbox to switch it off and its public fields below. Attributes in the script shape the fields: a range becomes a slider, a tooltip becomes the label's hover text, a header starts a group. See [Fields and the inspector](/scripting/scripts/fields).
+
+The menu of a script section has **Copy fields**, **Paste fields**, **Move up**, **Move down** and **Remove script**.
+
+### Missing scripts
+
+A script that no longer compiles, or whose class was renamed or deleted, shows a warning section titled **Missing script:** and its name. The entity keeps the script's saved field values, so when the script compiles again, it comes back with them. Fix the compile error, or remove the section if you deleted the script on purpose.
+
+A component that no plugin or script defines anymore, for example because you switched off its plugin, shows **Unknown component:**. Its data is kept and saved unchanged until you remove it.
+
+## Assets in the Inspector
+
+Selecting an asset in the Assets panel shows the asset inspector: its import settings, labels, guid and what uses it. See [Importing assets](../assets/importing.mdx).
+
+## While playing
+
+During [play mode](../play-and-test/play-mode.mdx) the Inspector shows the live values of the entity you select in the hierarchy, tinted in the accent color and refreshed about ten times a second. You can change them to try things out; the changes go to the running game only and end when you stop.
+
+## Related
+
+- [Built-in components](./components.mdx)
+- [Prefabs](./prefabs.mdx)
+- [Fields and the inspector](/scripting/scripts/fields)

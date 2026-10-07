@@ -1,0 +1,174 @@
+---
+title: "Viewport tools"
+description: "Add a tool to the scene viewport's tool rail with its own pointer handling and options."
+---
+
+The scene viewport's tool rail holds the tools that act on the scene: select, hand, move, rotate, scale, the tile tools. A plugin adds its own with `AddViewportTool`. This page covers the `IViewportTool` interface and the tool's lifecycle, pointer and key handling, drawing previews, options in the tool options bar, shortcuts, and making the tool's edits undoable.
+
+## Register a tool
+
+```csharp
+services.AddViewportTool<SpinnerTool>();
+```
+
+The tool is a singleton: one instance for as long as the project is open. It appears in the tool rail in its group, gets a command `tool.<id>` in the **Tools** menu, the command palette and **Settings › Keyboard**, and shows its options in the bar above the viewport while it is active.
+
+## A tool that places entities
+
+The **Place spinner** tool of the Spinners plugin creates a spinning entity where you click, with the speed set in its options:
+
+```csharp title="plugins-src/Spinners.Editor/SpinnerTool.cs"
+using System.Text.Json.Nodes;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Media;
+using Avalonia.Media.Immutable;
+using Talesmith.Editor.Selection;
+using Talesmith.Editor.Viewport.Tools;
+using Talesmith.Runtime.Serialization;
+using Talesmith.UI;
+using Talesmith.UI.Controls;
+
+namespace Spinners.Editor;
+
+public sealed class SpinnerTool : IViewportTool
+{
+    private static readonly Cursor Crosshair = new(StandardCursorType.Cross);
+    private static readonly ImmutablePen PreviewPen = new(new ImmutableSolidColorBrush(Colors.Orange), 1.5, new ImmutableDashStyle([4, 3], 0));
+    private readonly NumberField _speed = new() { Label = "Speed", Suffix = "°/s", Minimum = -720, Maximum = 720, Value = 90, Width = 130 };
+    private Point? _pointer;
+
+    public string Id => "spinners.place";
+
+    public string Name => "Place spinner";
+
+    public string Description => "Click to place an entity that spins. Set its speed in the tool options.";
+
+    public Geometry Icon => Icons.RotateCw;
+
+    public string? Shortcut => "J";
+
+    public string Group => "Spinners";
+
+    public int Order => 0;
+
+    public Cursor? Cursor => Crosshair;
+
+    public bool IsAvailable(ViewportToolContext context) => context.Document is not null;
+
+    public void PointerPressed(ViewportToolContext context, ViewportPointerEventArgs e)
+    {
+        if (!e.IsLeftButton || context.Document is not { } document)
+            return;
+        var entity = document.CreateEntity("Spinner", components:
+        [
+            new ComponentDocument("Transform", new JsonObject { ["position"] = new JsonArray(MathF.Round(e.World.X), MathF.Round(e.World.Y)) }),
+            new ComponentDocument(SpinnerCommands.ComponentType, new JsonObject { ["speed"] = _speed.Value })
+        ]);
+        context.Selection.SelectEntity(entity.Id);
+        e.Handled = true;
+    }
+
+    public void PointerMoved(ViewportToolContext context, ViewportPointerEventArgs e)
+    {
+        _pointer = e.Position;
+        context.Invalidate();
+    }
+
+    public void PointerExited(ViewportToolContext context)
+    {
+        _pointer = null;
+        context.Invalidate();
+    }
+
+    public void Render(ViewportToolContext context, DrawingContext drawing)
+    {
+        if (_pointer is { } at)
+            drawing.DrawEllipse(null, PreviewPen, at, 16, 16);
+    }
+
+    public Control? CreateOptionsView() => _speed;
+}
+```
+
+The new entity has no sprite, so the viewport draws it with its component's icon, the turning arrow from `[Component(Icon = "rotate-cw")]`.
+
+## The tool interface
+
+| Member | Meaning |
+| --- | --- |
+| `Id` | A stable id; the tool's command is `tool.<id>`. |
+| `Name`, `Description`, `Icon` | The tooltip, the status bar hint while the tool is active, and the 24 × 24 stroke icon in the rail. |
+| `Shortcut` | A key such as `J`, or null. |
+| `Group`, `Order` | The rail shows the select group first, then other groups by name, separated by lines; `Order` sorts within a group. |
+| `Cursor` | The pointer over the viewport; null for the arrow. It is read again as the tool's state changes, so it can show a grab cursor while dragging. |
+| `IsAvailable(context)` | Whether the tool can be used now. Unavailable tools are dimmed and their group hides when none of its tools is available. |
+| `IsOperationInProgress` | True while a drag or other multi-step operation runs; <Keys>Escape</Keys> then calls `Cancel`. |
+| `Activate`, `Deactivate` | Called when the tool becomes the active one and when another tool replaces it. |
+| `Cancel` | Abandon the operation in progress: on <Keys>Escape</Keys>, and before another tool is chosen. |
+
+Every member except the first seven has a default, so a tool implements only what it uses.
+
+## Pointer and keys
+
+The active tool receives the viewport's input after the viewport's own navigation: the middle and right buttons and <Keys>Space</Keys>+drag pan, and the wheel zooms, with every tool.
+
+| Method | Called when |
+| --- | --- |
+| `PointerPressed`, `PointerMoved`, `PointerReleased` | A button goes down, the pointer moves, a button goes up. |
+| `PointerExited` | The pointer leaves the viewport. |
+| `KeyDown`, `KeyUp` | A key goes down or up while the viewport has focus. Return `true` from `KeyDown` when the tool handled the key. |
+
+`ViewportPointerEventArgs` has the pointer's `Position` in the viewport, its `World` position, `Properties` and `IsLeftButton`, `Modifiers`, `ClickCount` (2 for a double click) and the underlying Avalonia event in `Source`. Set `Handled` to keep later handling from running. To keep receiving moves while dragging outside the viewport, capture the pointer with `e.Source.Pointer.Capture(context.View)` and release it with `Capture(null)`.
+
+`ViewportToolContext` has what the tool works with:
+
+| Member | What it is |
+| --- | --- |
+| `Document` | The open scene, or null while none is open |
+| `World` | The edit world that mirrors the scene, with `TryGetEntity` and `TryGetDocumentId` |
+| `Camera` | The viewport camera: `Position`, `Zoom`, `WorldToScreen`, `ScreenToWorld`, `Frame` |
+| `ToWorld(point)`, `ToScreen(vector)` | Coordinate conversion |
+| `Selection`, `Undo`, `Picker` | The selection, undo, and picking of entities under a point |
+| `Options` | The viewport's options, such as snapping |
+| `Hint` | Text for the status bar; tools set and clear it |
+| `Hovered` | The entity the viewport outlines as hovered; set it as the pointer moves |
+| `Invalidate()` | Redraws the overlay after what the tool shows changed |
+| `View` | The viewport control, for pointer capture and focus |
+| `Services` | Every editor service |
+
+## Previews
+
+`Render` draws over the scene, after the selection outlines, in screen coordinates with Avalonia's `DrawingContext`. Convert world positions with `context.ToScreen`. The overlay is drawn again when something asks for it, so call `context.Invalidate()` whenever the preview changes, such as on every pointer move. Cache pens and brushes in static fields instead of creating them per frame.
+
+## Tool options
+
+`CreateOptionsView` returns the controls shown in the bar above the viewport while the tool is active. It is called once; keep a reference to read the values, as `SpinnerTool` does with its `NumberField`. Return null for no options.
+
+## Shortcuts
+
+The tool's shortcut selects it. Tools of different groups may share a key, as the move and the tile tools do: the key then selects the tool of the active tool's group, or of the group used most recently, among those available. Users can change tool shortcuts in **Settings › Keyboard** under the tool's command.
+
+## Undoable edits
+
+Make every change through `context.Document` (`SceneDocumentModel`), so it can be undone: `CreateEntity`, `AddComponent`, `SetProperty`, `MoveEntity` and the others each make one undo step. For an operation that makes several changes, such as a stroke that places many entities, open a transaction when it starts and dispose it when it ends:
+
+```csharp
+private UndoTransaction? _stroke;
+
+public void PointerPressed(ViewportToolContext context, ViewportPointerEventArgs e) => _stroke = context.Undo.BeginTransaction("Paint spinners");
+
+public void PointerReleased(ViewportToolContext context, ViewportPointerEventArgs e)
+{
+    _stroke?.Dispose();
+    _stroke = null;
+}
+```
+
+`SetProperty` calls on the same value in quick succession, such as while dragging, merge into one step on their own.
+
+## Related
+
+- [Gizmo providers](./gizmos.mdx)
+- [The scene viewport in the guide](/guide/scenes/viewport)

@@ -1,0 +1,165 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="https://talesmith.dev/ui">
+
+  <ControlTheme x:Key="{x:Type ui:ToastHost}" TargetType="ui:ToastHost">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <StackPanel Name="PART_Stack"
+                    Margin="16"
+                    Spacing="8"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom" />
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type ui:Toast}" TargetType="ui:Toast">
+    <Setter Property="Width" Value="340" />
+    <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusLarge}" />
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="RenderTransform" Value="translateY(10px)" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.2" Easing="CubicEaseOut" />
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" Easing="CubicEaseOut" />
+      </Transitions>
+    </Setter>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                BoxShadow="{DynamicResource ShadowPopup}">
+          <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+            <Border Name="PART_Stripe" Width="3" Margin="6,9" CornerRadius="2" />
+            <ui:SymbolIcon Name="PART_Icon"
+                           Grid.Column="1"
+                           Size="18"
+                           Margin="6,11,0,0"
+                           VerticalAlignment="Top" />
+            <StackPanel Grid.Column="2" Margin="10,11,4,12" Spacing="2">
+              <TextBlock Text="{TemplateBinding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+              <TextBlock Text="{TemplateBinding Message}"
+                         FontSize="12"
+                         TextWrapping="Wrap"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         IsVisible="{TemplateBinding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </StackPanel>
+            <Button Name="PART_CloseButton"
+                    Grid.Column="3"
+                    Classes="icon small"
+                    Margin="0,8,8,0"
+                    VerticalAlignment="Top">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.X}" Size="14" />
+            </Button>
+          </Grid>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:shown">
+      <Setter Property="Opacity" Value="1" />
+      <Setter Property="RenderTransform" Value="translateY(0px)" />
+    </Style>
+    <Style Selector="^:info">
+      <Style Selector="^ /template/ Border#PART_Stripe">
+        <Setter Property="Background" Value="{DynamicResource InfoBrush}" />
+      </Style>
+      <Style Selector="^ /template/ ui|SymbolIcon#PART_Icon">
+        <Setter Property="Foreground" Value="{DynamicResource InfoBrush}" />
+        <Setter Property="Data" Value="{x:Static ui:Icons.Info}" />
+      </Style>
+    </Style>
+    <Style Selector="^:success">
+      <Style Selector="^ /template/ Border#PART_Stripe">
+        <Setter Property="Background" Value="{DynamicResource SuccessBrush}" />
+      </Style>
+      <Style Selector="^ /template/ ui|SymbolIcon#PART_Icon">
+        <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+        <Setter Property="Data" Value="{x:Static ui:Icons.CheckCircle}" />
+      </Style>
+    </Style>
+    <Style Selector="^:warning">
+      <Style Selector="^ /template/ Border#PART_Stripe">
+        <Setter Property="Background" Value="{DynamicResource WarningBrush}" />
+      </Style>
+      <Style Selector="^ /template/ ui|SymbolIcon#PART_Icon">
+        <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
+        <Setter Property="Data" Value="{x:Static ui:Icons.AlertTriangle}" />
+      </Style>
+    </Style>
+    <Style Selector="^:error">
+      <Style Selector="^ /template/ Border#PART_Stripe">
+        <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+      </Style>
+      <Style Selector="^ /template/ ui|SymbolIcon#PART_Icon">
+        <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+        <Setter Property="Data" Value="{x:Static ui:Icons.AlertCircle}" />
+      </Style>
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type ui:DialogHost}" TargetType="ui:DialogHost">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <ContentPresenter Name="PART_ContentPresenter"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+          <Panel Name="PART_Layers" />
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type ui:DialogLayer}" TargetType="ui:DialogLayer">
+    <Setter Property="KeyboardNavigation.TabNavigation" Value="Cycle" />
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <Border Name="PART_Scrim" Background="{DynamicResource ScrimBrush}" Opacity="0">
+            <Border.Transitions>
+              <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.16" />
+              </Transitions>
+            </Border.Transitions>
+          </Border>
+          <ContentPresenter Name="PART_ContentPresenter"
+                            Margin="32"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            Opacity="0"
+                            RenderTransform="scale(0.97)">
+            <ContentPresenter.Transitions>
+              <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" Easing="CubicEaseOut" />
+              </Transitions>
+            </ContentPresenter.Transitions>
+          </ContentPresenter>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:shown">
+      <Style Selector="^ /template/ Border#PART_Scrim">
+        <Setter Property="Opacity" Value="1" />
+      </Style>
+      <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Opacity" Value="1" />
+        <Setter Property="RenderTransform" Value="scale(1)" />
+      </Style>
+    </Style>
+  </ControlTheme>
+</ResourceDictionary>

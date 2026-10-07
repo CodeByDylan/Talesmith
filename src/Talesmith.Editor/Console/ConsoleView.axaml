@@ -1,0 +1,120 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Console"
+             x:Class="Talesmith.Editor.Console.ConsoleView"
+             x:DataType="vm:ConsoleViewModel">
+  <UserControl.Styles>
+    <Style Selector="ListBox#Log ListBoxItem">
+      <Setter Property="Padding" Value="8,0" />
+      <Setter Property="MinHeight" Value="26" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="ui|SymbolIcon.info">
+      <Setter Property="Foreground" Value="{DynamicResource InfoBrush}" />
+    </Style>
+    <Style Selector="ui|SymbolIcon.warning">
+      <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
+    </Style>
+    <Style Selector="ui|SymbolIcon.error">
+      <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+    </Style>
+    <Style Selector="Border.source">
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="5,1" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceSunkenBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.count">
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="Padding" Value="6,0" />
+      <Setter Property="MinWidth" Value="20" />
+      <Setter Property="Height" Value="18" />
+      <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+    <ui:SplitBar DockPanel.Dock="Top" Margin="8,6">
+      <WrapPanel ItemSpacing="4" LineSpacing="6">
+        <ToggleButton Classes="chip" IsChecked="{Binding ShowInfo}" ToolTip.Tip="Messages">
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <ui:SymbolIcon Classes="info" Data="{x:Static ui:Icons.Info}" Size="13" />
+            <TextBlock Text="{Binding InfoCount}" FontSize="11" VerticalAlignment="Center" />
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton Classes="chip" IsChecked="{Binding ShowWarnings}" ToolTip.Tip="Warnings">
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <ui:SymbolIcon Classes="warning" Data="{x:Static ui:Icons.AlertTriangle}" Size="13" />
+            <TextBlock Text="{Binding WarningCount}" FontSize="11" VerticalAlignment="Center" />
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton Classes="chip" IsChecked="{Binding ShowErrors}" ToolTip.Tip="Errors">
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <ui:SymbolIcon Classes="error" Data="{x:Static ui:Icons.AlertCircle}" Size="13" />
+            <TextBlock Text="{Binding ErrorCount}" FontSize="11" VerticalAlignment="Center" />
+          </StackPanel>
+        </ToggleButton>
+        <Border Classes="divider-v" Height="16" Margin="4,0" VerticalAlignment="Center" />
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <ComboBox ItemsSource="{Binding Sources}" SelectedIndex="{Binding SourceIndex}" MinHeight="24" Height="24" FontSize="12" Padding="8,0,4,0" MinWidth="118" />
+          <ToggleButton Classes="chip" IsChecked="{Binding Collapse}" ToolTip.Tip="Collapse repeated messages into one row with a count">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Layers}" Size="13" />
+              <TextBlock Text="Collapse" FontSize="11" VerticalAlignment="Center" />
+            </StackPanel>
+          </ToggleButton>
+        </StackPanel>
+      </WrapPanel>
+      <!-- The filter box takes the room up to its maximum; what is left stays empty on its left. -->
+      <Grid ColumnSpacing="8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="100*" MinWidth="120" MaxWidth="200" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <ui:SearchBox Grid.Column="1" Text="{Binding Search}" PlaceholderText="Filter messages" />
+        <Button Grid.Column="2" Classes="icon small" Command="{Binding ClearCommand}" ToolTip.Tip="Clear the console">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.Trash}" Size="14" />
+        </Button>
+      </Grid>
+    </ui:SplitBar>
+    <Border DockPanel.Dock="Top" Classes="divider-h" Margin="0" />
+
+    <Border DockPanel.Dock="Bottom" IsVisible="{Binding HasSelectedDetails}" MaxHeight="160"
+            BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,1,0,0" Background="{DynamicResource SurfaceSunkenBrush}">
+      <ScrollViewer Padding="12,8">
+        <SelectableTextBlock Text="{Binding SelectedRow.FullMessage, FallbackValue=''}" Classes="mono" FontSize="11" TextWrapping="Wrap" />
+      </ScrollViewer>
+    </Border>
+
+    <Panel>
+      <ListBox Name="Log" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" Background="Transparent"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutoScrollToSelectedItem="False">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:ConsoleRow">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto" ToolTip.Tip="{Binding Entry.Category}">
+              <ui:SymbolIcon Data="{Binding Icon}" Size="13" VerticalAlignment="Center"
+                             Classes.info="{Binding IsInfo}" Classes.warning="{Binding IsWarning}" Classes.error="{Binding IsError}" />
+              <TextBlock Grid.Column="1" Text="{Binding TimeText}" Classes="mono" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
+                         VerticalAlignment="Center" Margin="8,0" />
+              <Border Grid.Column="2" Classes="source" Margin="0,0,8,0">
+                <TextBlock Text="{Binding SourceText}" FontSize="10" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}" />
+              </Border>
+              <TextBlock Grid.Column="3" Text="{Binding Message}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+              <ui:SymbolIcon Grid.Column="4" Data="{x:Static ui:Icons.ArrowRight}" Size="12" Margin="8,0,0,0" IsVisible="{Binding HasTarget}"
+                             Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" ToolTip.Tip="Double-click to open" />
+              <Border Grid.Column="5" Classes="count" Margin="8,0,0,0" IsVisible="{Binding HasCount}">
+                <TextBlock Text="{Binding CountText}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <ui:EmptyState IsVisible="{Binding IsEmpty}" Icon="{x:Static ui:Icons.Terminal}" Title="No messages"
+                     Hint="Messages from the editor, your game, scripts and plugins appear here." />
+    </Panel>
+  </DockPanel>
+</UserControl>

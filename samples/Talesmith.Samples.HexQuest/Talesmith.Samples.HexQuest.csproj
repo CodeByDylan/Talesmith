@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Gameplay of the Hex Quest sample: the hero, hex movement with pathfinding, camera zoom, music and the HUD.</Description>
+    <PluginFolder>hexquest</PluginFolder>
+    <UseSharedSampleCode>true</UseSharedSampleCode>
+  </PropertyGroup>
+  <Import Project="..\Plugin.targets" />
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Talesmith.Runtime\Talesmith.Runtime.csproj" Private="false" ExcludeAssets="runtime" />
+    <ProjectReference Include="..\..\src\Talesmith.Avalonia\Talesmith.Avalonia.csproj" Private="false" ExcludeAssets="runtime" />
+  </ItemGroup>
+</Project>

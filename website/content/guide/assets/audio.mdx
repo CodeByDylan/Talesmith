@@ -1,0 +1,75 @@
+---
+title: "Audio"
+description: "Import sounds and music, set loop points and streaming, and play them with Audio Source components."
+---
+
+Sound effects and music are WAV or Ogg Vorbis files in the project's assets. This page covers importing them, the waveform preview and loop markers in the asset inspector, how sounds are loaded, the mixer buses, and playing sounds in a scene with the Audio Source component.
+
+## Import sounds
+
+Drop `.wav` and `.ogg` files into the Assets panel, as for any asset; see [Importing assets](./importing.mdx). Use WAV for short effects, and Ogg Vorbis for music and long ambiences, which are much smaller. Sounds play through OpenAL Soft on Windows and Linux.
+
+## The audio inspector
+
+Select a sound in the Assets panel to see it in the Inspector.
+
+<Screenshot name="guide/asset-audio" caption="An ambient loop with its loop markers set, so the first part plays once as an intro." priority />
+
+The header shows whether the sound is mono or stereo, its sample rate and its length. The play button plays the sound; click it again to stop.
+
+### Import settings
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| **Load type** | Auto | **Auto** decodes short sounds into memory and streams music from the file. **Preload** reads the whole file into memory first. **Stream** reads the file as it plays. |
+| **Bus** | Effects | The mixer bus the sound plays on unless an Audio Source chooses another |
+| **Volume** | 1 | A volume multiplier, from 0 to 1, for evening out loud and quiet files |
+| **Loop** | off | **Loop when played**, so the sound loops without each Audio Source asking for it |
+| **Loop points** | 0, 0 | Where the loop starts and ends, in seconds. The part before the start plays once, as an intro. An end of 0 loops at the end of the file. |
+
+Drag the markers on the waveform to set the loop points; they snap to hundredths of a second, and holding <Keys>Shift</Keys> drags them frame by frame. Click **Apply** to keep the changes.
+
+Streaming keeps memory low for long music, at the cost of reading the file while it plays. Keep the default unless you have a reason: short effects that play often load once, and music streams.
+
+## Mixer buses
+
+Every sound plays on one of four buses, so players can turn groups of sounds up and down separately in your game's settings menu:
+
+| Bus | For |
+| --- | --- |
+| **Effects** | Footsteps, jumps, hits, pickups |
+| **Music** | Music tracks |
+| **Voice** | Dialogue |
+| **Interface** | Clicks and menu sounds |
+
+## Play sounds in a scene
+
+The **Audio Source** component plays a sound from an entity. Create one with **GameObject › 2D Object › Audio Source**, add it to an existing entity with **Add component**, or drag a sound file into the viewport.
+
+| Field | Default | What it does |
+| --- | --- | --- |
+| **Clip** | | A sound to play, loaded into memory |
+| **Music** | | A music track to stream instead of the clip; it plays on the music channel |
+| **Volume** | 1 | From 0 to 1 |
+| **Pitch** | 1 | Playback speed, from 0.1 to 3: 2 plays an octave higher. Music ignores it. |
+| **Loop** | off | Loops the sound. Sounds whose import settings loop also loop without it. |
+| **Play On Start** | on | Plays when the scene starts |
+| **Bus** | from the sound | The mixer bus; empty uses the bus from the sound's import settings |
+| **Spatial** | off | Fades the sound with distance from the listener and pans it left or right |
+| **Min Distance** | 128 | With **Spatial** on, the sound plays at full volume within this distance |
+| **Max Distance** | 1024 | And is silent beyond this one |
+
+A spatial source shows its two distances as a [gizmo](../scenes/viewport.mdx#gizmos) when selected; drag the handles to change them. A waterfall, a campfire or a radio becomes louder as the player approaches.
+
+Spatial sounds are heard from the entity with an **Audio Listener** component, usually the player. Without one, the active camera listens.
+
+Audio Sources play in play mode and in the game, not while you edit; use the play button in the audio inspector to listen to a sound in the editor.
+
+## Play sounds from scripts
+
+Most sounds are played by scripts at the moment something happens: a jump, a coin, a hit. A script plays a sound by its path, such as `audio/jump.wav`, with a volume and pitch, and starts and stops music with fades. See [Playing sounds](/scripting/scripts/audio).
+
+## Related
+
+- [Built-in components](../scenes/components.mdx#audio-source)
+- [Audio](/scripting/concepts/audio) in the scripting section

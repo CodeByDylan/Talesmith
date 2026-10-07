@@ -1,0 +1,86 @@
+---
+title: "The project hub"
+description: "Open recent projects, create a project from a template and understand what every new project contains."
+---
+
+The hub is the first window you see when you start the editor without a project, and the window you return to with **File › Close project**. It has two pages: **Projects**, with the projects you opened recently and the samples, and **New project**, which creates a project from a template.
+
+<Screenshot name="guide/project-hub" priority />
+
+## Open a project
+
+The **Projects** page lists your recent projects as cards, newest first. Each card shows a picture of the scene as you last left it, the project's name, its folder and when you last opened it, such as *2 days ago*. Click a card to open the project.
+
+| Do | How |
+| --- | --- |
+| Find a project | Type in **Search projects**. It matches the name and the folder. |
+| Remove a card | Hover the card and click the **×** (*Remove from the list*). The project's files stay where they are. |
+| Open a project that is not listed | Click **Open** or **Open project folder…** and choose the project folder. |
+| Start a new project | Click **New project**. |
+
+A project whose folder has moved or been deleted shows a **Missing** badge. Clicking it explains that the folder no longer holds the project: remove the card, then open the project from its new place.
+
+**Open project folder…** accepts the project folder or any folder inside it. A folder without `assets/config/game.json` is not a Talesmith project, and the hub says so.
+
+While the editor starts, and when it switches from one project to another, a small window with the Talesmith mark says what it is doing until the hub or the project's window is on screen.
+
+While a project opens, a card over the editor's workspace shows its picture, its name and three steps, each checked off as it finishes: starting the game engine, scanning the assets (with the count so far) and loading the scene (with the assets it has loaded). The card fades out once the scene is in the viewport. If the project cannot open, such as when a plugin stops the game engine from starting, the card says why, with **Show console** for the details and **Close project** to return to the hub.
+
+### Samples
+
+When you run the editor from a source checkout, the Projects page has a **Samples** section below **Recent** with the repository's sample games, marked **Sample**. Open one to see how a finished game is put together. The editor writes `.meta` files and its `.talesmith` folder into a sample when it opens it, as it does for any project.
+
+## Create a project
+
+<Screenshot name="guide/new-project" />
+
+<Steps>
+
+1. Click **New project** in the sidebar.
+2. Choose a template. The selected card has a check mark.
+3. Type the **Project name**. It becomes the game's title and the name of the project folder.
+4. Check the **Location**, the folder the project folder is created in. Click the folder button to choose another one. The full path of the new project shows below the fields.
+5. Click **Create project**. The editor creates the project and opens it on its start scene.
+
+</Steps>
+
+The location starts as the folder you used last, or `Talesmith Projects` in your Documents folder. The name may contain any characters; in the folder name, characters other than letters, digits, spaces, `-` and `_` become `-`. **Create project** stays disabled while there is a problem, and the reason shows under the fields: no name, no location, or a folder of that name that already exists and is not empty.
+
+### Templates
+
+| Template | What you get | Input actions |
+| --- | --- | --- |
+| **Empty** | A camera and a sprite of the Talesmith logo on a dark background. Start from a clean slate. | `Submit` (Enter, Space), `Cancel` (Escape) |
+| **Top-down hex adventure** | A hex tile island of water, sand, grass, forests and mountains in `maps/island.hexy`, an animated hero standing in the middle and a camera. Pixel art filtering. | `Move` (WASD and the arrow keys), `Interact` (E, Space, Enter), `Menu` (Escape) |
+| **Side-scrolling platformer** | A level of grass, dirt and floating platforms with gaps in `maps/level.hexy`, an animated hero, five spinning coins and a camera. Pixel art filtering. | `Run` (A and D, the arrow keys), `Jump` (Space, W, Up), `Menu` (Escape) |
+
+The templates set up content and input bindings, but no gameplay: the heroes do not move until you give them a script. [Your first game](./first-game.mdx) does that for the platformer.
+
+## What every project contains
+
+```text
+My Game/
+  .gitignore
+  assets/
+    config/
+      game.json        the title, window, renderer, start scene and timing
+      input.json       the input actions above
+    scenes/
+      main.tscene      the starter scene, which is the start scene
+    sprites/  audio/  maps/  prefabs/  scripts/
+```
+
+Every asset in `assets/` gets a `.meta` file beside it with its guid and import settings. The `.gitignore` leaves out `.talesmith/`, `bin/` and `obj/`, so you can put the folder under version control right away. See [Project folder layout](../reference/project-layout.mdx) for every file and folder.
+
+## Per-project editor state
+
+When a project is open, the editor keeps its own state for that project in `<project>/.talesmith/`: the panel layout, the viewport camera of each scene, recently opened scenes and components, asset thumbnails and caches, deleted assets and the picture the hub shows. None of it is part of the game, and it is safe to delete while the editor is closed.
+
+## Leave a project
+
+**File › Close project** closes the project and returns to the hub. **File › Open project…** (<Keys>Ctrl+Shift+O</Keys>) opens another project from the editor. Either way, the editor asks first when you have unsaved changes.
+
+## Related
+
+- [Installation](./installation.mdx): opening a project or creating one from the command line.
+- [The interface](./interface.mdx): a tour of the editor window.

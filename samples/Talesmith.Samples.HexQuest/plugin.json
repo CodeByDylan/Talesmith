@@ -1,0 +1,12 @@
+{
+  "id": "samples.hexquest",
+  "name": "Hex Quest gameplay",
+  "version": "1.0.0",
+  "description": "The hero, movement across hexes, camera zoom, music and the HUD of the Hex Quest sample.",
+  "authors": [ "Talesmith" ],
+  "assembly": "Talesmith.Samples.HexQuest.dll",
+  "contractVersion": 1,
+  "minEngineVersion": "0.1.0",
+  "permissions": [ "runtimeScene", "fileSystem" ],
+  "extensions": [ "systems", "scene.listeners", "overlays", "services" ]
+}

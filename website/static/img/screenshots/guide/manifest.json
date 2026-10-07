@@ -1,0 +1,342 @@
+{
+  "guide/add-component": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The Add component popup below the Hero, listing recently used components and then components by category"
+  },
+  "guide/asset-atlas": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "A sprite atlas in the asset inspector"
+  },
+  "guide/asset-audio": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "A sound in the asset inspector with its waveform, loop markers and import settings"
+  },
+  "guide/asset-font": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "A font in the asset inspector with a preview of its glyphs"
+  },
+  "guide/asset-health": {
+    "width": 1240,
+    "height": 1215,
+    "alt": "The Asset health dialog with a missing reference, an orphaned .meta file and the unreferenced assets"
+  },
+  "guide/asset-prefab": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "A prefab in the asset inspector"
+  },
+  "guide/asset-texture": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "A texture in the asset inspector with its preview, sprites and import settings"
+  },
+  "guide/assets-create": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The Create menu of the Assets panel"
+  },
+  "guide/assets-grid": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The Assets panel showing a folder of character sprites as thumbnails"
+  },
+  "guide/assets-list": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The Assets panel's list view of an audio folder with waveform thumbnails"
+  },
+  "guide/assets-search": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The Assets panel searching the whole project for kind:texture"
+  },
+  "guide/build-progress": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The Build dialog while it publishes the Windows player"
+  },
+  "guide/build-report": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The build report after exporting Hex Quest for Linux"
+  },
+  "guide/command-palette": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The command palette searching commands, entities and assets"
+  },
+  "guide/console": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The console with messages of every severity, collapsed duplicates and the details of an error"
+  },
+  "guide/console-script-errors": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The console filtered to scripts, with a compile error selected showing its file and line"
+  },
+  "guide/editor-window": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The editor with a platformer scene in the viewport, the hierarchy, the inspector and the console"
+  },
+  "guide/first-game-build": {
+    "width": 2000,
+    "height": 1380,
+    "alt": "The Build dialog with the Linux x64 platform marked This PC and the Release profile chosen"
+  },
+  "guide/first-game-campfire": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "A campfire of fire particles with a flickering point light, under dusk lighting"
+  },
+  "guide/first-game-coins": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "Five coins selected together, each with a trigger collider and the Coin script"
+  },
+  "guide/first-game-collision": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The Tile Map panel with the level's Ground layer given the Collision role"
+  },
+  "guide/first-game-new-project": {
+    "width": 2320,
+    "height": 1480,
+    "alt": "The New project page with the Side-scrolling platformer template chosen and Coin Run as the name"
+  },
+  "guide/first-game-paint": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The brush painting grass tiles across a gap in the level"
+  },
+  "guide/first-game-physics": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The hero with a Collider 2D and a Character Controller 2D, its collider outlined in the viewport"
+  },
+  "guide/first-game-play": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "Coin Run playing in the Game panel"
+  },
+  "guide/first-game-script": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The HeroController script on the hero, with its Run Speed, Jump Speed and Gravity fields"
+  },
+  "guide/first-game-script-dialog": {
+    "width": 1000,
+    "height": 964,
+    "alt": "The Create script dialog with HeroController as the class name and the Script template chosen"
+  },
+  "guide/first-game-starter": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "Coin Run's starter scene with the hero selected and the coins listed in the hierarchy"
+  },
+  "guide/gizmos": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "Move handles on a selected sprite and light, with the light's radius gizmo"
+  },
+  "guide/hierarchy": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The Hierarchy panel with nested groups while an entity is dragged onto another"
+  },
+  "guide/hierarchy-filter": {
+    "width": 540,
+    "height": 1184,
+    "alt": "The Hierarchy filtered to the coins whose names contain 2, with their parent dimmed"
+  },
+  "guide/history-panel": {
+    "width": 634,
+    "height": 1304,
+    "alt": "The History panel listing the steps of setting up the coins, with the current step checked"
+  },
+  "guide/inspector": {
+    "width": 2880,
+    "height": 3120,
+    "alt": "The Inspector showing an entity's sprite, collider, light, particle emitter and script sections"
+  },
+  "guide/layout-effects": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The Effects layout: the Particles and Lighting panels in the right column above the Inspector"
+  },
+  "guide/lighting-night": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "Lantern Grove at night with Preview on, the campfire selected with the radius gizmos of its light"
+  },
+  "guide/lighting-panel": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The Lighting panel on a night scene with torches, a lamp, the moon and shadow casters"
+  },
+  "guide/new-project": {
+    "width": 2320,
+    "height": 1480,
+    "alt": "The New project page of the hub with the Empty, hex adventure and platformer templates"
+  },
+  "guide/particle-editor": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The particle editor on a campfire effect with color and size curves and a live preview"
+  },
+  "guide/particle-presets": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The gallery of built-in particle presets, each playing in its own preview"
+  },
+  "guide/play-blocked": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The Cannot play yet message after pressing Play while the scripts have a compile error, and 1 script error in the status bar"
+  },
+  "guide/play-mode": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "Play mode with the running game in the Game panel and the app bar in the accent color"
+  },
+  "guide/play-paused": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "Play mode paused: the app bar's strip and the Game panel's frame in amber, the hero's live values in the inspector"
+  },
+  "guide/prefab-editing": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "A prefab open for editing, with a breadcrumb in the hierarchy leading back to the scene"
+  },
+  "guide/prefab-instance": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "A coin prefab instance with an overridden animation speed, its prefab badge and the hierarchy's modified dot"
+  },
+  "guide/project-game": {
+    "width": 1920,
+    "height": 1360,
+    "alt": "Project Settings on Isle Hopper's Game page, scrolled to the View section: fit, a 640 × 360 design size, integer scale, a 1280 × 720 overlay size, black bars and the sentence describing what a 1280 × 720 window shows"
+  },
+  "guide/project-hub": {
+    "width": 2320,
+    "height": 1480,
+    "alt": "The project hub listing recent projects with thumbnails of their scenes"
+  },
+  "guide/project-input": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "Project Settings on the input page, recording a new key for an action"
+  },
+  "guide/project-loading-screen": {
+    "width": 1920,
+    "height": 1360,
+    "alt": "Project Settings scrolled to the Loading screen section: its preview, the image, the two colors and the switch for scene changes"
+  },
+  "guide/project-physics": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "Project Settings on the physics page with named layers and the collision matrix"
+  },
+  "guide/scene-settings": {
+    "width": 634,
+    "height": 1064,
+    "alt": "The Inspector with nothing selected, showing the scene's background, ambient light, gravity and render layers"
+  },
+  "guide/settings": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The Settings dialog on its Viewport page with the grid, snapping, entity icon and zoom settings"
+  },
+  "guide/settings-appearance": {
+    "width": 1640,
+    "height": 1240,
+    "alt": "The Settings dialog on its Appearance page with the color mode and accent colors"
+  },
+  "guide/settings-keyboard": {
+    "width": 1640,
+    "height": 1240,
+    "alt": "The Settings dialog's Keyboard page filtered to play commands, recording a new shortcut for Play from start scene"
+  },
+  "guide/shortcuts-dialog": {
+    "width": 1520,
+    "height": 1240,
+    "alt": "The Keyboard shortcuts sheet grouped by category"
+  },
+  "guide/sprite-editor": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The sprite editor with a sliced character sheet, a selected sprite and an animation in the frame strip"
+  },
+  "guide/terrain-editor": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The terrain editor with a rule's neighbor pattern and weighted outputs"
+  },
+  "guide/tile-properties": {
+    "width": 1760,
+    "height": 1192,
+    "alt": "The Tile properties dialog on its Collision page, with a tile's collision shape"
+  },
+  "guide/tilemap-collision": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The Collision tool painting solid cells on a hex island, on a collision layer it added"
+  },
+  "guide/tilemap-hex": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "A hex map in the Tile Mapping layout with the Tile Map panel's layers and palette"
+  },
+  "guide/tilemap-layers": {
+    "width": 748,
+    "height": 1248,
+    "alt": "The Tile Map panel on Lantern Grove's map, with its layers and their roles above the tileset palette"
+  },
+  "guide/tilemap-new-dialog": {
+    "width": 1200,
+    "height": 1087,
+    "alt": "The New tile map dialog with the grid choices, the hex size and the file name"
+  },
+  "guide/tilemap-objects": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "An object selected with the Objects tool, its name, type and properties in the Tile Map panel"
+  },
+  "guide/tilemap-select": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "A rectangle of hexes selected with the Select Tiles tool, its options in the tool options bar"
+  },
+  "guide/tilemap-square": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "A rectangular platformer level in the Tile Mapping layout"
+  },
+  "guide/tilemap-stroke": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "A rectangle being dragged out on a map, previewing its tiles, next to a selection"
+  },
+  "guide/tileset-import": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The tileset import dialog slicing a tileset image into tiles"
+  },
+  "guide/viewport-camera": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The main camera selected in the viewport, its 640 × 360 frame labeled with its name, design size, scale mode and zoom"
+  },
+  "guide/viewport-rotate": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The Rotate tool's ring around the selected hero"
+  }
+}

@@ -1,0 +1,271 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="https://talesmith.dev/ui">
+
+  <ControlTheme x:Key="{x:Type ToolTip}" TargetType="ToolTip">
+    <Setter Property="Background" Value="{DynamicResource ToolTipBackground}" />
+    <Setter Property="Foreground" Value="{DynamicResource ToolTipForeground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ToolTipBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+    <Setter Property="Padding" Value="{DynamicResource ToolTipBorderThemePadding}" />
+    <Setter Property="FontSize" Value="{DynamicResource ToolTipContentThemeFontSize}" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="MaxWidth" Value="{DynamicResource ToolTipContentMaxWidth}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_LayoutRoot"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}">
+          <ContentPresenter Name="PART_ContentPresenter"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            Foreground="{TemplateBinding Foreground}"
+                            TextWrapping="Wrap" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type GridSplitter}" TargetType="GridSplitter">
+    <Setter Property="Background" Value="{DynamicResource BorderSubtleBrush}" />
+    <Setter Property="MinWidth" Value="1" />
+    <Setter Property="MinHeight" Value="1" />
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}" />
+      </ControlTemplate>
+    </Setter>
+    <Style Selector="^:pointerover">
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type Separator}" TargetType="Separator">
+    <Setter Property="Background" Value="{DynamicResource BorderSubtleBrush}" />
+    <Setter Property="Height" Value="1" />
+    <Setter Property="Margin" Value="0,4" />
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}" />
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type ui:Badge}" TargetType="ui:Badge">
+    <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Padding" Value="7,1,7,2" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <Border Background="{TemplateBinding Foreground}" CornerRadius="{TemplateBinding CornerRadius}" Opacity="0.14" />
+          <ContentPresenter Name="PART_ContentPresenter"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            Padding="{TemplateBinding Padding}"
+                            Foreground="{TemplateBinding Foreground}"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center" />
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+    <Style Selector="^.accent">
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="^.success">
+      <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+    </Style>
+    <Style Selector="^.warning">
+      <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
+    </Style>
+    <Style Selector="^.danger">
+      <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type ui:ShortcutBadge}" TargetType="ui:ShortcutBadge">
+    <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <ItemsControl ItemsSource="{TemplateBinding Keys}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" Spacing="3" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="x:String">
+              <Border MinWidth="18"
+                      Padding="5,1,5,2"
+                      Background="{DynamicResource SurfaceSunkenBrush}"
+                      BorderBrush="{DynamicResource BorderStrongBrush}"
+                      BorderThickness="1,1,1,2"
+                      CornerRadius="{DynamicResource CornerRadiusSmall}">
+                <TextBlock Text="{Binding}" HorizontalAlignment="Center" />
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type ui:ColorSwatch}" TargetType="ui:ColorSwatch">
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusSmall}" />
+    <Setter Property="Width" Value="18" />
+    <Setter Property="Height" Value="18" />
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type ui:ColorSwatchPicker}" TargetType="ui:ColorSwatchPicker">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <StackPanel Spacing="10">
+          <WrapPanel Name="PART_Swatches" ItemSpacing="4" LineSpacing="4" />
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+            <Button Name="PART_PickerButton" Padding="0" MinHeight="0" Width="30" Height="30" BorderThickness="0" Background="Transparent"
+                    CornerRadius="{DynamicResource CornerRadiusMedium}" ToolTip.Tip="Open the color picker">
+              <ui:ColorSwatch Width="30" Height="30" CornerRadius="{DynamicResource CornerRadiusMedium}"
+                              Color="{Binding SelectedColor, RelativeSource={RelativeSource TemplatedParent}}" />
+            </Button>
+            <TextBox Name="PART_HexInput" Grid.Column="1" Classes="mono" MaxLength="9" />
+          </Grid>
+        </StackPanel>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <ControlTheme x:Key="SpinnerRepeatButton" TargetType="RepeatButton">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <ContentPresenter Background="{TemplateBinding Background}"
+                          CornerRadius="{TemplateBinding CornerRadius}"
+                          Content="{TemplateBinding Content}"
+                          Foreground="{TemplateBinding Foreground}"
+                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+      </ControlTemplate>
+    </Setter>
+    <Style Selector="^:pointerover">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="^:pressed">
+      <Setter Property="Background" Value="{DynamicResource SurfacePressedBrush}" />
+    </Style>
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="0.4" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type ButtonSpinner}" TargetType="ButtonSpinner">
+    <Setter Property="Background" Value="{DynamicResource TextControlBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+    <Setter Property="MinHeight" Value="{DynamicResource ControlHeight}" />
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <DataValidationErrors>
+          <Border Name="PART_Border"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  MinHeight="{TemplateBinding MinHeight}">
+            <Grid ColumnDefinitions="*,Auto">
+              <ContentPresenter Name="PART_ContentPresenter"
+                                Content="{TemplateBinding Content}"
+                                ContentTemplate="{TemplateBinding ContentTemplate}"
+                                Padding="{TemplateBinding Padding}"
+                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+              <Grid Grid.Column="1"
+                    Width="20"
+                    Margin="0,2,3,2"
+                    RowDefinitions="*,*"
+                    IsVisible="{TemplateBinding ShowButtonSpinner}">
+                <RepeatButton Name="PART_IncreaseButton" Theme="{StaticResource SpinnerRepeatButton}" Margin="0,0,0,1">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.ChevronUp}" Size="11" StrokeThickness="2.5" />
+                </RepeatButton>
+                <RepeatButton Name="PART_DecreaseButton" Grid.Row="1" Theme="{StaticResource SpinnerRepeatButton}" Margin="0,1,0,0">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.ChevronDown}" Size="11" StrokeThickness="2.5" />
+                </RepeatButton>
+              </Grid>
+            </Grid>
+          </Border>
+        </DataValidationErrors>
+      </ControlTemplate>
+    </Setter>
+    <Style Selector="^:pointerover /template/ Border#PART_Border">
+      <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrushPointerOver}" />
+    </Style>
+    <Style Selector="^:focus-within /template/ Border#PART_Border">
+      <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrushFocused}" />
+    </Style>
+  </ControlTheme>
+  <ControlTheme x:Key="{x:Type DataValidationErrors}" TargetType="DataValidationErrors">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <ContentPresenter Name="PART_ContentPresenter"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            Padding="{TemplateBinding Padding}" />
+          <Popup Name="PART_ErrorPopup"
+                 PlacementTarget="{Binding #PART_ContentPresenter}"
+                 Placement="BottomEdgeAlignedLeft"
+                 VerticalOffset="4"
+                 ShouldUseOverlayLayer="True"
+                 IsLightDismissEnabled="False"
+                 DataContext="{TemplateBinding Owner}"
+                 x:DataType="Control"
+                 IsOpen="{Binding (DataValidationErrors.HasErrors)}">
+            <Border Background="{DynamicResource SurfaceRaisedBrush}"
+                    BorderBrush="{DynamicResource DangerBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{DynamicResource CornerRadiusMedium}"
+                    BoxShadow="{DynamicResource ShadowPopup}"
+                    Padding="10,7"
+                    MaxWidth="300">
+              <ItemsControl ItemsSource="{Binding (DataValidationErrors.Errors)}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Grid ColumnDefinitions="Auto,*">
+                      <ui:SymbolIcon Data="{x:Static ui:Icons.AlertCircle}" Size="14" Foreground="{DynamicResource DangerBrush}" Margin="0,1,8,0" VerticalAlignment="Top" />
+                      <TextBlock Grid.Column="1" Text="{ReflectionBinding}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Border>
+          </Popup>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+</ResourceDictionary>

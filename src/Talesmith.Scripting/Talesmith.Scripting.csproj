@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>C# gameplay scripts: the scripting API, script components, lifecycle dispatch and loading compiled script assemblies.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Talesmith.Runtime\Talesmith.Runtime.csproj" />
+    <ProjectReference Include="..\Talesmith.Physics\Talesmith.Physics.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Talesmith.Scripting.Tests" />
+    <InternalsVisibleTo Include="Talesmith.Scripting.Compiler.Tests" />
+  </ItemGroup>
+</Project>

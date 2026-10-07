@@ -1,0 +1,265 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:dock="using:Talesmith.UI.Docking"
+             xmlns:vm="using:Talesmith.Editor.Shell"
+             xmlns:commands="using:Talesmith.Editor.Commands"
+             xmlns:viewport="using:Talesmith.Editor.Viewport"
+             xmlns:loading="using:Talesmith.Avalonia.Loading"
+             x:Class="Talesmith.Editor.Shell.ShellView"
+             x:DataType="vm:ShellViewModel"
+             Classes.playing="{Binding IsPlaying}"
+             Classes.paused="{Binding IsPaused}">
+  <UserControl.Styles>
+    <Style Selector="Menu#MainMenu MenuItem, Menu#CompactMenu > MenuItem MenuItem" x:DataType="commands:MenuItemViewModel">
+      <Setter Property="Header" Value="{Binding Header}" />
+      <Setter Property="Command" Value="{Binding Command}" />
+      <Setter Property="CommandParameter" Value="{Binding CommandParameter}" />
+      <Setter Property="InputGesture" Value="{Binding Gesture}" />
+      <Setter Property="ItemsSource" Value="{Binding Items}" />
+      <Setter Property="ToolTip.Tip" Value="{Binding ToolTip}" />
+      <Setter Property="Icon">
+        <Template>
+          <ui:SymbolIcon Data="{Binding Icon}" Size="15" />
+        </Template>
+      </Setter>
+    </Style>
+
+    <Style Selector="Menu#CompactMenu">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="vm|AppBarPanel.compact TextBlock#CommandsLabel, vm|AppBarPanel.compact ui|ShortcutBadge#CommandsKeys">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="vm|AppBarPanel.narrow TextBlock#Wordmark">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="vm|AppBarPanel.collapsed Menu#MainMenu">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="vm|AppBarPanel.collapsed Menu#CompactMenu">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="vm|ToolStripPanel.compact StackPanel#ViewOptions ToggleButton.option TextBlock">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Background="{DynamicResource BackgroundBrush}">
+    <!-- App bar -->
+    <Border Grid.Row="0" Classes="toolbar appbar" Height="44" Padding="8,0">
+      <Panel>
+        <vm:AppBarPanel x:Name="AppBar">
+          <Grid ColumnDefinitions="Auto,Auto,*,Auto,0.3*,Auto">
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="2,0,8,0">
+              <Border Width="22" Height="22" CornerRadius="6">
+                <Border.Background>
+                  <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                    <GradientStop Offset="0" Color="#8B8EFA" />
+                    <GradientStop Offset="1" Color="#5B4FE0" />
+                  </LinearGradientBrush>
+                </Border.Background>
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Hammer}" Size="13" StrokeThickness="2.25" Foreground="White" />
+              </Border>
+              <TextBlock x:Name="Wordmark" Text="Talesmith" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <Menu x:Name="MainMenu" Grid.Column="1" ItemsSource="{Binding Menu}" VerticalAlignment="Center" />
+            <Menu x:Name="CompactMenu" Grid.Column="1" VerticalAlignment="Center">
+              <MenuItem ItemsSource="{Binding Menu}" ToolTip.Tip="Menu">
+                <MenuItem.Header>
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Menu}" />
+                </MenuItem.Header>
+              </MenuItem>
+            </Menu>
+
+            <Grid Grid.Column="2" ColumnDefinitions="*,Auto" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,16,0"
+                  ToolTip.Tip="{Binding WindowTitle}">
+              <TextBlock x:Name="DocumentTitleText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                <Run Text="{Binding ProjectName}" Foreground="{DynamicResource TextMutedBrush}" />
+                <Run Text="  /  " Foreground="{DynamicResource TextMutedBrush}" />
+                <Run Text="{Binding DocumentTitle}" FontWeight="Medium" />
+              </TextBlock>
+              <ui:Badge Grid.Column="1" Classes="warning" Content="Unsaved" IsVisible="{Binding IsModified}" VerticalAlignment="Center" Margin="8,0,0,0" />
+            </Grid>
+
+            <Border Grid.Column="3" Classes="playbar">
+              <StackPanel>
+                <ToggleButton IsChecked="{Binding IsPlaying, Mode=OneWay}" Command="{Binding [play.toggle].Command}" ToolTip.Tip="Play (Ctrl+P)">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Play}" IsFilled="True" />
+                </ToggleButton>
+                <ToggleButton Classes="warning" IsChecked="{Binding IsPaused, Mode=OneWay}" Command="{Binding [play.pause].Command}" ToolTip.Tip="Pause (Ctrl+Shift+P)">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Pause}" IsFilled="True" />
+                </ToggleButton>
+                <Button Command="{Binding [play.step].Command}" ToolTip.Tip="Step one frame (F10)">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.StepForward}" />
+                </Button>
+                <Button Command="{Binding [play.stop].Command}" ToolTip.Tip="Stop (Shift+F5)">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Stop}" IsFilled="True" />
+                </Button>
+              </StackPanel>
+            </Border>
+
+            <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+              <Button Classes="icon" Command="{Binding [edit.undo].Command}" ToolTip.Tip="Undo (Ctrl+Z)">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Undo}" />
+              </Button>
+              <Button Classes="icon" Command="{Binding [edit.redo].Command}" ToolTip.Tip="Redo (Ctrl+Shift+Z)">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Redo}" />
+              </Button>
+              <Border Classes="divider-v" Height="18" Margin="6,0" />
+              <Button Classes="subtle small" Command="{Binding [edit.palette].Command}" Padding="8,4" ToolTip.Tip="Search commands, entities and assets (Ctrl+K)">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Search}" Size="14" />
+                  <TextBlock x:Name="CommandsLabel" Text="Commands" Classes="muted" VerticalAlignment="Center" />
+                  <ui:ShortcutBadge x:Name="CommandsKeys" Text="Ctrl+K" />
+                </StackPanel>
+              </Button>
+              <Border Classes="divider-v" Height="18" Margin="6,0" />
+              <ItemsControl ItemsSource="{Binding ToolbarButtons}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" Spacing="2" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ToolbarButtonViewModel">
+                    <Button Classes="icon" Command="{Binding Command.Command}" ToolTip.Tip="{Binding ToolTip}">
+                      <ui:SymbolIcon Data="{Binding Command.Icon}" />
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Button Classes="icon" Command="{Binding [edit.theme].Command}" ToolTip.Tip="Toggle light/dark theme (Ctrl+Shift+T)">
+                <ui:SymbolIcon Data="{Binding ThemeIcon}" />
+              </Button>
+              <Button Classes="icon" Command="{Binding [edit.settings].Command}" ToolTip.Tip="Settings (Ctrl+,)">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Settings}" />
+              </Button>
+            </StackPanel>
+          </Grid>
+        </vm:AppBarPanel>
+        <Border Classes="play-strip" VerticalAlignment="Bottom" Margin="-8,0,-8,-1" />
+      </Panel>
+    </Border>
+
+    <!-- Tool options -->
+    <Border Grid.Row="1" Classes="toolstrip">
+      <vm:ToolStripPanel x:Name="ToolStrip">
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" MinWidth="112">
+            <Border Width="24" Height="24" CornerRadius="{DynamicResource CornerRadiusMedium}" Background="{DynamicResource AccentSubtleBrush}">
+              <ui:SymbolIcon Data="{Binding Tools.ActiveTool.Icon}" Size="14" Foreground="{DynamicResource AccentBrush}" />
+            </Border>
+            <TextBlock Text="{Binding Tools.ActiveTool.Name}" FontWeight="SemiBold" VerticalAlignment="Center" />
+          </StackPanel>
+          <ContentControl Content="{Binding Tools.ActiveOptions}" VerticalAlignment="Center" Margin="12,0,0,0" />
+        </StackPanel>
+
+        <StackPanel x:Name="ViewOptions" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <ToggleButton Classes="option" IsChecked="{Binding ViewportOptions.IsCenterPivot}" ToolTip.Tip="Handles at the pivot or the selection's center (Z)">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Crosshair}" />
+              <TextBlock Text="Center" VerticalAlignment="Center" />
+            </StackPanel>
+          </ToggleButton>
+          <ToggleButton Classes="option" IsChecked="{Binding ViewportOptions.IsLocal}" ToolTip.Tip="Handles follow the entity's rotation (X)">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Rotate3D}" />
+              <TextBlock Text="Local" VerticalAlignment="Center" />
+            </StackPanel>
+          </ToggleButton>
+          <Border Classes="divider-v" Height="18" Margin="4,0" />
+          <ToggleButton Classes="option" IsChecked="{Binding ViewportOptions.SnapToGrid}" ToolTip.Tip="Snap to the grid (Ctrl+Shift+G); hold Ctrl while dragging to snap once">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Magnet}" />
+              <TextBlock Text="Snap" VerticalAlignment="Center" />
+            </StackPanel>
+          </ToggleButton>
+          <ui:NumberField Value="{Binding ViewportOptions.GridSize}" Minimum="1" Maximum="4096" Step="1" IsInteger="True" Suffix="px" Width="76"
+                          ToolTip.Tip="Grid size in world units" VerticalAlignment="Center" />
+          <ToggleButton Classes="option" IsChecked="{Binding Grid.IsShown}" ToolTip.Tip="{Binding Grid.ToolTip}">
+            <ui:SymbolIcon Data="{Binding Grid.Icon}" />
+          </ToggleButton>
+          <Border Classes="divider-v" Height="18" Margin="4,0" />
+          <ToggleButton Classes="option" IsChecked="{Binding ViewportOptions.IsPreviewing}" ToolTip.Tip="Preview animations, particles and lights in the viewport (Ctrl+Alt+P)">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Sparkles}" />
+              <TextBlock Text="Preview" VerticalAlignment="Center" />
+            </StackPanel>
+          </ToggleButton>
+          <Border Classes="divider-v" Height="18" Margin="4,0" />
+          <ui:SymbolIcon Data="{x:Static ui:Icons.Layout}" Size="14" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+          <ComboBox ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}" MinWidth="128" ToolTip.Tip="Layout" />
+          <ui:SymbolIcon Data="{x:Static ui:Icons.Clapperboard}" Size="14" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" Margin="6,0,0,0" />
+          <ComboBox ItemsSource="{Binding Scenes}" SelectedItem="{Binding SelectedScene}" MinWidth="170" MaxWidth="260" PlaceholderText="Unsaved scene"
+                    ToolTip.Tip="Open scene" />
+        </StackPanel>
+      </vm:ToolStripPanel>
+    </Border>
+
+    <!-- Workspace -->
+    <dock:DockHost x:Name="Workspace" Grid.Row="2" />
+
+    <!-- Shown while the project opens -->
+    <vm:ProjectLoadingView Grid.Row="1" Grid.RowSpan="2" DataContext="{Binding Loading}" />
+
+    <!-- Status bar -->
+    <Border Grid.Row="3" Classes="statusbar" Padding="12,0">
+      <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <ui:SymbolIcon Classes="status" Data="{Binding Status.StatusIcon}"
+                         Classes.success="{Binding Status.StatusKind, Converter={x:Static vm:StatusConverters.IsSuccess}}"
+                         Classes.warning="{Binding Status.StatusKind, Converter={x:Static vm:StatusConverters.IsWarning}}"
+                         Classes.error="{Binding Status.StatusKind, Converter={x:Static vm:StatusConverters.IsError}}"
+                         Classes.busy="{Binding Status.IsBusy}" />
+          <TextBlock Classes="status" Text="{Binding Status.StatusText}" />
+          <loading:LoadingBar Width="80" Height="4" VerticalAlignment="Center" IsVisible="{Binding Status.IsBusy}" Value="{Binding Status.Progress}"
+                              Foreground="{DynamicResource AccentBrush}" Background="{DynamicResource BorderSubtleBrush}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="18,0,0,0" VerticalAlignment="Center">
+          <ui:SymbolIcon Classes="status" Data="{x:Static ui:Icons.Clapperboard}" />
+          <TextBlock Classes="status" Text="{Binding Status.SceneText}" />
+        </StackPanel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" Margin="18,0,0,0" VerticalAlignment="Center">
+          <ui:SymbolIcon Classes="status" Data="{x:Static ui:Icons.Box}" />
+          <TextBlock Classes="status" Text="{Binding Status.EntityText}" />
+        </StackPanel>
+        <ItemsControl Grid.Column="3" ItemsSource="{Binding Status.Items}" Margin="18,0,0,0" VerticalAlignment="Center">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" Spacing="18" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:StatusBarItem">
+              <Button Classes="status-item" Command="{Binding Command}" IsHitTestVisible="{Binding IsClickable}" IsVisible="{Binding IsVisible}"
+                      ToolTip.Tip="{Binding ToolTip}" Focusable="False">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <ui:SymbolIcon Classes="status" Data="{Binding Icon}"
+                                 Classes.success="{Binding Kind, Converter={x:Static vm:StatusConverters.IsSuccess}}"
+                                 Classes.warning="{Binding Kind, Converter={x:Static vm:StatusConverters.IsWarning}}"
+                                 Classes.error="{Binding Kind, Converter={x:Static vm:StatusConverters.IsError}}"
+                                 Classes.busy="{Binding Kind, Converter={x:Static vm:StatusConverters.IsBusy}}"
+                                 Classes.spin="{Binding Kind, Converter={x:Static vm:StatusConverters.IsBusy}}" />
+                  <TextBlock Classes="status" Text="{Binding Text}" />
+                </StackPanel>
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Grid.Column="4" Classes="status" Margin="24,0" Text="{Binding Tools.Context.Hint}" TextTrimming="CharacterEllipsis"
+                   HorizontalAlignment="Right" Foreground="{DynamicResource TextMutedBrush}" />
+        <TextBlock Grid.Column="5" Classes="status mono" Text="{Binding Status.CursorText}" Margin="0,0,18,0" />
+        <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="6" Margin="0,0,18,0" VerticalAlignment="Center">
+          <ui:SymbolIcon Classes="status" Data="{x:Static ui:Icons.ZoomIn}" />
+          <TextBlock Classes="status mono" Text="{Binding Status.ZoomText}" />
+        </StackPanel>
+        <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" ToolTip.Tip="The scene view's frames per second while it animates; Idle while nothing changes and it redraws only on demand">
+          <ui:SymbolIcon Classes="status" Data="{x:Static ui:Icons.Gauge}" />
+          <TextBlock Classes="status mono" Text="{Binding Status.FpsText}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

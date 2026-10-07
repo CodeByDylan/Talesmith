@@ -1,0 +1,17 @@
+{
+  // Lantern Grove: a night platformer made only of scenes, prefabs, particle presets, a .hexy map and C# scripts.
+  "title": "Lantern Grove",
+  "windowWidth": 1280,
+  "windowHeight": 720,
+  // A 640×360 view scaled by whole numbers, which keeps the art crisp: 2× at 1280×720, 3× at 1920×1080, 4× at 2560×1440.
+  // Overlays are designed for 1280×720 and scale with the view.
+  "view": { "width": 640, "height": 360, "scaleMode": "fit", "integerScale": true, "borderColor": "#000000", "overlayWidth": 1280, "overlayHeight": 720 },
+  "renderer": "auto",
+  "fixedUpdateRate": 60,
+  "textureFilter": "nearest",
+  "clearColor": "#0B1030",
+  "startScene": "scenes/grove.tscene",
+  "inputProfile": "config/input.json",
+  "pluginsFolder": "plugins",
+  "pauseWhenInactive": true
+}

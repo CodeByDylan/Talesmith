@@ -1,0 +1,134 @@
+---
+title: "The Assets panel"
+description: "Browse, search, organize and create the files in your project with the Assets panel."
+---
+
+Everything in a project's `assets` folder appears in the Assets panel: images, sounds, maps, scenes, prefabs, scripts and the rest. This page covers the folder tree and favorites, grid and list views, searching, creating assets and folders, renaming, moving and deleting, using assets elsewhere in the editor, and checking the project's health.
+
+<Screenshot name="guide/assets-grid" caption="A folder of character sprites in the grid view, with knight.png selected." priority />
+
+Open the panel with <Keys>Ctrl+Shift+A</Keys> or **Window › Panels › Assets**. It follows changes on disk as they happen, so files you add, change or delete in another program show up at once.
+
+## Folders and favorites
+
+The left side of the panel is a folder tree, starting at **assets**. Click a folder to open it; the right side shows what it contains. The breadcrumbs above the files show where you are; click one to go back up, or press <Keys>Backspace</Keys> to go up one folder.
+
+**Favorites** at the top of the tree collects the assets and folders you use often. Right-click an asset and choose **Add to favorites** to add it; favorites show a star on their tile.
+
+The panel remembers, per project, its view, thumbnail size, sorting, favorites and which folders are expanded.
+
+## Grid and list
+
+The buttons at the right of the toolbar switch between the views:
+
+- **Grid** shows a thumbnail of each asset: textures show their first sprite, sounds their waveform, fonts "Aa" in the font, atlases a few of their sprites, and other assets their kind's icon. The slider in the footer sizes the thumbnails.
+- **List** shows one row per asset with its **Name**, **Kind**, **Size** and **Modified** time. Click a column header to sort by it.
+
+<Screenshot name="guide/assets-list" caption="The list view of the audio folder, with waveforms as thumbnails." />
+
+The sort button in the toolbar sorts by name, kind, size or modification time; choose the same order again to reverse it. Thumbnails are drawn in the background and redrawn when an asset or its import settings change.
+
+## Search
+
+Type in the search box, or press <Keys>Ctrl+F</Keys> with the panel focused. Search covers the whole project, not just the open folder: the breadcrumbs read *Searching all assets*, and **Clear** returns to the folder.
+
+<Screenshot name="guide/assets-search" caption="Every texture in the project, found with kind:texture." />
+
+| Search | Finds |
+| --- | --- |
+| `hero` | Assets whose name contains *hero* |
+| `kind:texture` | Assets of a kind: `texture`, `atlas`, `font`, `audio`, `scene`, `prefab`, `material`, `shader`, `particles`, `tilemap`, `script`, `plugin`, `localization` or `folder`. The start of the kind's name works too, so `kind:tex` and `kind:tile` find the same. `type:` and `t:` work as `kind:`. |
+| `tag:enemy` | Assets with a label that starts with *enemy*. `label:` and `l:` work too. |
+| `ext:ogg` | Assets with that file extension |
+| `guid:9a2c` or a full guid | The asset with that guid. `id:` works too. |
+| `is:fav` | Favorites only |
+
+Combine terms to narrow the search: `kind:audio tag:music` finds music. The filter button next to the search box shows a chip per kind with the number of assets of that kind; click chips to show only those kinds.
+
+Labels are tags you give assets in the [asset inspector](./importing.mdx#the-asset-inspector), such as `music` or `enemy`, to find them and to include them in builds by label.
+
+## Select and open
+
+| Do | How |
+| --- | --- |
+| Select | Click. <Keys>Shift</Keys>+click selects a range, <Keys>Ctrl</Keys>+click adds or removes one asset. Arrow keys move the selection; <Keys>Ctrl+A</Keys> selects everything in the folder; <Keys>Escape</Keys> clears the selection. |
+| Inspect | Select an asset to show it in the Inspector panel: its import settings, labels and what uses it. See [Importing assets](./importing.mdx#the-asset-inspector). |
+| Open | Double-click, or press <Keys>Enter</Keys>. Folders open in the panel, scenes open in the viewport, and scripts and shaders open in your code editor. Other assets are selected and shown in the Inspector. |
+
+## Create assets
+
+Click **Create** in the panel's toolbar, or right-click empty space and choose **Create**, to make a new asset in the open folder. The same items are in **Assets › Create**.
+
+<Screenshot name="guide/assets-create" maxWidth={600} />
+
+| Item | Creates |
+| --- | --- |
+| **Folder** | *New Folder* |
+| **Scene** | *New Scene.tscene*, with a camera |
+| **Prefab** | *New Prefab.tprefab*, with one empty entity |
+| **Tile Map** | A `.hexy` map, after asking for its name, grid and cell size. See [Maps and grids](../tile-maps/maps-and-grids.mdx). |
+| **C# Script** | A script, after asking for its class name and template |
+| **Script…** | The same, with a choice of folder inside `scripts` |
+| **Material** | *New Material.tmaterial*. See [Materials and shaders](../effects/materials.mdx). |
+| **Sprite Atlas** | *New Atlas.tatlas*, with the textures or folders you had selected as its sources. See [Sprite atlases](./atlases.mdx). |
+| **Particle Preset** | A `.tparticles` preset from one of the built-in effects. See [Particles](../effects/particles.mdx). |
+| **Localization Table** | *Strings.tloc*, with the game's title as its first string. See [Localization](./localization.mdx). |
+
+New assets start with their name selected, so you can type the name right away.
+
+## Rename, duplicate, move and delete
+
+| Do | How |
+| --- | --- |
+| Rename | <Keys>F2</Keys>, or **Rename** in the context menu. <Keys>Enter</Keys> confirms, <Keys>Escape</Keys> cancels. |
+| Duplicate | <Keys>Ctrl+D</Keys>. The copy is named *name 1* and gets a new guid and the same import settings. |
+| Move | Drag assets onto a folder in the grid, the tree or the breadcrumbs |
+| Delete | <Keys>Delete</Keys>. The editor asks first and warns when other assets use the ones you delete. |
+
+Every operation keeps the `.meta` file with its asset and is one undo step. Scenes and other assets refer to assets by guid, not by path, so renaming and moving never break references. Deleted assets go to the project's trash, `.talesmith/trash`, in a folder per deletion; <Keys>Ctrl+Z</Keys> brings them back with their guid.
+
+## The context menu
+
+Right-click an asset for:
+
+| Item | What it does |
+| --- | --- |
+| **Open** | As double-clicking |
+| **Show in file manager** | Opens the folder in your system's file manager |
+| **Rename**, **Duplicate**, **Delete** | As their shortcuts |
+| **Add to favorites**, **Remove from favorites** | |
+| **Copy path** | Copies the asset's path, such as `assets/sprites/hero.png` |
+| **Copy guid** | Copies its guid |
+| **Reimport** | Imports the asset again, for example after changing a file another program keeps open |
+| **Create** | The Create menu |
+
+Right-clicking empty space offers **Create**, **Import files…**, **Show in file manager**, **Rescan assets** and **Asset health…**.
+
+## Use assets elsewhere
+
+Drag assets out of the panel:
+
+- Into the **viewport** or the **hierarchy** to create entities: textures become sprites, maps become tile maps, particle presets become emitters, sounds become audio sources and prefabs become instances. See [The scene viewport](../scenes/viewport.mdx#drop-assets-into-the-scene).
+- Onto an **asset field** in the Inspector, such as a sprite's **Texture**, to set it.
+- Onto a **sprite atlas's** source list, to pack it.
+
+## Asset health
+
+**Assets › Asset health…**, also in the panel's context menu and the command palette, checks the whole project:
+
+<Screenshot name="guide/asset-health" maxWidth={560} />
+
+| Section | Lists |
+| --- | --- |
+| **Missing references** | Assets that refer to something that no longer exists, such as a material whose shader was deleted |
+| **Unreadable .meta files** | `.meta` files that could not be read. They were replaced with new ones; the originals are kept next to them as hidden `.invalid` files. |
+| **Orphaned .meta files** | `.meta` files left behind by assets deleted or moved outside the editor |
+| **Repaired duplicate guids** | Copies of assets that had their original's guid and were given a new one |
+| **Unreferenced assets** | Assets nothing refers to. Scripts may still load them by path, so these are not problems. |
+
+Only the first three count as problems; the other two are for information. The dialog says **All assets are healthy** only when no section lists anything. Click an entry's arrow to show it in the Assets panel. **Remove orphaned .meta files** deletes the orphans, and **Check again** runs the check again after you fix something.
+
+## Related
+
+- [Importing assets](./importing.mdx)
+- [Project folder layout](../reference/project-layout.mdx)

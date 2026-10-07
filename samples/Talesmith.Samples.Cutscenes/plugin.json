@@ -1,0 +1,12 @@
+{
+  "id": "samples.cutscenes",
+  "name": "Cutscenes and dialogue",
+  "version": "1.0.0",
+  "description": "Plays scripted cutscenes with camera moves and dialogue choices when the player enters a map trigger with a 'cutscene' property.",
+  "authors": [ "Talesmith" ],
+  "assembly": "Talesmith.Samples.Cutscenes.dll",
+  "contractVersion": 1,
+  "minEngineVersion": "0.1.0",
+  "permissions": [ "runtimeScene" ],
+  "extensions": [ "importers", "systems", "scene.listeners", "overlays", "services" ]
+}

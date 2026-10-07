@@ -1,0 +1,92 @@
+---
+title: "Localization"
+description: "Translate your game's text with .tloc tables and switch languages at run time."
+---
+
+Localization tables hold the text of your game in every language it supports. Game code asks for a string by its key, such as `menu.start`, and gets it in the player's language. This page covers creating a table, adding keys and languages, how the language is chosen and what happens when a translation is missing, and looking text up from scripts.
+
+## Create a table
+
+Choose **Create › Localization Table** in the Assets panel, or **Assets › Create › Localization Table**. The editor creates `Strings.tloc` in the open folder with one string, the game's title in English.
+
+The editor has no table editor yet: open the file in your code editor and add keys and languages there.
+
+```json title="assets/Strings.tloc"
+{
+  "version": 1,
+  "strings": {
+    "game.title": { "en": "Coin Run", "nl": "Muntenrace" },
+    "menu.start": { "en": "Start", "nl": "Beginnen", "de": "Starten" },
+    "menu.quit": { "en": "Quit", "nl": "Stoppen" },
+    "hud.coins": { "en": "{0:N0} coins", "nl": "{0:N0} munten" }
+  }
+}
+```
+
+- Each **key** names one piece of text. Dotted names such as `menu.start` and `hud.coins` keep related strings together.
+- Each key maps **language codes** to text: `en`, `nl`, `de`, or regional codes such as `pt-BR`.
+- Text can have **placeholders**, `{0}`, `{1}` and so on, filled in by code. They take .NET format strings, so `{0:N0}` writes a number with the language's thousands separator.
+
+A game can have several tables, such as one per screen or one per translator. Every `.tloc` file in the project is loaded when the game starts. When two tables define the same key, the one loaded later wins.
+
+## Choosing the language
+
+The game starts in the operating system's language. To find a string, Talesmith tries, in order:
+
+1. The current language, such as `pt-BR`.
+2. Its parent language, `pt`.
+3. The fallback language, English (`en`) unless the game sets another.
+4. The fallback's parent.
+
+When none has the key, the key itself is shown, such as `menu.quit`, which makes missing translations easy to spot while you test.
+
+## Look up text from scripts
+
+Scripts get the localization service and ask it for strings:
+
+```csharp title="assets/scripts/CoinCounter.cs"
+using Talesmith.Assets.Localization;
+
+namespace CoinRun;
+
+/// <summary>Logs the coin count in the player's language.</summary>
+public sealed class CoinCounter : Script
+{
+    public int Coins = 3;
+
+    protected override void OnStart()
+    {
+        var text = GetService<ILocalization>();
+        Log.Info(text.Get("game.title"));
+        Log.Info(text.Format("hud.coins", Coins));
+    }
+}
+```
+
+| Member | What it does |
+| --- | --- |
+| `Get(key)` | The text of a key in the current language |
+| `Format(key, values…)` | The text with its placeholders filled in, formatted for the current language |
+| `TryGet(key, out text)` | Whether any table has the key |
+| `CurrentLanguage` | The language in use; set it to switch languages |
+| `AvailableLanguages` | Every language some table translates into, for a language menu |
+| `Changed` | Raised after the language or the tables change, so shown text can be refreshed |
+
+## Switch the language at run time
+
+Set `CurrentLanguage`, for example from a language menu in your game's settings:
+
+```csharp
+GetService<ILocalization>().CurrentLanguage = "nl";
+```
+
+Every lookup after that returns Dutch text. Text already on screen does not change by itself: UI code listens to `Changed` and sets its text again. See [Game UI](/scripting/concepts/game-ui) for how game menus are built.
+
+## Localization in builds
+
+String tables always ship with an exported game, whether or not anything refers to them, since code looks them up by key. See [Exporting a game](../exporting.mdx) and [Localization tables](/developers/file-formats/localization) for the format.
+
+## Related
+
+- [Fonts](./fonts.mdx), for languages that need other characters.
+- [Importing assets](./importing.mdx)

@@ -1,0 +1,141 @@
+---
+title: "Input"
+description: "Read named input actions, raw keys and mouse buttons, the pointer in screen and world space, and the mouse wheel from scripts."
+---
+
+Scripts read the keyboard and mouse through the `Input` property. You can ask for named actions, such as **Jump** or **Move**, which the game defines and players can rebind, or for raw keys and buttons. This page covers both, the pointer and wheel, when input reaches the game, and an example of eight-way movement.
+
+## Actions or keys
+
+An action is a name bound to one or more inputs in the game's input profile, `assets/config/input.json`, which you edit on the **Input** page of [Project Settings](/guide/workflow/project-settings). The template projects already define **Move**, **Jump** or **Interact**, depending on the template.
+
+Read actions for anything a player might want to change: movement, jumping, attacking, opening a menu. The script stays the same when you add a second binding, switch a key or let players rebind, and several keys can drive one action without extra code. Read raw keys for things that are not part of the game's controls, such as a debug toggle on <Keys>F1</Keys>.
+
+An action name the profile does not define reads as idle: not down, no value, a zero vector. A typo in an action name therefore does nothing instead of throwing, so check the name if an action never fires.
+
+## Buttons
+
+| Method | True when |
+| --- | --- |
+| `Input.IsDown("Jump")` | The action is held this frame |
+| `Input.WasPressed("Jump")` | It became active this frame, including a press and release within one frame |
+| `Input.WasReleased("Jump")` | It stopped being active this frame |
+
+The same three methods take a `Key` or a `MouseButton` for raw input:
+
+```csharp
+if (Input.WasPressed(Key.F1))
+    _showHelp = !_showHelp;
+if (Input.IsDown(Key.LeftShift) && Input.WasPressed(MouseButton.Left))
+    SelectAll();
+```
+
+`Key` has letters `A` to `Z`, digits `D0` to `D9`, `F1` to `F12`, the arrow keys `Up`, `Down`, `Left` and `Right`, and keys such as `Space`, `Enter`, `Escape`, `Tab`, `LeftShift` and `LeftControl`. `MouseButton` has `Left`, `Right`, `Middle`, `XButton1` and `XButton2`.
+
+"Pressed" and "released" are true for exactly one frame. Read them in `Update`, which runs every frame. A frame can run several fixed steps or none, so `FixedUpdate` may see a press twice or miss it; the [platformer recipe](../recipes/platformer.mdx) shows how to remember a press in `Update` and use it in the next fixed step.
+
+## Axes and vectors
+
+| Method | Returns |
+| --- | --- |
+| `Input.Axis("Zoom")` | An axis action's value from -1 to 1, such as two keys for zooming out and in |
+| `Input.Vector("Move")` | A vector action's direction, with a length of at most 1 |
+
+Vectors are in screen directions: right is positive X and down is positive Y, matching world coordinates. Diagonals are normalized, so moving diagonally is not faster than moving straight. On an axis, a vector binding drives the horizontal component, and a key or button binding counts as 1.
+
+## The mouse
+
+| Member | |
+| --- | --- |
+| `Input.MousePosition` | The pointer in device pixels, from the top-left corner of the game view |
+| `Input.MouseViewPosition` | The pointer in view units, the units of HUDs drawn in screen space, as of the last drawn frame |
+| `Input.MouseWorldPosition` | The pointer in world units, seen through the camera of the last drawn frame |
+| `Input.IsMouseOverView` | Whether the pointer is over the game's view rather than the bars around it |
+| `Input.MouseDelta` | How far the pointer moved since the previous frame, in pixels |
+| `Input.WheelDelta` | Wheel movement since the previous frame, in notches; `Y` is the usual vertical wheel |
+
+`MouseWorldPosition` is what you want for clicking on things in the world, aiming and placing objects. It uses the camera of the frame the player is looking at, so it lines up with what is on screen even while the camera moves. `MouseViewPosition` is for clicking a HUD you draw in screen space: it is in the same units at any window size. Over the bars around a `fit` view, it is below 0 or beyond the view size, and `MouseWorldPosition` is a point the player cannot see, so check `Input.IsMouseOverView` before acting on a click in the world.
+
+```csharp title="assets/scripts/AimAtMouse.cs"
+namespace MyGame;
+
+/// <summary>Turns the entity to face the mouse pointer.</summary>
+public sealed class AimAtMouse : Script
+{
+    protected override void Update()
+    {
+        var toMouse = Input.MouseWorldPosition - Position;
+        if (toMouse.LengthSquared() > 1)
+            Transform.Rotation = MathF.Atan2(toMouse.Y, toMouse.X);
+    }
+}
+```
+
+The wheel and an axis action combine well for zooming. This script sits on the camera entity and keeps the zoom within the camera's own limits:
+
+```csharp title="assets/scripts/CameraZoom.cs"
+namespace MyGame;
+
+/// <summary>Zooms the camera with the mouse wheel and the Zoom axis.</summary>
+public sealed class CameraZoom : Script
+{
+    protected override void Update()
+    {
+        var steps = Input.WheelDelta.Y + Input.Axis("Zoom") * 4 * Time.DeltaTime;
+        if (steps == 0)
+            return;
+        ref var camera = ref GetComponent<Camera>();
+        camera.Zoom = Math.Clamp(camera.Zoom * MathF.Pow(1.15f, steps), camera.MinZoom, camera.MaxZoom);
+    }
+}
+```
+
+## When input reaches the game
+
+Keyboard and mouse events arrive on the UI thread at any time. The engine buffers them and applies them at the start of the next frame, so every script and system sees the same input from the start of a frame to its end.
+
+Input only reaches the game while the game view has keyboard focus. Starting play mode gives the **Game** panel focus; after you click elsewhere in the editor, click the Game panel again before playing on. While the game does not have focus, such as while the player types in a text box of an overlay or has switched to another program, `Input.IsEnabled` is false, nothing reads as held, and actions do not trigger. Switching away releases every held key, so a character does not keep running when the player comes back.
+
+For typed text, such as a name entry, read `Input.Service.TextTyped`, the text typed since the previous frame. `Input.Service` is the full `IInputService` and `Input.Action("Jump")` returns the `InputAction` itself, with its bindings, for anything this page does not cover.
+
+## Example: eight-way movement
+
+This script walks in eight directions with the **Move** action, runs while **Run** is held and turns its sprite to face the way it moves:
+
+```csharp title="assets/scripts/TopDownMover.cs"
+namespace MyGame;
+
+/// <summary>Walks in eight directions with the Move action and runs while Run is held.</summary>
+public sealed class TopDownMover : Script
+{
+    [Range(0, 600)]
+    public float WalkSpeed = 160;
+
+    [Range(0, 1000)]
+    public float RunSpeed = 280;
+
+    protected override void Update()
+    {
+        var move = Input.Vector("Move");
+        if (move == Vector2.Zero)
+            return;
+        var speed = Input.IsDown("Run") ? RunSpeed : WalkSpeed;
+        Position += move * speed * Time.DeltaTime;
+        if (move.X != 0)
+            GetComponent<Sprite>().FlipX = move.X < 0;
+    }
+}
+```
+
+Define **Run** as a button action bound to the left Shift key, `LeftShift` in the profile. Until you do, `Input.IsDown("Run")` is false and the entity always walks. This script moves the entity directly, so it walks through walls; for collision, give the entity a collider and a `CharacterController2D` and move it with `Physics.MoveCharacter` from `FixedUpdate`, as in [Physics from scripts](./physics.mdx).
+
+## Rebinding
+
+Players change bindings at run time through the action map, and the game can save their choices and load them at the next start. [Input actions](../concepts/input.mdx) covers the profile format, rebinding, conflicts and saving bindings.
+
+## Related
+
+- [Input actions](../concepts/input.mdx)
+- [Time](./time.mdx)
+- [Physics from scripts](./physics.mdx)
+- [Project settings](/guide/workflow/project-settings)

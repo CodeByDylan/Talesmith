@@ -1,0 +1,271 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.TileMaps.Tools"
+             xmlns:controls="using:Talesmith.Editor.TileMaps.Controls"
+             x:Class="Talesmith.Editor.TileMaps.Tools.TileToolOptionsBar"
+             x:DataType="vm:TileToolOptionsViewModel"
+             controls:CellSwatch.Kind="{Binding GridKind}">
+  <UserControl.Styles>
+    <Style Selector="Button, ToggleButton">
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ui|SegmentedControl">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <Style Selector="ui|SegmentedControlItem">
+      <Setter Property="Padding" Value="8,2" />
+      <Setter Property="MinHeight" Value="22" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="ui|SegmentedControlItem ui|SymbolIcon">
+      <Setter Property="Size" Value="13" />
+    </Style>
+    <Style Selector="Border.tile-preview">
+      <Setter Property="Width" Value="26" />
+      <Setter Property="Height" Value="26" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusSmall}" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceSunkenBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+  </UserControl.Styles>
+
+  <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+    <!-- Brush tile -->
+    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowsTile}" VerticalAlignment="Center">
+      <Border Classes="tile-preview">
+        <Panel RenderTransformOrigin="50%,50%">
+          <Panel.RenderTransform>
+            <TransformGroup>
+              <ScaleTransform ScaleX="{Binding TileScaleX}" />
+              <RotateTransform Angle="{Binding TileAngle}" />
+            </TransformGroup>
+          </Panel.RenderTransform>
+          <controls:CellSwatch Fill="{Binding TileFill}" Margin="3" />
+          <Image Source="{Binding TileImage}" Stretch="Uniform" Margin="1" />
+        </Panel>
+      </Border>
+      <TextBlock Text="{Binding TileName}" VerticalAlignment="Center" MaxWidth="150" TextTrimming="CharacterEllipsis" FontSize="12" />
+    </StackPanel>
+
+    <!-- Random brush weights -->
+    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowsWeights}" VerticalAlignment="Center">
+      <TextBlock Classes="label" Text="Tiles" />
+      <TextBlock Classes="label" Text="Ctrl-click tiles in the palette" IsVisible="{Binding !Weights.Count}" />
+      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" MaxWidth="420">
+        <ItemsControl ItemsSource="{Binding Weights}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" Spacing="4" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:WeightedTileViewModel">
+              <Border Background="{DynamicResource SurfaceSunkenBrush}" CornerRadius="{DynamicResource CornerRadiusMedium}" Padding="3,2,2,2" ToolTip.Tip="{Binding Name}">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                  <Panel Width="22" Height="22">
+                    <controls:CellSwatch Fill="{Binding Fill}" Margin="2" />
+                    <Image Source="{Binding Image}" Stretch="Uniform" />
+                  </Panel>
+                  <ui:NumberField Value="{Binding Weight}" Minimum="0" Maximum="1000" Step="0.5" Width="52" FormatString="0.##" ToolTip.Tip="Weight" />
+                  <Button Classes="icon small" Command="{Binding RemoveCommand}" ToolTip.Tip="Remove from the brush">
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.X}" Size="11" />
+                  </Button>
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+      <Button Classes="icon" Command="{Binding ReshuffleCommand}" ToolTip.Tip="Reshuffle (R)">
+        <ui:SymbolIcon Data="{x:Static ui:Icons.Refresh}" />
+      </Button>
+    </StackPanel>
+
+    <!-- Brush size and shape -->
+    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowsSize}" VerticalAlignment="Center">
+      <TextBlock Classes="label" Text="Size" />
+      <Slider Minimum="1" Maximum="16" Width="96" Value="{Binding Brush.Size}" IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center" Focusable="False" />
+      <ui:NumberField Value="{Binding Brush.Size}" Minimum="1" Maximum="64" Step="1" IsInteger="True" Width="54" ToolTip.Tip="Brush size in cells" />
+      <ui:SegmentedControl SelectedIndex="{Binding BrushShapeIndex}" ToolTip.Tip="Brush shape: grid steps or round">
+        <ui:SegmentedControlItem ToolTip.Tip="Every cell within the size in grid steps">
+          <ui:SymbolIcon Data="{Binding RangeIcon}" />
+        </ui:SegmentedControlItem>
+        <ui:SegmentedControlItem ToolTip.Tip="Round">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.Circle}" />
+        </ui:SegmentedControlItem>
+      </ui:SegmentedControl>
+    </StackPanel>
+
+    <!-- Orientation -->
+    <StackPanel Orientation="Horizontal" Spacing="2" IsVisible="{Binding ShowsOrientation}" VerticalAlignment="Center">
+      <Button Classes="icon" Command="{Binding RotateCounterClockwiseCommand}" ToolTip.Tip="Rotate counter-clockwise (Shift+Z)">
+        <ui:SymbolIcon Data="{x:Static ui:Icons.RotateCcw}" />
+      </Button>
+      <Button Classes="icon" Command="{Binding RotateClockwiseCommand}" ToolTip.Tip="Rotate clockwise (Z)">
+        <ui:SymbolIcon Data="{x:Static ui:Icons.RotateCw}" />
+      </Button>
+      <Button Classes="icon" Command="{Binding FlipHorizontalCommand}" ToolTip.Tip="Flip horizontally (X)">
+        <ui:SymbolIcon Data="{x:Static ui:Icons.FlipHorizontal}" />
+      </Button>
+      <Button Classes="icon" Command="{Binding FlipVerticalCommand}" ToolTip.Tip="Flip vertically (Y)">
+        <ui:SymbolIcon Data="{x:Static ui:Icons.FlipVertical}" />
+      </Button>
+      <Button Classes="subtle small" Command="{Binding ResetOrientationCommand}" Margin="4,0,0,0" IsVisible="{Binding IsOriented}" ToolTip.Tip="Reset the orientation">
+        <TextBlock Text="{Binding OrientationText}" FontSize="12" />
+      </Button>
+    </StackPanel>
+
+    <!-- Shapes -->
+    <ToggleButton Classes="option" IsChecked="{Binding Brush.IsShapeFilled}" IsVisible="{Binding ShowsShapeFill}" ToolTip.Tip="Draw filled shapes or outlines">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <ui:SymbolIcon Data="{x:Static ui:Icons.PaintBucket}" />
+        <TextBlock Text="Filled" VerticalAlignment="Center" />
+      </StackPanel>
+    </ToggleButton>
+    <ui:SegmentedControl SelectedIndex="{Binding CircleShapeIndex}" IsVisible="{Binding ShowsRange}">
+      <ui:SegmentedControlItem ToolTip.Tip="A round circle">
+        <StackPanel Orientation="Horizontal" Spacing="5">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.Circle}" />
+          <TextBlock Text="Circle" />
+        </StackPanel>
+      </ui:SegmentedControlItem>
+      <ui:SegmentedControlItem ToolTip.Tip="Every cell within a number of grid steps">
+        <StackPanel Orientation="Horizontal" Spacing="5">
+          <ui:SymbolIcon Data="{Binding RangeIcon}" />
+          <TextBlock Text="{Binding RangeShapeName}" />
+        </StackPanel>
+      </ui:SegmentedControlItem>
+    </ui:SegmentedControl>
+
+    <!-- Fill -->
+    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowsFill}" VerticalAlignment="Center">
+      <ui:SegmentedControl SelectedIndex="{Binding FillScopeIndex}">
+        <ui:SegmentedControlItem Content="Contiguous" ToolTip.Tip="Fill the connected region" />
+        <ui:SegmentedControlItem Content="Global" ToolTip.Tip="Replace every matching tile of the layer" />
+      </ui:SegmentedControl>
+      <TextBlock Classes="label" Text="Match" />
+      <ui:SegmentedControl SelectedIndex="{Binding FillMatchIndex}">
+        <ui:SegmentedControlItem Content="Tile" ToolTip.Tip="The same tile in the same orientation" />
+        <ui:SegmentedControlItem Content="Any orientation" ToolTip.Tip="The same tile, however it is turned" />
+        <ui:SegmentedControlItem Content="Terrain" ToolTip.Tip="Any tile of the same terrain" />
+      </ui:SegmentedControl>
+      <TextBlock Classes="label" Text="Limit" />
+      <ui:NumberField Value="{Binding Brush.FillLimit}" Minimum="1" Maximum="100000000" Step="1000" IsInteger="True" Width="96" ToolTip.Tip="The most cells a fill collects" />
+    </StackPanel>
+
+    <!-- Terrain -->
+    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowsTerrain}" VerticalAlignment="Center">
+      <TextBlock Classes="label" Text="Terrain" />
+      <ui:Badge Classes="accent" Content="{Binding TerrainName}" IsVisible="{Binding HasTerrain}" />
+      <TextBlock Text="Choose one in the Tile Map panel" FontSize="12" IsVisible="{Binding !HasTerrain}" VerticalAlignment="Center" />
+    </StackPanel>
+
+    <!-- Stamp -->
+    <StackPanel Orientation="Horizontal" Spacing="2" IsVisible="{Binding ShowsStamp}" VerticalAlignment="Center">
+      <ui:SymbolIcon Data="{x:Static ui:Icons.Paste}" Size="14" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,6,0" />
+      <TextBlock Text="{Binding StampText}" VerticalAlignment="Center" FontSize="12" Margin="0,0,10,0" />
+      <Button Classes="icon" Command="{Binding RotateStampCommand}" CommandParameter="ccw" ToolTip.Tip="Rotate counter-clockwise (Shift+Z)">
+        <ui:SymbolIcon Data="{x:Static ui:Icons.RotateCcw}" />
+      </Button>
+      <Button Classes="icon" Command="{Binding RotateStampCommand}" CommandParameter="cw" ToolTip.Tip="Rotate clockwise (Z)">
+        <ui:SymbolIcon Data="{x:Static ui:Icons.RotateCw}" />
+      </Button>
+      <Button Classes="icon" Command="{Binding FlipStampCommand}" CommandParameter="h" ToolTip.Tip="Flip horizontally (X)">
+        <ui:SymbolIcon Data="{x:Static ui:Icons.FlipHorizontal}" />
+      </Button>
+      <Button Classes="icon" Command="{Binding FlipStampCommand}" CommandParameter="v" ToolTip.Tip="Flip vertically (Y)">
+        <ui:SymbolIcon Data="{x:Static ui:Icons.FlipVertical}" />
+      </Button>
+      <TextBlock Classes="label" Text="Esc returns" Margin="8,0,0,0" />
+    </StackPanel>
+
+    <!-- Selection -->
+    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowsSelection}" VerticalAlignment="Center">
+      <ui:SegmentedControl SelectedIndex="{Binding SelectionShapeIndex}">
+        <ui:SegmentedControlItem ToolTip.Tip="Rectangle">
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.SquareDashed}" />
+            <TextBlock Text="Rectangle" />
+          </StackPanel>
+        </ui:SegmentedControlItem>
+        <ui:SegmentedControlItem ToolTip.Tip="Lasso: draw around cells">
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.Spline}" />
+            <TextBlock Text="Lasso" />
+          </StackPanel>
+        </ui:SegmentedControlItem>
+        <ui:SegmentedControlItem ToolTip.Tip="Connected cells with the clicked tile">
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.Sparkles}" />
+            <TextBlock Text="Same tile" />
+          </StackPanel>
+        </ui:SegmentedControlItem>
+      </ui:SegmentedControl>
+      <TextBlock Text="{Binding SelectionText}" FontSize="12" VerticalAlignment="Center" MinWidth="110" />
+      <StackPanel Orientation="Horizontal" Spacing="2">
+        <Button Classes="icon" Command="{Binding CopyCommand}" ToolTip.Tip="Copy (Ctrl+C)">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.Copy}" />
+        </Button>
+        <Button Classes="icon" Command="{Binding CutCommand}" ToolTip.Tip="Cut (Ctrl+X)">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.Cut}" />
+        </Button>
+        <Button Classes="icon" Command="{Binding FillSelectionCommand}" ToolTip.Tip="Fill with the brush">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.PaintBucket}" />
+        </Button>
+        <Button Classes="icon" Command="{Binding DeleteSelectionCommand}" ToolTip.Tip="Clear (Delete)">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.Trash}" />
+        </Button>
+        <Button Classes="subtle small" Command="{Binding SelectAllCommand}" Content="All" ToolTip.Tip="Select every tile of the layer (Ctrl+A)" />
+        <Button Classes="subtle small" Command="{Binding DeselectCommand}" Content="None" ToolTip.Tip="Deselect (Escape)" />
+      </StackPanel>
+    </StackPanel>
+
+    <!-- Objects -->
+    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowsObjects}" VerticalAlignment="Center">
+      <ui:SegmentedControl SelectedIndex="{Binding ObjectModeIndex}">
+        <ui:SegmentedControlItem ToolTip.Tip="Select, move and delete objects">
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.MousePointer}" />
+            <TextBlock Text="Select" />
+          </StackPanel>
+        </ui:SegmentedControlItem>
+        <ui:SegmentedControlItem ToolTip.Tip="Place points, such as spawns">
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.MapPin}" />
+            <TextBlock Text="Point" />
+          </StackPanel>
+        </ui:SegmentedControlItem>
+        <ui:SegmentedControlItem ToolTip.Tip="Draw areas: click vertices, double-click or Enter finishes, Backspace removes the last">
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.Pentagon}" />
+            <TextBlock Text="Polygon" />
+          </StackPanel>
+        </ui:SegmentedControlItem>
+        <ui:SegmentedControlItem ToolTip.Tip="Place the brush tile as an image object">
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.Image}" />
+            <TextBlock Text="Tile" />
+          </StackPanel>
+        </ui:SegmentedControlItem>
+      </ui:SegmentedControl>
+      <TextBlock Text="{Binding ObjectLayerText}" FontSize="12" VerticalAlignment="Center" />
+      <TextBlock Classes="label" Text="Alt places freely, Ctrl snaps to corners" />
+    </StackPanel>
+
+    <!-- Collision -->
+    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowsCollision}" VerticalAlignment="Center">
+      <ui:SymbolIcon Data="{x:Static ui:Icons.Shield}" Size="14" Foreground="{DynamicResource DangerBrush}" />
+      <TextBlock Text="{Binding CollisionText}" FontSize="12" VerticalAlignment="Center" />
+      <TextBlock Classes="label" Text="Tile shapes are edited in the tile properties" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Compiles project C# scripts with Roslyn, reports diagnostics and supports hot reload.</Description>
+    <!-- The analyzers run inside the editor's own compilations, never as compiler plugins. -->
+    <NoWarn>$(NoWarn);RS1036;RS1041;RS2008</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Talesmith.Scripting\Talesmith.Scripting.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Talesmith.Scripting.Compiler.Tests" />
+  </ItemGroup>
+</Project>

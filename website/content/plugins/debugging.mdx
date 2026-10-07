@@ -1,0 +1,150 @@
+---
+title: "Debugging and reloading"
+description: "Attach a debugger, read plugin load errors and reload a plugin after rebuilding it."
+---
+
+This page covers attaching a debugger to the editor or the player and stopping at breakpoints in plugin code, where load errors and run-time errors show up, reloading a plugin after you rebuild it, what a reload keeps, logging from plugin code, and loading plugins in tools of your own.
+
+## Attach a debugger
+
+Plugins run inside the editor's or the game's process, so you debug them by debugging that process. The `.pdb` that the install step copies next to the plugin's assembly lets the debugger map the code to your source.
+
+- **In the editor.** Start the editor (`dotnet run --project src/Talesmith.App`, or from your IDE), open the project, then attach your IDE's debugger to the editor's process. Breakpoints in runtime code hit in the scene viewport's game and in play mode; breakpoints in the editor assembly hit in panels, commands and tools.
+- **In a game.** Start the player under the debugger with the game folder as its argument: in Visual Studio, Rider or Visual Studio Code, make a run configuration that runs `dotnet` with `src/Talesmith.Player/bin/Debug/net10.0/talesmith-player.dll "/path/to/Coral Cove"`. With the plugin project as the one you build before running, one key press builds the plugin, installs it and starts the game.
+
+The edit game runs on the editor's UI thread, so a breakpoint in a system that runs in edit mode freezes the whole editor until you continue. Play mode runs on its own thread: a breakpoint there pauses the game while the editor stays usable. If you press **Stop** while the game is paused at a breakpoint, the editor waits five seconds for the frame to finish and then leaves that game behind.
+
+## Load errors
+
+Whenever a plugin does not load, the reason is in three places:
+
+| Where | What it shows |
+| --- | --- |
+| The Plugins panel | The plugin's card, with its state, the reason in red, warnings, and under **Details** the full exception with its stack trace when loading or `Configure` threw. A plugin whose editor code failed shows **Editor errors** and lists what failed. See [Installing](./installing.mdx#load-errors-and-missing-dependencies) for the reasons. |
+| The editor's Console | Failed plugins (**The plugin Weather did not load: …**) and failures of a plugin's editor code, such as **The plugin acme.weather failed to register its editor services and was skipped: …** or **The plugin acme.weather failed to create its editor plugin and was skipped: …**. See [Errors in editor code](#errors-in-editor-code). |
+| The game's log | One line per plugin from the player and exported games: **Loaded plugin …**, **Disabled plugin …**, **Skipped plugin …**, **Plugin … failed to load: …**, each warning as **Plugin …: …**, and a summary **Plugins: 1 loaded, 0 failed, 0 skipped, 0 disabled**. |
+
+In code, the `PluginLoadReport` service has the same information, and its `Summary` is the same text as the log.
+
+The most common mistakes and their messages:
+
+| Mistake | Message |
+| --- | --- |
+| No class implements `IPlugin`, or it is not public | `Spinners has no public, non-abstract class implementing IPlugin.` |
+| Two classes implement `IPlugin` | `Spinners has more than one IPlugin class (…); keep exactly one.` |
+| The plugin class has no parameterless constructor | `Spinners.SpinnersPlugin needs a public parameterless constructor.` |
+| `Configure` threw | `Spinners.SpinnersPlugin.Configure threw InvalidOperationException: …` |
+| A NuGet package was not copied | `… threw FileNotFoundException: Could not load file or assembly '…'`; see [Packaging](./package/packaging.mdx#private-dependencies) |
+| The assembly is missing | `its assembly Spinners.dll was not found in …` |
+
+## Errors while the game runs
+
+When a system throws, the scene keeps running: the engine logs **The system SpinSystem failed** with the exception, throws away the structural changes the system queued, and runs it again next frame. A system that throws three frames in a row is switched off for the rest of the scene and logged as **The system SpinSystem failed 3 times in a row and was disabled**. In the editor these messages are in the Console, with the stack trace.
+
+An overlay whose `Create` throws is left out with **The overlay … could not be created and is left out**. Exceptions in your own services, scene listeners and asynchronous code are your code's to catch and log, as the cutscene sample's `CutsceneTriggers` does.
+
+## Errors in editor code
+
+A broken editor part does not stop the project from opening. The editor calls a plugin's editor code through a guard at every extension point: creating the `IEditorPlugin` classes, `ConfigureServices`, command contributors and running the plugin's commands, panels, viewport tools, gizmo providers, property editors, asset inspectors, asset open handlers, thumbnail renderers, **Create** menu entries, command palette providers, entity icon providers, play session contributors and close guards.
+
+When one of them throws, the editor:
+
+- Writes an error to the Console under the **Plugin** source, such as **The plugin coral-cove.spinners failed to draw its gizmos and was skipped: Object reference not set to an instance of an object.**, with the exception and stack trace in the details.
+- Skips that part of the plugin until the project reloads. The rest of the plugin keeps working.
+- Marks the plugin's card in the Plugins panel with **Editor errors** and a line for each failure, such as **Failed to add its commands: …**, and counts it under **with problems** in the summary.
+
+An `IEditorPlugin` whose `ConfigureServices` throws keeps none of its registrations. A command contributor that throws adds none of its commands, menu entries or toolbar buttons, and a contributor that adds a command id that is already taken, such as `file.save`, is rejected the same way. A viewport tool whose id is already taken is rejected too.
+
+Two things are not guarded. A plugin class whose constructor throws is only caught for panels; for the other extension points the exception still reaches the editor. And custom menu items a plugin builds itself (`Menu(path, MenuItemViewModel item)`) and a command's `ShortcutAction` are called as they are.
+
+## Reload after a rebuild
+
+The editor loads a project's plugins once, when the project opens, and keeps using those assemblies for the edit game and every play session. It reads the assemblies into memory, so you can rebuild a plugin while the editor has it open, on Windows too. A rebuilt plugin is used from the next time the project opens:
+
+<Steps>
+
+1. Build the plugin: `dotnet build plugins-src/Spinners`. The install step copies the new files into `assets/plugins`.
+2. In the Plugins panel, click **Rescan the plugins folder**. The panel compares the installed files with the loaded ones and shows **Restart required**.
+3. Click **Reload now**. The editor saves or asks about unsaved changes, closes the project and opens it again, loading the new build.
+
+</Steps>
+
+The rescan notices a new or changed runtime or editor assembly, a changed `plugin.json` version, plugins that were added, removed or switched on or off, and changed dependencies between them. It does not look at a plugin's other files, such as its NuGet packages; after changing only those, close the project and open it again.
+
+## What a reload keeps
+
+Reloading is closing and opening the project, so it keeps what is saved and drops what lives in memory:
+
+| Kept | Lost |
+| --- | --- |
+| Saved scenes and assets | Unsaved changes you chose to discard |
+| `plugins.json`: switches and saved settings | Plugin settings changed with `Set` but not saved |
+| The layout and the viewport camera | Undo history, the selection and the console's messages |
+| Everything on disk the plugin wrote | Static fields of plugin classes and every service instance |
+
+A play session already starts from scratch each time: `Configure` runs again and every singleton is new. Only types and static fields carry over between play sessions, until the project reloads.
+
+## Logging
+
+Ask for an `ILogger<T>` in a system, service or editor class and log as usual:
+
+```csharp
+public sealed class SpinnerCensusSystem(ILogger<SpinnerCensusSystem> logger) : ISystem, ISystemLifecycle
+{
+    public void OnStart(World world) => logger.LogInformation("The scene starts with {Count} spinners", world.Query<Spinner>().Count);
+
+    public void OnStop(World world)
+    {
+    }
+
+    public void Update(in SystemContext context)
+    {
+    }
+}
+```
+
+In the editor, messages from the edit game, play mode and editor services go to the Console panel, where you can filter them by source and severity and open their stack traces. The player and exported games write them to standard output with the category, as in the plugin load lines above. Messages below **Information** are not shown by default; the player's `--log-level debug` shows them.
+
+## Load plugins in your own tools
+
+Tools that run games, such as a level checker or a test harness, load plugins the way the editor and the player do. `PluginLoader.Load` (or `services.AddTalesmithPlugins(options, logger)`) loads them once for one game, as the player does. `PluginManager` keeps them loaded across several games and can reload them, as the editor does:
+
+```csharp
+using var plugins = new PluginManager(new PluginLoadOptions
+{
+    PluginsDirectory = Path.Combine(assetRoot, "plugins"),
+    ConfigurationFile = Path.Combine(assetRoot, "config", "plugins.json"),
+    LoadInMemory = true
+}, logger);
+
+for (var run = 0; run < 2; run++)
+{
+    var builder = GameBuilder.Create(assetRoot);
+    var report = builder.Services.AddTalesmithPlugins(plugins);
+    logger.LogInformation("{Summary}", report.Summary);
+    await using (var game = builder.Build())
+    {
+        game.Start();
+        game.Tick(1.0 / 60);
+    }
+
+    plugins.Rescan();
+    if (plugins.RestartRequired)
+    {
+        var unload = plugins.Unload();
+        if (!unload.WaitForUnload(TimeSpan.FromSeconds(5)))
+            logger.LogWarning("Still in memory: {Plugins}", string.Join(", ", unload.StillLoaded));
+    }
+}
+```
+
+- The manager loads plugins on the first `AddTalesmithPlugins` and every later game shares their types. `Scan` shows what the next load would do, `Report` what the last one did, and `Enable`, `Disable` and `GetSettings` change switches and settings.
+- `LoadInMemory` reads the assemblies into memory, so the files can be rebuilt while they are loaded. An assembly loaded this way has no `Location`; plugins find their files through `PluginInfo.Directory`.
+- To load new builds, dispose every game built from the plugins, call `Unload`, and build the next game. `WaitForUnload` runs the garbage collector until the plugins' code is released, and lists plugins something still holds on to, such as a static field or an event handler of a host object pointing into plugin code.
+- `LoadEditorAssemblies` also loads each plugin's editor assembly; only the editor sets it.
+
+## Related
+
+- [Testing plugins](./testing.mdx)
+- [Installing and managing plugins](./installing.mdx)
+- [The console in the guide](/guide/play-and-test/console)

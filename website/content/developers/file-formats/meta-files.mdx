@@ -1,0 +1,181 @@
+---
+title: "Meta files"
+sidebar_label: ".meta"
+description: "What a .meta file holds: the asset guid, its kind and import settings."
+---
+
+Every file and folder in a project's asset folder has a sidecar `.meta` file, named after it with `.meta` appended: `hero.png.meta` next to `hero.png`, `sprites.meta` next to the `sprites` folder. It records the asset's guid, which importer reads it and that importer's settings. This page describes the fields, how guids stay stable, the build's asset index that replaces `.meta` files in exported games, and why the files belong in version control. `AssetMetaFile` in `src/Talesmith.Assets` reads and writes them.
+
+## Examples
+
+A texture cut into sprites, with animations (shortened to two of its four animations):
+
+```json title="samples/LanternGrove/assets/sprites/hero.png.meta"
+{
+  "version": 1,
+  "guid": "d7fd74e2279440d2af1c6b47254f1130",
+  "importer": "texture",
+  "importerVersion": 1,
+  "settings": {
+    "filter": "linear",
+    "wrap": "clamp",
+    "mipmaps": false,
+    "premultipliedAlpha": false,
+    "maxSize": 0,
+    "compression": "none",
+    "spriteMode": "multiple",
+    "grid": {
+      "cellWidth": 64,
+      "cellHeight": 80,
+      "offsetX": 0,
+      "offsetY": 0,
+      "spacingX": 0,
+      "spacingY": 0,
+      "columns": 0,
+      "rows": 0,
+      "namePrefix": "hero-",
+      "pivot": [
+        0.5,
+        0.95
+      ],
+      "skipEmpty": true
+    },
+    "slices": [],
+    "animations": [
+      {
+        "name": "idle",
+        "frames": [
+          "hero-0",
+          "hero-1"
+        ],
+        "framesPerSecond": 2.2,
+        "loop": true
+      },
+      {
+        "name": "run",
+        "frames": [
+          "hero-2",
+          "hero-3",
+          "hero-4",
+          "hero-5",
+          "hero-6",
+          "hero-7"
+        ],
+        "framesPerSecond": 13,
+        "loop": true
+      }
+    ]
+  }
+}
+```
+
+An asset with default settings, a folder and a file no importer reads:
+
+```json title="samples/LanternGrove/assets/maps/grove.hexy.meta"
+{
+  "version": 1,
+  "guid": "04db1377d655481d9f995ad14bfa5edd",
+  "importer": "tilemap",
+  "importerVersion": 1
+}
+```
+
+```json title="samples/LanternGrove/assets/sprites.meta"
+{
+  "version": 1,
+  "guid": "5748325364f14233a6fe966726e6bac6",
+  "folder": true
+}
+```
+
+```json title="samples/LanternGrove/assets/config/game.json.meta"
+{
+  "version": 1,
+  "guid": "ca975e022a94462ea546ef7872ee9a02"
+}
+```
+
+## Fields
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `version` | integer | 1 | The `.meta` format version. A newer version fails to load. |
+| `guid` | guid | | Required. The asset's id; references from scenes, prefabs, materials and other assets use it. |
+| `folder` | boolean | false | Written only for folders, as `true`. Folders have no importer. |
+| `importer` | string | | The id of the importer whose settings these are. Left out for folders and files no importer reads, such as `game.json`. |
+| `importerVersion` | integer | 0 | The importer's version when the settings were written. When an importer's version goes up, the asset database re-imports the asset and upgrades the value. |
+| `settings` | object | | The importer's settings. Missing settings, or missing fields inside them, mean the importer's defaults. |
+| `labels` | array of strings | `[]` | Labels for searching and filtering in the Assets panel, such as `"hero"`. Builds can ship every asset with a label with `label:<name>` in the always-include list. Left out when empty. |
+
+Unlike scene documents, `.meta` files are written by `AssetJson`: nulls are left out, enum values are camelCase and property names are read without regard to case.
+
+### Importer ids
+
+| Importer | Files | Settings |
+| --- | --- | --- |
+| `texture` | `.png .jpg .jpeg .webp .bmp .gif .ico` | Texture settings, below |
+| `atlas` | `.tatlas` | The texture settings that apply to a whole image: `filter`, `wrap`, `mipmaps`, `premultipliedAlpha`, `compression` |
+| `font` | `.ttf .otf .ttc` | Family name override, fallback fonts and a default size |
+| `audio` | `.wav .ogg` | Load mode, loop and loop points, bus and volume |
+| `material` | `.tmaterial` | None |
+| `shader` | `.tshader` | None |
+| `localization` | `.tloc` | None |
+| `tilemap` | `.hexy` | None |
+| `scenedocument` | `.tscene` | None |
+| `prefabdocument` | `.tprefab` | None |
+| `particlepreset` | `.tparticles` | None |
+
+Importers without a fixed id use their asset type's name in lower case, which is where `tilemap` and `scenedocument` come from. Plugins add their own importers; the Hex Quest sample's cutscene files use `cutscenescript`.
+
+### Texture settings
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `filter` | `nearest`, `linear` or null | null | The sampling filter; null uses `textureFilter` from `game.json`. |
+| `wrap` | `clamp`, `repeat` or `mirror` | `clamp` | How the texture repeats outside its bounds. |
+| `mipmaps` | boolean | false | Whether renderers that support mipmaps generate them. |
+| `premultipliedAlpha` | boolean | false | Whether the file's colors are already multiplied by alpha, so importing keeps them as they are. |
+| `maxSize` | integer | 0 | The largest width or height; larger images are scaled down with their slices. 0 keeps the original size. |
+| `compression` | `none`, `normal` or `highQuality` | `none` | A hint for builds. |
+| `spriteMode` | `single` or `multiple` | `single` | One sprite, or a sheet cut by `grid` and `slices`. |
+| `grid` | object or null | null | Cuts the sheet into cells read left to right, top to bottom: `cellWidth` and `cellHeight` (required), `offsetX`, `offsetY`, `spacingX`, `spacingY`, `columns` and `rows` (0 fits as many as the image holds), `namePrefix` (null uses the file name and an underscore), `pivot` (default `[0.5, 0.5]`) and `skipEmpty` (default true, leaves out fully transparent cells). Cells are named `<namePrefix><index>`. |
+| `slices` | array | `[]` | Named regions `{ "name", "rect": [x, y, width, height], "pivot": [x, y] }` in addition to the grid's cells; a slice with a cell's name replaces it. |
+| `animations` | array | `[]` | `{ "name", "frames", "framesPerSecond", "loop" }`, with frames as sprite names. `framesPerSecond` defaults to 12 and `loop` to true. |
+
+## The asset index
+
+Exported games ship without `.meta` files. A build writes their contents into one file, `assets.index.json`, at the root of the game's asset folder (inside the content pack), and the runtime builds its asset catalog from it when it is present:
+
+```json title="assets.index.json"
+{
+  "version": 1,
+  "assets": [
+    { "path": "sprites", "guid": "5748325364f14233a6fe966726e6bac6", "folder": true },
+    { "path": "sprites/hero.png", "guid": "d7fd74e2279440d2af1c6b47254f1130", "importer": "texture", "importerVersion": 1, "settings": { "filter": "linear" } }
+  ]
+}
+```
+
+Each entry has a `path` relative to the asset root with forward slashes, plus the fields of the `.meta` file except `labels`. Entries are sorted by path.
+
+## Guid stability and moving files
+
+A guid is created once, when the editor's asset database first sees a file without a `.meta` file, and never changes after that. Every reference to the asset stores the guid, not the path, so:
+
+- **Moving or renaming in the editor** moves the `.meta` file with the asset. Nothing that refers to it changes.
+- **Moving in a file manager or with Git** works when the `.meta` file moves too. When the editor sees a delete and a create, it pairs them into a move if the new `.meta` file has the old guid, or, if the file moved without its `.meta` file, if the contents are the same; it then moves the `.meta` file along.
+- **Copying a file with its `.meta` file** gives two files with one guid. The file the database already knew keeps the guid, otherwise the older file does, and the copy gets a new guid. The repair is reported in Asset Health.
+- **Deleting a `.meta` file by accident** is repaired on the next scan with the guid the database or its cache remembers, so references keep working.
+- **An unreadable `.meta` file** is replaced, and the original is kept as a hidden `.invalid` file next to it.
+
+Files and folders whose names start with a dot or end in `~`, `Thumbs.db`, `desktop.ini`, `assets.index.json`, the `bin` and `obj` folders inside the scripts folder, and the plugins folder (`plugins`, or the `pluginsFolder` of `game.json`) with everything in it are not assets and get no `.meta` file. Builds never ship `.meta` files from the plugins folder, including ones an older editor left there.
+
+## Version control
+
+Commit `.meta` files together with their assets. Without them, a fresh clone gets new guids for every asset, and every reference in every scene, prefab, material and preset breaks. Import settings, sprite slices and animations also live only in the `.meta` file. Keep `.talesmith/`, the editor's per-machine state and caches, out of version control.
+
+## Related
+
+- [Importing assets](/guide/assets/importing) in the guide shows the import settings in the editor.
+- [Scenes and prefabs](./scenes-and-prefabs.mdx) shows how documents store guid references.
+- [Launcher and content packs](./builds.mdx) describes the rest of an exported game.

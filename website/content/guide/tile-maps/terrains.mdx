@@ -1,0 +1,155 @@
+---
+title: "Terrains and auto-tiling"
+description: "Set up terrains so coasts, edges and corners pick the right tile as you paint."
+---
+
+A terrain turns a set of tiles into one material you paint with. You paint "Coast" or "Forest" with the Terrain tool, and the editor picks the right tile for every cell from the cells around it: a full forest tile in the middle, an edge tile where the forest meets a field, a random variant here and there. This page explains how terrains choose tiles, the terrain editor, the pattern syntax, and painting with terrains. Terrains work exactly as in Hexy and are saved in the `.hexy` file the same way, so a terrain set up in either editor paints the same tiles in both.
+
+## How terrains work
+
+A terrain belongs to one tileset and has:
+
+- A **name**.
+- A **base tile**, used when no rule matches.
+- An ordered list of **rules**. Each rule has a neighbor pattern and one or more output tiles with weights.
+
+The tiles of a terrain are its base tile and the output tiles of its rules. A cell belongs to the terrain when it shows one of those tiles, in any rotation. To choose the tile for a cell, the editor:
+
+1. Checks each neighbor: six on hex maps, four on rectangular maps. Does it belong to the same terrain? Empty cells and cells of other terrains count as different.
+2. Goes through the rules from top to bottom. The first rule whose pattern matches wins.
+3. Picks one of that rule's output tiles by weight, and rotates it if the rule matched in a rotated position.
+4. Uses the base tile when no rule matches.
+
+## Create a terrain
+
+<Steps>
+
+1. Select the tileset the terrain's tiles come from in the Tile Map panel's tileset picker.
+2. Open the **Terrains** tab and click **New terrain**. The terrain editor opens.
+3. Type a **Name**.
+4. Set **Clicking a tile sets** to **Base tile** and click the tile used where no rule matches, usually the full interior tile.
+5. Add rules, as described below.
+6. Click **Save terrain**.
+
+</Steps>
+
+<Screenshot name="guide/terrain-editor" caption="A Shore terrain. The selected rule matches a cell with the same terrain to the east and other terrain to the north-east and south-east, in any rotation." />
+
+The **Terrains** tab lists the terrains of the selected tileset with their number of rules. **Edit**, or a double-click, opens a terrain in the editor; **Remove** removes it. Creating, editing and removing a terrain are undoable steps.
+
+### Rules
+
+The **Rules** list shows each rule as its pattern and its number of output tiles, such as `+-***-  ↻  ·  2 tiles`; ↻ marks a rule that matches in every rotation. Rules are tried from top to bottom, so put specific rules above general ones.
+
+| Button | What it does |
+| --- | --- |
+| **Add rule** (+) | Adds a rule that matches any neighbors, selects it and sets tile clicks to **Rule output** |
+| **Duplicate rule** | Inserts a copy of the selected rule below it, for variations of a pattern |
+| **Move up**, **Move down** | Change the rule's priority |
+| **Remove rule** | Deletes the selected rule |
+
+A terrain without rules is valid: every cell uses the base tile.
+
+### Neighbors
+
+With a rule selected, the **Neighbors** editor draws a cell and its neighbors in the map's grid. Click a neighbor to cycle it through three states; right-click cycles backwards.
+
+| State | Shown as | Pattern character | Meaning |
+| --- | --- | --- | --- |
+| Any | An outline with a dot | `*` | The neighbor is ignored |
+| Same terrain | The accent color, with + | `+` | The neighbor must belong to this terrain |
+| Different terrain | Red, with × | `-` | The neighbor must not belong to this terrain |
+
+The pattern in text form shows above the output tiles.
+
+### Output tiles
+
+With **Clicking a tile sets** on **Rule output**, click tiles in the **Tiles** strip to add them to the selected rule. Each output tile has a **Weight** from 0 to 1000. With several tiles, each cell gets one at random in proportion to the weights: weights 3 and 1 give the first tile three times as often as the second. The pick depends on the cell's position, so the same cell always gets the same variant. Click **×** to remove a tile from the rule.
+
+### Match all rotations
+
+Tick **Match all rotations** to try the pattern in every orientation, six on hex maps and four on rectangular ones, turning the output tile to fit. With rotations, you draw each kind of transition once: a single "forest edge, open to the east" tile with the pattern `-+++++` covers forest edges facing all six directions.
+
+### Saving
+
+**Save terrain** is disabled while something is missing, and the footer says what: *Enter a terrain name.*, *Choose a base tile.* or *Rule 2 needs at least one output tile.*
+
+## Pattern syntax
+
+A pattern has one character per neighbor, in counter-clockwise order starting east:
+
+| Grid | Order |
+| --- | --- |
+| Hex maps | East, north-east, north-west, west, south-west, south-east |
+| Rectangular maps | East (right), north (up), west (left), south (down) |
+
+| Character | Meaning |
+| --- | --- |
+| `+` | The neighbor belongs to the same terrain |
+| `-` | The neighbor does not belong to the same terrain |
+| `*` | Any neighbor |
+
+### Examples on hex maps
+
+| Pattern | Rotations | Matches |
+| --- | --- | --- |
+| `++++++` | Off | Cells surrounded by the terrain |
+| `-+++++` | On | Cells with exactly one neighbor outside the terrain: a straight edge |
+| `--++++` | On | Cells with two adjacent neighbors outside the terrain: an outer corner |
+| `-*****` | On | Cells with at least one neighbor outside the terrain: a fallback edge |
+| `******` | Off | Every cell. Put it last to give the terrain random variants everywhere else. |
+
+### Examples on rectangular maps
+
+| Pattern | Rotations | Matches |
+| --- | --- | --- |
+| `+*+*` | On | Straight paths: a horizontal run, turned 90° for a vertical one |
+| `++**` | On | Corners joining two neighboring directions |
+| `-+++` | On | Edges with exactly one side outside the terrain |
+
+A typical terrain lists its rules from the most to the least specific:
+
+```text
+++++++            interior variants, weights 3 and 1
+--++++   ↻        outer corner tile
+-+++++   ↻        straight edge tile
+-*****   ↻        fallback edge tile
+```
+
+## Paint with a terrain
+
+Click a terrain on the **Terrains** tab. It becomes the brush terrain and the **Terrain** tool (<Keys>T</Keys>) becomes active; the tool options bar shows the terrain's name.
+
+| Action | What it does |
+| --- | --- |
+| Click or drag | Paints the terrain |
+| Right-drag | Erases the cells under the brush and updates the transitions around them |
+| <Keys>Shift</Keys>+click | Paints a line from the end of the previous stroke |
+| **Size** | The brush size, as for the Brush |
+
+Each stroke works like this:
+
+1. The cells under the brush get the terrain's base tile, or are cleared when erasing.
+2. Those cells and all their neighbors are worked out again. A cell that belongs to a terrain gets the tile its terrain's rules choose, even when it belongs to another terrain than the one you paint.
+3. Neighbors that belong to no terrain keep their tiles.
+
+A whole stroke is one undo step. The Terrain tool paints on the selected tile layer, so you can keep terrains on separate layers: water and land below, forests on a layer above.
+
+:::note[Changing rules later]
+Painted cells keep their tiles when you edit or remove a terrain. Only cells you paint, erase or paint next to afterwards use the new rules. Paint over an area again to bring it up to date.
+:::
+
+The Fill tool can match by terrain too: with **Match** set to **Terrain**, a fill treats every tile of a terrain as the same. See [Painting tools](./painting.mdx#fill).
+
+## Tips for transition tiles
+
+- Draw each transition once, facing one direction, and let **Match all rotations** turn it. That only works when the art has no fixed light direction or shadows that would look wrong turned.
+- Give the interior two or three variants with weights, so large areas do not look tiled.
+- Keep a fallback rule such as `-*****` near the bottom, so unusual combinations still get an edge tile instead of the base tile.
+- On rectangular side-view maps, rotations rarely suit the art: write separate rules for top edges, side edges and corners.
+
+## Related
+
+- [Tilesets](./tilesets.mdx)
+- [Painting tools](./painting.mdx)
+- [Hexy maps](/developers/file-formats/hexy-maps)

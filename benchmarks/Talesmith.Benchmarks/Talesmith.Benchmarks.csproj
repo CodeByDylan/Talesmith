@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsBenchmarkProject>true</IsBenchmarkProject>
+    <IsPackable>false</IsPackable>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Talesmith.Runtime\Talesmith.Runtime.csproj" />
+    <ProjectReference Include="..\..\src\Talesmith.VFX\Talesmith.VFX.csproj" />
+    <ProjectReference Include="..\..\src\Talesmith.Physics\Talesmith.Physics.csproj" />
+    <ProjectReference Include="..\..\src\Talesmith.Lighting\Talesmith.Lighting.csproj" />
+    <ProjectReference Include="..\..\src\Talesmith.Assets.Hexy\Talesmith.Assets.Hexy.csproj" />
+    <ProjectReference Include="..\..\src\Talesmith.Rendering.Skia\Talesmith.Rendering.Skia.csproj" />
+    <ProjectReference Include="..\..\src\Talesmith.Rendering.Vulkan\Talesmith.Rendering.Vulkan.csproj" />
+  </ItemGroup>
+</Project>

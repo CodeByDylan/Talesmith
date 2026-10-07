@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Compiles the engine's GLSL shaders (src/**/Shaders/*.vert and *.frag) to SPIR-V files next to them.</Description>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Vortice.ShaderCompiler" />
+  </ItemGroup>
+</Project>

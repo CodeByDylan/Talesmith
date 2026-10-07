@@ -1,0 +1,109 @@
+---
+title: "Tilesets"
+description: "Import tile sheets as tilesets, slice them into tiles, choose tiles from the palette and give tiles names, properties, animations and collision shapes."
+---
+
+A tileset turns an image into the tiles you paint with: the import dialog slices the image into a grid of tiles, and the palette in the Tile Map panel shows them to choose from. Tilesets can also be flat colors, for blocking out a map before you have artwork. This page covers importing a tile sheet, the palette, color tilesets, tile properties, animations and collision shapes, and preparing hex tiles with Hexy Forge.
+
+## Import a tile sheet
+
+<Steps>
+
+1. Start editing a map: select its entity, or pick it in the Tile Map panel.
+2. Click **Import tileset image** next to **Tilesets** in the Tile Map panel, or choose **Assets › Import tileset…**.
+3. Choose the **Image**: pick one of the project's images from the list, or click **Browse** for a PNG, JPEG, WebP or BMP file anywhere on disk.
+4. Check the **Name**. It starts as the file's name.
+5. Set the **Slicing** until the grid in the preview lines up with your tiles.
+6. Click **Import tileset**.
+
+</Steps>
+
+<Screenshot name="guide/tileset-import" caption="Slicing a sheet of hex tiles. The grid overlay shows each tile the slicing finds." />
+
+| Setting | Meaning |
+| --- | --- |
+| **Tile width**, **Tile height** | The size of one tile in pixels. They start as the map's cell size. |
+| **Margin** | Empty pixels around the edge of the image |
+| **Spacing** | Empty pixels between tiles |
+
+The summary under the fields reads, for example, *4 columns × 3 rows = 12 tiles*. Tiles may be larger than the map's cells: they are anchored at the bottom center of their cell, so a tree or mountain taller than the cell overlaps the row above, as in Hexy.
+
+The new tileset is added to the map and selected in the palette. Adding it is one undo step. When you save the map, the image is stored inside the `.hexy` file with the map, so the map keeps working if the original file moves. Editing the original image afterwards does not change the map's copy; import the image again as a new tileset to use the new artwork.
+
+### Prepare hex tiles with Hexy Forge
+
+Hexy Forge, Hexy's image preparation suite, cuts textures into hexagon tiles and packs them into tile sheets. Its Tile Sheet workspace shows a **Hexy import settings** card with the values the sheet needs:
+
+<Steps>
+
+1. In Hexy Forge, pack your tiles into a sheet and export it as a PNG into the project's `assets` folder.
+2. Click the copy button on the **Hexy import settings** card.
+3. In Talesmith's import dialog, choose the sheet and click **Paste settings** in the **Made with Hexy Forge?** box.
+
+</Steps>
+
+The editor fills in the tile size, margin and spacing from the pasted text and checks the image against it: *Matches the Hexy Forge sheet: 4 columns*, or a warning when the image does not match.
+
+## The palette
+
+The **Tiles** tab of the Tile Map panel shows the tiles of the tileset chosen in the picker above it. The picker lists every tileset of the map with its tile count and size, such as *Island terrain · 12 tiles · 128×148*.
+
+| Do | How |
+| --- | --- |
+| Paint with a tile | Click it. The **Brush** becomes active, unless the active tool already paints tiles, such as Fill or Rectangle. |
+| Paint with a random mix | <Keys>Ctrl</Keys>+click several tiles. The **Random Brush** becomes active and picks among them by weight. |
+| Make a stamp from part of the sheet | Drag a rectangle over the tiles of an image tileset. The **Stamp** tool becomes active with those tiles in their arrangement. |
+| Edit a tile | Double-click it. See [Tile properties](#tile-properties). |
+| Make the tiles bigger or smaller | The slider next to the search box |
+| Find tiles | Type in **Filter by name, id or property** |
+
+The filter matches a tile's id (`12` or `#12`), its name, or the name or value of one of its properties. Several words must all match, so `water deep` finds the tiles whose name or properties contain both. Hover a tile to see its name, id, whether it is animated or has collision shapes, and its properties.
+
+The **⋯** menu next to **Tilesets** has **Tile properties…** for the selected tile, **Add color tile** and **Remove tileset**. Removing a tileset also removes every tile painted with it and the terrains built from it, after asking; you can undo it.
+
+## Color tilesets
+
+Click **New color tileset** (the **+** next to **Tilesets**) to add a tileset of flat colors, sized to the map's cells. It starts with one color; **⋯ › Add color tile** adds more, and double-clicking a color tile lets you change its color. Maps made with **GameObject › New tile map…** can start with a 16-color terrain palette: deep water, water, shallows, sand, grass, meadow, forest, jungle, hills, mountain, peak, snow, desert, swamp, lava and road.
+
+Color tiles are useful for blocking out a level, for collision layers you do not want to draw, and for maps where the tiles are data rather than pictures.
+
+## Tile properties
+
+Double-click a tile in the palette to open **Tile properties**.
+
+<Screenshot name="guide/tile-properties" caption="A plank tile with a oneWay property and a collision shape covering only the plank." />
+
+| Field | What it does |
+| --- | --- |
+| **Name** | A name for the tile, shown in tooltips and the tool options bar, and searchable in the palette |
+| **Color** | With **Use a color** ticked, color tiles are drawn in this color. Image tiles fall back to it when their artwork is missing. |
+| **Custom properties** | Named values your game reads, such as `solid`, `oneWay` or `damage`. Click **+**, type a name and choose the type: String, Int, Float, Bool, Color or File. |
+| **Animation** | Frames the tile cycles through |
+| **Collision** | Shapes that replace the full cell on collision layers |
+
+Click **Save tile** to apply the changes as one undo step.
+
+### Animated tiles
+
+Choose **Animation**, then click tiles in the strip below to add them as frames. Each frame has a duration in milliseconds; a new frame copies the duration of the last one, or 120 ms for the first. The preview plays the animation. Animated tiles play in the editor's Preview and in the game, for water, torches and flags.
+
+### Collision shapes
+
+On a [collision layer](./collision-and-objects.mdx), a tile without shapes makes its whole cell solid. Draw shapes to make only part of it solid, such as a slope, a thin plank or the trunk of a tree:
+
+- Click to add points; double-click or press <Keys>Enter</Keys> to finish a shape.
+- Drag a point to move it, right-click it to remove it.
+- Points snap to whole pixels; hold <Keys>Ctrl</Keys> to snap to the cell's corners and the middles of its edges.
+- **Whole cell** adds a shape covering the cell; **Clear** removes all shapes.
+
+The shapes turn and flip with the tile when you paint it rotated. In the `.hexy` file they are stored as the tile property `collision`, which Hexy keeps unchanged.
+
+## Properties of the map
+
+The **Properties** tab of the Tile Map panel edits properties of the map itself: a **Background color** and custom properties, such as a level's name or music. When an object is selected with the Objects tool, the tab also shows the object; see [Collision and map objects](./collision-and-objects.mdx).
+
+## Related
+
+- [Painting tools](./painting.mdx)
+- [Terrains and auto-tiling](./terrains.mdx)
+- [Tile maps from scripts](/scripting/scripts/tile-maps), for reading tile properties in your game.

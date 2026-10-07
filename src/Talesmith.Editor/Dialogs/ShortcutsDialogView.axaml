@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Dialogs"
+             x:Class="Talesmith.Editor.Dialogs.ShortcutsDialogView"
+             x:DataType="vm:ShortcutsDialogViewModel">
+  <ui:Dialog Header="Keyboard shortcuts" Width="760" Height="620" Padding="0">
+    <DockPanel>
+      <Border DockPanel.Dock="Top" Padding="20,4,20,12">
+        <TextBox Name="SearchBox" Text="{Binding Query}" PlaceholderText="Search shortcuts">
+          <TextBox.InnerLeftContent>
+            <ui:SymbolIcon Data="{x:Static ui:Icons.Search}" Size="14" Margin="10,0,0,0" Foreground="{DynamicResource TextMutedBrush}" />
+          </TextBox.InnerLeftContent>
+        </TextBox>
+      </Border>
+      <Border DockPanel.Dock="Top" Classes="divider-h" Margin="0" />
+      <Panel>
+        <ScrollViewer Padding="20,8,20,20">
+          <ItemsControl ItemsSource="{Binding Groups}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <UniformGrid Columns="2" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ShortcutGroup">
+                <StackPanel Margin="0,8,16,8" Spacing="2" VerticalAlignment="Top">
+                  <TextBlock Classes="section" Text="{Binding Category}" Margin="0,0,0,6" />
+                  <ItemsControl ItemsSource="{Binding Entries}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:ShortcutEntry">
+                        <Grid ColumnDefinitions="*,Auto" MinHeight="28">
+                          <TextBlock Text="{Binding Title}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}" />
+                          <ui:ShortcutBadge Grid.Column="1" Text="{Binding Keys}" VerticalAlignment="Center" />
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+        <TextBlock Classes="muted" Text="No matching shortcuts" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasResults}" />
+      </Panel>
+    </DockPanel>
+    <ui:Dialog.Footer>
+      <Button Classes="accent" Content="Close" MinWidth="84" IsDefault="True" Command="{Binding CloseCommand}" />
+    </ui:Dialog.Footer>
+  </ui:Dialog>
+</UserControl>

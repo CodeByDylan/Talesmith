@@ -1,0 +1,293 @@
+---
+title: "Testing plugins"
+description: "Unit test systems and importers, and run a game headlessly in tests."
+---
+
+Plugin code is ordinary .NET code, so it is tested with an ordinary test project. This page covers setting up the test project, testing a system against a world, running a whole game headlessly for a number of frames with simulated input, testing importers against files, checking that the plugin loads from its folder, and how the repository tests its Isle Hopper sample.
+
+## Set up a test project
+
+Put the tests next to the plugin, in `plugins-src/Spinners.Tests`. Unlike the plugin, the tests run the engine themselves, so they reference the engine assemblies normally, without `Private="false"`, and the libraries the engine needs at run time:
+
+```xml title="plugins-src/Spinners.Tests/Spinners.Tests.csproj"
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OutputType>Exe</OutputType>
+    <IsTestProject>true</IsTestProject>
+    <ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <TalesmithDir>/home/you/Talesmith/src/Talesmith.App/bin/Debug/net10.0/</TalesmithDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageReference Include="xunit.v3" Version="4.0.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="$(TalesmithDir)Talesmith.*.dll;$(TalesmithDir)Microsoft.Extensions.*.dll" />
+    <ProjectReference Include="../Spinners/Spinners.csproj" />
+  </ItemGroup>
+</Project>
+```
+
+The versions are the ones the repository uses. Run the tests with:
+
+```bash
+dotnet run --project plugins-src/Spinners.Tests
+```
+
+xUnit v3 test projects are programs: `dotnet run` builds and runs every test and prints a summary. To use `dotnet test` with the .NET 10 SDK, add a `global.json` next to the project or above it that selects the Microsoft Testing Platform, as the repository does:
+
+```json title="global.json"
+{
+  "test": {
+    "runner": "Microsoft.Testing.Platform"
+  }
+}
+```
+
+Keep the test project out of the plugin's own folder: a project inside another project's folder gets its files compiled into both.
+
+## Test a system against a world
+
+A system is a class with an `Update` method, so the quickest test calls it directly on a `World` with a `SystemContext` you make:
+
+```csharp title="plugins-src/Spinners.Tests/SpinSystemTests.cs"
+using System.Numerics;
+using Talesmith.Ecs;
+using Talesmith.Runtime.Components;
+using Talesmith.Systems;
+using Talesmith.Time;
+
+namespace Spinners.Tests;
+
+public sealed class SpinSystemTests
+{
+    [Fact]
+    public void TurnsAtItsSpeedInDegreesPerSecond()
+    {
+        var world = new World();
+        var wheel = world.Create(new Transform(Vector2.Zero), new Spinner { Speed = 90 });
+
+        Run(new SpinSystem(), world, seconds: 1);
+
+        Assert.Equal(MathF.PI / 2, world.Get<Transform>(wheel).Rotation, 0.0001f);
+    }
+
+    [Fact]
+    public void ChildrenTurnRelativeToTheirParent()
+    {
+        var world = new World();
+        var child = world.Create(new Transform(Vector2.Zero), new LocalTransform(), new Spinner { Speed = -180 });
+
+        Run(new SpinSystem(), world, seconds: 0.5f);
+
+        Assert.Equal(-MathF.PI / 2, world.Get<LocalTransform>(child).Rotation, 0.0001f);
+        Assert.Equal(0, world.Get<Transform>(child).Rotation);
+    }
+
+    private static void Run(ISystem system, World world, float seconds)
+    {
+        var commands = new CommandBuffer(world);
+        system.Update(new SystemContext(world, new GameTime(seconds, seconds, seconds, seconds, 1, 0), commands));
+        commands.Playback();
+    }
+}
+```
+
+`GameTime`'s first argument is the delta time. Playing back the `CommandBuffer` applies the structural changes the system asked for. Systems that need services take them in their constructor; pass real ones or small fakes.
+
+## Run a game headlessly
+
+To test systems together, with scenes, assets and input, build a real game without a window. `GameBuilder` builds one from an asset folder; nothing renders, and `Tick` runs one frame:
+
+```csharp title="plugins-src/Spinners.Tests/HeadlessGameTests.cs"
+using System.Numerics;
+using Microsoft.Extensions.DependencyInjection;
+using Talesmith.Plugins;
+using Talesmith.Runtime.Components;
+using Talesmith.Runtime.Hosting;
+using Talesmith.Runtime.Scenes;
+
+namespace Spinners.Tests;
+
+public sealed class HeadlessGameTests : IDisposable
+{
+    private readonly string _assets = Directory.CreateTempSubdirectory("spinners-tests").FullName;
+
+    [Fact]
+    public async Task SpinnersTurnInARunningGame()
+    {
+        var builder = GameBuilder.Create(_assets, new GameSettings { StartScene = new SceneRequest("test") });
+        new SpinnersPlugin().Configure(new TestPluginBuilder(builder.Services, new PluginInfo("coral-cove.spinners", "Spinners", new Version(1, 0, 0), _assets)));
+        builder.Services.AddScene<TestScene>("test");
+        await using var game = builder.Build();
+        game.Start();
+
+        for (var frame = 0; frame < 600 && (game.Scenes.Current is null || game.Scenes.IsLoading); frame++)
+        {
+            game.Tick(1.0 / 60);
+            await Task.Delay(1, TestContext.Current.CancellationToken);
+        }
+
+        var world = game.Scenes.Current!.World;
+        Assert.True(world.Query<Spinner>().TryGetSingle(out var wheel));
+        var start = world.Get<Transform>(wheel).Rotation;
+        for (var frame = 0; frame < 60; frame++)
+            game.Tick(1.0 / 60);
+
+        Assert.Equal(start + MathF.PI / 2, world.Get<Transform>(wheel).Rotation, 0.01f);
+    }
+
+    public void Dispose() => Directory.Delete(_assets, recursive: true);
+
+    private sealed class TestScene : Scene
+    {
+        protected override Task LoadAsync(CancellationToken cancellationToken)
+        {
+            World.Create(new Transform(Vector2.Zero), new Spinner { Speed = 90 });
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class TestPluginBuilder(IServiceCollection services, PluginInfo plugin) : IPluginBuilder
+    {
+        public IServiceCollection Services { get; } = services;
+
+        public PluginInfo Plugin { get; } = plugin;
+
+        public IPluginSettings Settings { get; } = new PluginSettings(plugin.Id);
+    }
+}
+```
+
+- `TestPluginBuilder` lets the test call the plugin's own `Configure`, so the test checks the plugin's registrations, not a copy of them. `new PluginSettings(id)` keeps settings in memory; call `Settings.Set(…)` before `Configure` to test other settings.
+- A scene built in code gives each test exactly the entities it needs. To test with a real scene file, point `GameBuilder.Create` at a game's `assets` folder and load the scene by its path, as the Isle Hopper tests below do with the sample's start scene.
+- Loading a scene is asynchronous: tick until `Scenes.Current` is set and `IsLoading` is false. The short `Task.Delay` lets loading work on other threads finish.
+- `Tick(seconds)` runs one frame with that delta time. Fixed-step systems run as many steps as the time covers.
+
+### Simulated input
+
+Input comes from `IInputSink`, the service the window normally feeds. Tell it the game has focus, then press and release keys between ticks:
+
+```csharp
+[Fact]
+public async Task HoldingShiftStopsSpinners()
+{
+    var builder = GameBuilder.Create(_assets, new GameSettings { StartScene = new SceneRequest("test") });
+    builder.Services.AddComponent<Spinner>();
+    builder.Services.AddSystem<SpinSystem>();
+    builder.Services.AddSystem<SpinBrakeSystem>();
+    builder.Services.AddScene<TestScene>("test");
+    await using var game = builder.Build();
+    game.Services.GetRequiredService<IInputSink>().FocusChanged(true);
+    game.Start();
+    for (var frame = 0; frame < 600 && (game.Scenes.Current is null || game.Scenes.IsLoading); frame++)
+    {
+        game.Tick(1.0 / 60);
+        await Task.Delay(1, TestContext.Current.CancellationToken);
+    }
+
+    var world = game.Scenes.Current!.World;
+    Assert.True(world.Query<Spinner>().TryGetSingle(out var wheel));
+    game.Services.GetRequiredService<IInputSink>().KeyDown(Key.LeftShift, KeyModifiers.Shift);
+    game.Tick(1.0 / 60);
+    game.Tick(1.0 / 60);
+
+    Assert.Equal(0, world.Get<Spinner>(wheel).Speed);
+}
+```
+
+`SpinBrakeSystem` is the example from [Systems and components](./runtime/systems-and-components.mdx#add-a-system). `IInputSink` is in `Talesmith.Input`, with `KeyDown`, `KeyUp`, `TextInput`, `MouseMove`, `MouseDown`, `MouseUp`, `MouseWheel` and `FocusChanged`.
+
+## Test an importer
+
+An importer is easiest to test through the asset manager of a headless game, with a real file in the game's asset folder:
+
+```csharp
+[Fact]
+public async Task ImportsLinesWithTheirVoice()
+{
+    Directory.CreateDirectory(Path.Combine(_assets, "dialogue"));
+    await File.WriteAllTextAsync(Path.Combine(_assets, "dialogue", "harbor.lines"), "voice: wren.ogg\n  Ahoy there!  \n\nThe ferry left at dawn.\n", TestContext.Current.CancellationToken);
+    var builder = GameBuilder.Create(_assets, new GameSettings());
+    builder.Services.AddSingleton<IAssetImporter, LinesImporter>();
+    await using var game = builder.Build();
+
+    var lines = await game.Services.GetRequiredService<IAssetManager>().LoadAsync<DialogueLines>("dialogue/harbor.lines", TestContext.Current.CancellationToken);
+
+    Assert.Equal(["Ahoy there!", "The ferry left at dawn."], lines.Lines);
+    Assert.Equal("dialogue/wren.ogg", lines.Voice);
+}
+```
+
+`LinesImporter` is the example from [Importers](./runtime/importers.mdx#import-settings). Test invalid files too: `LoadAsync` throws the importer's `AssetException`.
+
+## Test that the plugin loads
+
+A last check builds the real plugin folder and loads it the way games do, which catches a wrong `assembly` name, a missing `IPlugin` class, or a permission warning:
+
+```csharp
+[Fact]
+public void LoadsFromAPluginFolder()
+{
+    var folder = Directory.CreateDirectory(Path.Combine(_assets, "plugins", "spinners")).FullName;
+    File.Copy(typeof(SpinnersPlugin).Assembly.Location, Path.Combine(folder, "Spinners.dll"));
+    File.WriteAllText(Path.Combine(folder, "plugin.json"), """
+        { "id": "coral-cove.spinners", "assembly": "Spinners.dll", "contractVersion": 1, "permissions": [ "runtimeScene" ] }
+        """);
+
+    var report = PluginLoader.Load(new PluginLoadOptions { PluginsDirectory = Path.Combine(_assets, "plugins") }, new ServiceCollection(),
+        NullLogger.Instance);
+
+    var entry = Assert.Single(report.Loaded);
+    Assert.Equal("coral-cove.spinners", entry.Id);
+    Assert.Empty(entry.Warnings);
+}
+```
+
+`NullLogger` is in `Microsoft.Extensions.Logging.Abstractions`. The plugin loads in its own load context, so its types there are not the test's `Spinner`; check the report, not the types. To test the installed build instead, point `PluginsDirectory` at the game's `assets/plugins`.
+
+## Example: the Isle Hopper tests
+
+The repository tests the Isle Hopper sample in `tests/Talesmith.Samples.IsleHopper.Tests`. Its `IsleHopperGame` helper starts the sample's real level headlessly:
+
+```csharp title="tests/Talesmith.Samples.IsleHopper.Tests/IsleHopperGame.cs (part)"
+public static async Task<Game> StartAsync()
+{
+    var builder = GameBuilder.Create(AssetRoot());
+    new IsleHopperPlugin().Configure(new PluginBuilder(builder.Services));
+    var game = builder.Build();
+    game.Viewport.Size = new System.Numerics.Vector2(1280, 800);
+    game.Services.GetRequiredService<IInputSink>().FocusChanged(true);
+    game.Start();
+
+    var clock = Stopwatch.StartNew();
+    while (game.Scenes.Current is null || game.Scenes.IsLoading || game.Scenes.Current.World.Query<Hero>().IsEmpty)
+    {
+        if (clock.Elapsed > TimeSpan.FromSeconds(30))
+            throw new TimeoutException("The level did not load.");
+        game.Tick(1.0 / 60);
+        await Task.Delay(1, TestContext.Current.CancellationToken);
+    }
+
+    for (var i = 0; i < 30; i++)
+        game.Tick(1.0 / 60);
+    return game;
+}
+```
+
+`AssetRoot()` finds `samples/IsleHopper/assets`, so the game reads the sample's `game.json` and plays its start scene. `FrameRateTests` then hold the jump key for a second at 60, 144, 500 and 3000 frames per second and check the hero jumps to the same height every time, which is how the sample's fixed-step movement is kept honest. `SimulationThreadTests` run the same game on a simulation thread, as the player does, with input and UI on other threads: the hero jumps with input sent from another thread, the HUD snapshot shows the level, and the menu key opens the pause menu and pauses the game.
+
+The test project references the engine and the sample plugin as projects, which is the simplest setup when the tests live in the Talesmith repository.
+
+## Related
+
+- [Debugging and reloading](./debugging.mdx)
+- [Systems and components](./runtime/systems-and-components.mdx)

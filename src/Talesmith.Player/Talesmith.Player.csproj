@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Plays a Talesmith game in a window, or benchmarks it headlessly.</Description>
+    <OutputType>Exe</OutputType>
+    <!-- Exported release games run without a console window on Windows. -->
+    <OutputType Condition="'$(TalesmithWindowedPlayer)' == 'true'">WinExe</OutputType>
+    <AssemblyName>talesmith-player</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+  <!-- Exported Windows games carry their own title, version and icon, and not the engine's company or copyright; the build passes them
+       when it publishes the player. -->
+  <PropertyGroup Condition="'$(TalesmithGameTitle)' != ''">
+    <GenerateAssemblyCompanyAttribute>false</GenerateAssemblyCompanyAttribute>
+    <GenerateAssemblyCopyrightAttribute>false</GenerateAssemblyCopyrightAttribute>
+    <Product>$(TalesmithGameTitle)</Product>
+    <AssemblyTitle>$(TalesmithGameTitle)</AssemblyTitle>
+    <Version>$(TalesmithGameVersion)</Version>
+    <InformationalVersion>$(TalesmithGameInformationalVersion)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(TalesmithGameIcon)' != ''">
+    <ApplicationIcon>$(TalesmithGameIcon)</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Talesmith.Avalonia\Talesmith.Avalonia.csproj" />
+  </ItemGroup>
+  <!-- Exported Linux games start without fontconfig installed: the player ships the libSkiaSharp.so that has no system dependencies
+       and finds fonts in /usr/share/fonts itself. The one from SkiaSharp.NativeAssets.Linux, which Avalonia.Skia and Talesmith.Assets
+       bring, needs libfontconfig.so.1, so the player references that package without assets to keep it out. -->
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" ExcludeAssets="all" />
+  </ItemGroup>
+</Project>

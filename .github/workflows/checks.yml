@@ -1,0 +1,117 @@
+# Checks that the code follows .editorconfig and that generated files match their sources, on each pull request and each push to main, and
+# that each commit of a pull request follows Conventional Commits.
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  commit-messages:
+    name: Commit messages
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      # The types match the contributing guide, website/content/developers/contributing.mdx. Merge commits are left out.
+      - name: Check that each commit follows Conventional Commits
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PULL_REQUEST: ${{ github.event.pull_request.number }}
+        run: |
+          types='feat|fix|perf|refactor|test|docs|ci|chore|revert'
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PULL_REQUEST/commits" --paginate \
+            --jq '.[] | select((.parents | length) == 1) | "\(.sha[0:8]) \(.commit.message | split("\n")[0])"' > commits.txt
+          cat commits.txt
+          if grep -vE "^[0-9a-f]{8} ($types)(\([a-z0-9-]+\))?!?: [^ ]" commits.txt > wrong.txt; then
+            while IFS= read -r commit; do
+              echo "::error::Commit ${commit%% *} does not follow Conventional Commits: ${commit#* }"
+            done < wrong.txt
+            echo "Start each subject with a type and, for one part of the repository, a scope, such as 'fix(editor): keep the selection when a scene reloads'."
+            echo "Reword the commits with 'git rebase -i', or the last one with 'git commit --amend', and push again with --force-with-lease."
+            exit 1
+          fi
+
+  formatting:
+    name: Formatting
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Set up .NET from global.json
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore the NuGet cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore Talesmith.slnx
+
+      # Each finding names its file and line; `dotnet format whitespace Talesmith.slnx` fixes them.
+      - name: Whitespace
+        run: dotnet format whitespace Talesmith.slnx --verify-no-changes --no-restore
+
+      # Code style rules that .editorconfig makes warnings, such as the order of using directives; `dotnet format style Talesmith.slnx` fixes them.
+      - name: Code style
+        run: dotnet format style Talesmith.slnx --verify-no-changes --no-restore
+
+  generated-files:
+    name: Generated files
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Set up .NET from global.json
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore the NuGet cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Compile the shaders to SPIR-V
+        run: dotnet run --project tools/Talesmith.ShaderCompiler
+
+      # The same command as `npm run shortcuts` in website/.
+      - name: Export the editor shortcuts for the website
+        run: dotnet run -c Release --project tools/Talesmith.Screenshots -- --shortcuts website/src/data/shortcuts.json
+
+      - name: Compare with the committed files
+        run: |
+          changes="$(git status --porcelain)"
+          if [ -n "$changes" ]; then
+            echo "$changes"
+            git diff --stat
+            echo "::error::Generated files differ from the committed ones. Run 'dotnet run --project tools/Talesmith.ShaderCompiler' and 'npm run shortcuts' in website/, then commit the result."
+            exit 1
+          fi

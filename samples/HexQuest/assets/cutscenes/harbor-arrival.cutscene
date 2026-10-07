@@ -1,0 +1,21 @@
+{
+  // Plays the first time the hero walks into the "Harbor" trigger on the Emerald Isles map.
+  "steps": [
+    { "type": "camera", "target": "Harbor", "duration": 1.4 },
+    { "type": "say", "speaker": "Harbormaster Wren", "text": "Ahoy there! You must be the traveller the gulls have been squawking about." },
+    { "type": "say", "speaker": "Harbormaster Wren", "text": "The ferry to the mainland left at dawn. Next one sails when the tide turns." },
+    { "type": "camera", "target": "Highgarden", "duration": 1.8 },
+    { "type": "choice", "speaker": "Harbormaster Wren", "text": "Until then, Lady Elara up at Highgarden is looking for help. Will you go?",
+      "options": [
+        { "text": "Of course. Which way?", "goto": "accept" },
+        { "text": "I'd rather rest by the water.", "goto": "decline" }
+      ] },
+    { "type": "label", "name": "accept" },
+    { "type": "say", "speaker": "Harbormaster Wren", "text": "Follow the meadow north past Millbrook. You can't miss the towers." },
+    { "type": "goto", "label": "done" },
+    { "type": "label", "name": "decline" },
+    { "type": "say", "speaker": "Harbormaster Wren", "text": "Suit yourself. The offer stands while the tide's out." },
+    { "type": "label", "name": "done" },
+    { "type": "cameraBack", "duration": 1.2 }
+  ]
+}

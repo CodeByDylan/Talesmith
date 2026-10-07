@@ -1,0 +1,79 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.PlayMode"
+             x:Class="Talesmith.Editor.PlayMode.GameWindowBar"
+             x:DataType="vm:GameWindowPreview">
+  <UserControl.Styles>
+    <Style Selector="ComboBox">
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Padding" Value="8,0,4,0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ui|NumberField">
+      <Setter Property="Width" Value="72" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Classes="divider-h" Margin="0" />
+    <ui:SplitBar Margin="8,6">
+      <WrapPanel ItemSpacing="6" LineSpacing="6">
+        <ComboBox ItemsSource="{Binding Presets}" SelectedItem="{Binding Preset}" PlaceholderText="Custom" MinWidth="128"
+                  ToolTip.Tip="A common window, or the project's own">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:GameWindowPreset">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding Details}" Classes="hint" Margin="20,0,0,0" />
+              </Grid>
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+          <ComboBox.SelectionBoxItemTemplate>
+            <DataTemplate x:DataType="vm:GameWindowPreset">
+              <TextBlock Text="{Binding Name}" />
+            </DataTemplate>
+          </ComboBox.SelectionBoxItemTemplate>
+        </ComboBox>
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <ui:NumberField Value="{Binding Width}" Minimum="64" Maximum="7680" IsInteger="True" ToolTip.Tip="Width in pixels" />
+          <TextBlock Text="×" Classes="hint" />
+          <ui:NumberField Value="{Binding Height}" Minimum="64" Maximum="7680" IsInteger="True" ToolTip.Tip="Height in pixels" />
+          <Button Classes="icon small" Command="{Binding RotateCommand}" ToolTip.Tip="Rotate: swap the width and height">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.RotateCw}" Size="14" />
+          </Button>
+        </StackPanel>
+        <TextBlock Text="{Binding AspectRatio}" Classes="hint" ToolTip.Tip="Aspect ratio" />
+      </WrapPanel>
+      <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+        <ComboBox ItemsSource="{Binding DisplayScales}" SelectedItem="{Binding DisplayScale}"
+                  ToolTip.Tip="Display scale: device pixels per logical pixel, as set in display settings">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="x:Double">
+              <TextBlock Text="{Binding StringFormat={}{0:0.##}×}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <ComboBox ItemsSource="{Binding Zooms}" SelectedItem="{Binding Zoom}" ToolTip.Tip="Zoom: Fit shows the window as large as fits, up to its actual size">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:GameWindowZoom">
+              <TextBlock Text="{Binding Name}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <TextBlock Text="{Binding FittedZoomText}" Classes="hint" MinWidth="34" />
+        <Button Classes="icon small" Command="{Binding CloseCommand}" ToolTip.Tip="Fill the panel again">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.X}" Size="14" />
+        </Button>
+      </StackPanel>
+    </ui:SplitBar>
+  </DockPanel>
+</UserControl>

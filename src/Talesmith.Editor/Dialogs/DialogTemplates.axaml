@@ -1,0 +1,29 @@
+<DataTemplates xmlns="https://github.com/avaloniaui"
+               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+               xmlns:dialogs="using:Talesmith.Editor.Dialogs"
+               xmlns:palette="using:Talesmith.Editor.CommandPalette"
+               xmlns:build="using:Talesmith.Editor.Build"
+               xmlns:settings="using:Talesmith.Editor.ProjectSettings"
+               xmlns:scripting="using:Talesmith.Editor.Scripting">
+  <DataTemplate DataType="palette:CommandPaletteViewModel">
+    <palette:CommandPaletteView />
+  </DataTemplate>
+  <DataTemplate DataType="dialogs:ShortcutsDialogViewModel">
+    <dialogs:ShortcutsDialogView />
+  </DataTemplate>
+  <DataTemplate DataType="dialogs:SettingsDialogViewModel">
+    <dialogs:SettingsDialogView />
+  </DataTemplate>
+  <DataTemplate DataType="dialogs:TextInputDialogViewModel">
+    <dialogs:TextInputDialogView />
+  </DataTemplate>
+  <DataTemplate DataType="build:BuildDialogViewModel">
+    <build:BuildDialogView />
+  </DataTemplate>
+  <DataTemplate DataType="settings:ProjectSettingsViewModel">
+    <settings:ProjectSettingsView />
+  </DataTemplate>
+  <DataTemplate DataType="scripting:CreateScriptDialogViewModel">
+    <scripting:CreateScriptDialogView />
+  </DataTemplate>
+</DataTemplates>

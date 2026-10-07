@@ -1,0 +1,340 @@
+---
+title: "Scenes and prefabs"
+sidebar_label: ".tscene and .tprefab"
+description: "The JSON structure of .tscene and .tprefab files: entities, components, references and prefab overrides."
+---
+
+A scene (`.tscene`) and a prefab (`.tprefab`) are JSON documents with the same entity format. This page describes the top-level structure, entities and their hierarchy, how components and script fields are written, guid references to assets and entities, how prefab instances store overrides, and versioning. `DocumentSerializer` in `src/Talesmith.Runtime/Serialization` reads and writes both.
+
+## A scene
+
+This is the start of Lantern Grove's scene, `samples/LanternGrove/assets/scenes/grove.tscene`, with the render layers and most entities left out:
+
+```json title="samples/LanternGrove/assets/scenes/grove.tscene"
+{
+  "version": 1,
+  "id": "0a82c7e43abd07d964eab07f404fe145",
+  "environment": {
+    "clearColor": "#0B1030",
+    "ambientLight": "#3A4A8C",
+    "ambientIntensity": 0.42,
+    "gravity": [0, 980],
+    "renderLayers": [
+      {
+        "name": "Background",
+        "layer": 0,
+        "lit": true
+      }
+    ],
+    "lighting": {
+      "quality": "high",
+      "customQuality": null,
+      "litLayerLimit": 450,
+      "tileMapShadows": true,
+      "tileMapShadowLayer": 0
+    }
+  },
+  "entities": [
+    {
+      "id": "dac10e04b952ae6eb6fa055c844b8177",
+      "name": "Camera Focus",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [256, 580]
+          }
+        },
+        {
+          "type": "ScriptComponent",
+          "data": {
+            "scripts": [
+              {
+                "type": "LanternGrove.CameraRig",
+                "enabled": true,
+                "fields": {
+                  "player": "e4d082dc51aae5abb347ccb2921b3389",
+                  "lookAhead": 120,
+                  "above": 110
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "0ead067ff9297bdd8ff5d404286086c5",
+      "name": "Main Camera",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [640, 580]
+          }
+        },
+        {
+          "type": "Camera",
+          "data": {
+            "zoom": 1,
+            "target": "dac10e04b952ae6eb6fa055c844b8177",
+            "followSharpness": 5,
+            "bounds": [-32, -32, 5120, 1024]
+          }
+        },
+        {
+          "type": "AudioListener",
+          "data": {}
+        }
+      ]
+    }
+  ]
+}
+```
+
+## A prefab
+
+A prefab has the same fields as a scene except `environment`. This is Lantern Grove's lantern, shortened to four of its eight components and some of the light's fields:
+
+```json title="samples/LanternGrove/assets/prefabs/lantern.tprefab"
+{
+  "version": 1,
+  "id": "2cf62c7735fb8d62ffe82ab1b31579a3",
+  "entities": [
+    {
+      "id": "46f86477853958c9b4f9eba34b5c4ee4",
+      "name": "Lantern",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [0, 0]
+          }
+        },
+        {
+          "type": "Sprite",
+          "data": {
+            "texture": "865d9676bf964c4f8a79f0b94f246fbc",
+            "layer": 295
+          }
+        },
+        {
+          "type": "Light2D",
+          "data": {
+            "color": "#FFB25A",
+            "intensity": 1.25,
+            "radius": 260,
+            "castsShadows": true,
+            "animation": "flicker"
+          }
+        },
+        {
+          "type": "ParticleEmitter",
+          "data": {
+            "preset": "ad5bbc63877f4a29bcc88e0c66311195"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+The file in the repository also carries an `environment` object. Prefabs do not use it; the serializer keeps it as an unknown field and writes it back.
+
+## Top-level fields
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `version` | integer | 1 | The format version. Documents without one are read as version 1. |
+| `id` | guid | | The document's own id, set when the document is created. |
+| `environment` | object | | Scenes only. Background, ambient light, gravity, render layers and lighting; see below. |
+| `entities` | array | `[]` | The entities in hierarchy order: every child follows its parent. |
+
+### The environment
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `clearColor` | color or null | null | The color behind everything; null uses `clearColor` from `game.json`. |
+| `ambientLight` | color | `"#FFFFFF"` | The light color of unlit areas, used by the lighting module. |
+| `ambientIntensity` | number | 1 | The strength of the ambient light. |
+| `gravity` | vector | `[0, 980]` | World units per second squared for physics; Y points down. |
+| `renderLayers` | array | six layers | The named render layers the editor offers, in drawing order. Each has `name`, `layer` (the number sprites and maps use) and `lit` (whether lights affect it). The defaults are Background 0, Terrain 100, Decals 200, Entities 300, Effects 400 and Overlay 500, which is unlit. |
+| `lighting` | object | | Lighting quality and lit layers, written by the lighting module; see [Lighting settings](#lighting-settings). |
+
+### Lighting settings
+
+The lighting module stores its scene settings in the environment under `lighting`. Scenes without it use the defaults.
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `quality` | `low`, `medium`, `high` or `custom` | `medium` | The quality preset: light map resolution, light and shadow limits. |
+| `customQuality` | object or null | null | The limits for `custom`: `resolutionScale`, `maxLights`, `maxShadowedLights`, `shadowResolution`, `shadowSamples` and `maxShadowCasters`. Null uses the medium limits. |
+| `litLayerLimit` | integer | 500 | Render layers below this number are lit; this layer and the ones above are drawn unlit. |
+| `tileMapShadows` | boolean | true | Whether collision tile layers cast shadows. |
+| `tileMapShadowLayer` | integer | 0 | The shadow caster layer, 0 to 31, that tile map shadows are on; lights pick the layers they shadow with `shadowLayers`. |
+
+The editor's lighting presets (`.tlighting`, in `assets/lighting/`) copy these values into a scene. A preset holds `version`, `name`, `ambientColor`, `ambientIntensity` and an optional `lighting` object of the shape above:
+
+```json title="assets/lighting/night.tlighting"
+{ "version": 1, "name": "Night", "ambientColor": "#3A4A80", "ambientIntensity": 0.25, "lighting": { "quality": "high" } }
+```
+
+## Entities
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `id` | guid | | The entity's stable id within its document. Entity references and prefab overrides use it. |
+| `name` | string | `""` | The name shown in the hierarchy. |
+| `parent` | guid or null | null | The id of the parent entity, which comes earlier in the file, or null for a root. |
+| `active` | boolean | true | Inactive entities are created with an `Inactive` component, which systems that draw skip. |
+| `editor` | object | | Editor-only state the runtime ignores: `hidden` (hidden in the viewport) and `locked` (cannot be picked in the viewport). |
+| `prefab` | object or null | null | Set when the entity is an instance of a prefab; see [Prefab instances](#prefab-instances-and-overrides). |
+| `components` | array | `[]` | The components in inspector order, each `{ "type", "data" }`. |
+
+The order of entities in the file is the order of the hierarchy. Saved transforms are local: a child's `position` is relative to its parent. The runtime gives child entities `Parent` and `LocalTransform` components and computes their world `Transform`.
+
+## Components
+
+Each component is an object with a `type` and a `data` object of property values.
+
+| Field | Meaning |
+| --- | --- |
+| `type` | The component's type name. Engine components marked `[Component]` use their short name, such as `Sprite` or `Light2D`. Every other component uses its full .NET name, such as `LanternGrove.Parallax` or `MyGame.Health`, so plugins and scripts cannot collide with each other or with the engine. |
+| `data` | The component's public fields and settable properties by camelCase name. Missing properties keep the component's defaults. The editor writes every property; the samples were partly written by hand and leave defaults out. |
+
+Components whose type is not registered, for example because the plugin that defines them is switched off, are kept with their data and written back unchanged. Values that cannot be read are logged and keep their defaults; the rest of the component still loads.
+
+### Scripts
+
+Scripts attached to an entity are one component, `ScriptComponent`, with a list of scripts. Each has its class's full name, whether it is enabled, and its saved fields:
+
+```json
+{
+  "type": "ScriptComponent",
+  "data": {
+    "scripts": [
+      {
+        "type": "LanternGrove.PlayerController",
+        "enabled": true,
+        "fields": {
+          "runSpeed": 320,
+          "jumpSpeed": 860
+        }
+      }
+    ]
+  }
+}
+```
+
+Scripts whose class does not exist, for example after a rename or while the project does not compile, are kept as missing scripts and written back unchanged.
+
+## Value encoding
+
+| Value | Written as | Example |
+| --- | --- | --- |
+| Numbers, booleans, strings | JSON numbers, booleans and strings | `"intensity": 1.25` |
+| Enums | camelCase names; flags as names separated by commas | `"shape": "circle"`, `"animation": "flicker"` |
+| Vectors | `[x, y]` | `"position": [256, 672]` |
+| Rectangles | `[x, y, width, height]` | `"bounds": [-32, -32, 5120, 1024]` |
+| Colors | `"#RRGGBB"` or `"#AARRGGBB"` | `"color": "#FFB25A"` |
+| Curves and gradients | Lists of keys and stops, as in [the shared rules](./index.mdx#shared-rules) | |
+| Lists and sets | JSON arrays; sets of comparable values are sorted so files do not change needlessly | `"values": ["lantern"]` |
+| Nested objects | JSON objects of their fields | |
+| Asset references | The asset's guid, or null | `"texture": "865d9676bf964c4f8a79f0b94f246fbc"` |
+| Entity references | The id of an entity in the same document, or null | `"target": "dac10e04b952ae6eb6fa055c844b8177"` |
+| Angles | Radians, clockwise | `"rotation": 1.9477875` |
+
+Vectors, rectangles and other lists of up to four numbers are written on one line to keep files readable. Vectors are also read from `{ "x": …, "y": … }`.
+
+Asset references are loaded before the scene's entities are created, so a component never sees a missing texture or preset that exists on disk. A texture field holds the guid of the texture asset; the sprite within it is a separate field, such as the Sprite component's `sprite`. Plugins add converters for their own types with `services.AddValueConverter<T>()`.
+
+## Prefab instances and overrides
+
+An instance of a prefab is an entity with a `prefab` link. Its own `components` list holds components added to the prefab's root or replacing ones of the same type; usually that is only the `Transform`:
+
+```json title="samples/LanternGrove/assets/scenes/grove.tscene"
+{
+  "id": "b15b4b6af939a059a589cf862cfbd361",
+  "name": "Lantern 2",
+  "parent": "371c32b5f2c37b21ee0d4b546557d255",
+  "active": true,
+  "editor": {
+    "hidden": false,
+    "locked": false
+  },
+  "prefab": {
+    "asset": "b3678458367d4fcdb8d2e23cb30aab79",
+    "overrides": [],
+    "removedComponents": []
+  },
+  "components": [
+    {
+      "type": "Transform",
+      "data": {
+        "position": [1408, 422.4]
+      }
+    }
+  ]
+}
+```
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `asset` | guid | The guid of the `.tprefab` asset, from its `.meta` file. This is not the `id` inside the prefab. |
+| `overrides` | array | Property values that differ from the prefab, applied in order. |
+| `removedComponents` | array | Components of the prefab's entities that this instance does not have, each `{ "entity", "component" }`. |
+
+An override names an entity of the prefab, a component type, a property path and the value. If the second lantern in Lantern Grove had a red light, its `overrides` would read:
+
+```json
+"overrides": [
+  {
+    "entity": "46f86477853958c9b4f9eba34b5c4ee4",
+    "component": "Light2D",
+    "path": "color",
+    "value": "#FF0000"
+  }
+]
+```
+
+- `entity` is the id of the entity within the prefab file. For entities of a nested prefab, it is their id as expanded inside the enclosing prefab, so overrides reach any depth.
+- `path` is dot-separated with list items as numbers, such as `tint` or `frames.2.duration`.
+- `value` is written in the same encoding as component data.
+
+When a scene is loaded, the prefab's first root entity becomes the instance entity and takes the instance's id. Every other prefab entity gets an id derived from the instance id and its prefab id (`PrefabIds.Derive`), the same on every machine and every load, so overrides and entity references keep their targets. Entity references inside a prefab resolve to entities of the same instance first. Changing the prefab file changes every instance that did not override the changed property.
+
+## Versioning
+
+Both formats are at version 1 (`SceneDocument.CurrentVersion` and `PrefabDocument.CurrentVersion`).
+
+- Reading a document with a newer version fails with a message asking you to update Talesmith.
+- Reading an older document runs each registered `IDocumentMigration` for its kind and version in order, updating the `version` field after each step, before the document is read.
+- Unknown fields at any level (document, environment, entity, component, render layer) are kept and written back unchanged, which is how the lighting module's `lighting` object survives in projects without the lighting module.
+
+## Related
+
+- [Prefabs](/guide/scenes/prefabs) in the guide shows how to make, edit, apply and revert prefabs.
+- [Meta files](./meta-files.mdx) explains the guids that references point to.
+- [Editor architecture](../editor-architecture.mdx) explains how the editor applies edits to a scene document.

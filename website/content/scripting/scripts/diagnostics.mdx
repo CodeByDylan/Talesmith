@@ -1,0 +1,217 @@
+---
+title: "Diagnostics and analyzers"
+description: "Read compile errors and warnings in the console, understand Talesmith's game-loop analyzers TS1001 to TS1004, recover missing scripts and tell runtime exceptions from compile errors."
+---
+
+Every compilation reports its errors and warnings in the console with the file, line and column, and a double-click opens the line in your code editor. Besides the C# compiler's own messages, Talesmith runs analyzers that catch mistakes specific to game code: work that blocks the game thread, allocations and string building in code that runs every frame, and `async void`. This page explains where messages appear, lists the analyzers with an example and a fix for each, and covers missing scripts and exceptions thrown while the game runs.
+
+## Errors and warnings in the console
+
+<Screenshot name="scripting/script-errors" />
+
+When a compilation finishes, the **Console** lists its errors, warnings and info diagnostics under the **Script** source, followed by "Compiled 6 scripts in 180 ms" or "The scripts have 1 error; play mode starts once they compile". The status bar shows the count, such as **1 script error**. Click the status bar item, or run **Show script messages** from the command palette, to show the console filtered to scripts.
+
+Each message starts with the file name and position, such as `PlayerDash.cs(18,37): The name 'dashSpeed' does not exist in the current context`, with its id beside it. Select it to see the full compiler output below the list, `assets/scripts/PlayerDash.cs(18,37): error CS0103: …`, and for C# compiler messages (`CS` ids) a link to their documentation. Double-click it to open the file at that line and column in your external code editor; see [Compiling and hot reload](./hot-reload.mdx) for choosing the editor.
+
+Errors are listed after every compilation that has them. A warning or info diagnostic is listed once, when it first appears, and not again on later compilations while it stays the same, so the console does not fill with the same warnings every time you save.
+
+A compilation with errors produces no new scripts. The inspector keeps showing the fields of the last scripts that compiled, so one typo does not take your fields away, and a running play session keeps running them. Play mode does not start while the scripts have errors: pressing **Play** reports how many there are and asks you to fix them first.
+
+Warnings never block anything. They appear in the console and in the status bar ("Scripts compiled in 180 ms · 3 warnings").
+
+## Talesmith's analyzers
+
+<Screenshot name="scripting/analyzer-warnings" />
+
+The analyzers look at the code that runs every frame or every fixed step: overrides of `FixedUpdate`, `Update` and `LateUpdate` in scripts, and `Update` in classes implementing `ISystem`, including lambdas written inside them. TS1004 is the exception and applies to all script code. They run after a compilation without errors in the editor and in exports, whose build log lists them, and in the generated IDE project: Rider, Visual Studio Code and `dotnet build` show TS1001, TS1002 and TS1004 as warnings, and IDEs show TS1003 as a suggestion. Visual Studio may not load them when it builds with its .NET Framework MSBuild, because the analyzers target .NET 10.
+
+| Id | Severity | Reports | Why it matters |
+| --- | --- | --- | --- |
+| `TS1001` | Warning | Calls that block the game thread: `Thread.Sleep`, `Task.Wait`, `Task.WaitAll`, `Task.WaitAny`, `.Result` on a task, `GetAwaiter().GetResult()`, and any use of `File`, `Directory`, `FileStream`, `StreamReader` or `StreamWriter` | The game thread runs every system and script. While it waits, no frame runs, and the game freezes for as long as the call takes. |
+| `TS1002` | Warning | Allocations: `new` of a class, an array or a collection; collection expressions such as `[1, 2]` that create a reference type; and every LINQ call (`Where`, `Select`, `OrderBy`, `ToList`, `FirstOrDefault`, …) | Each allocation is garbage the collector must clean up later. Allocating every frame makes the collector run often, and each run can stall a frame. |
+| `TS1003` | Info | Strings built by concatenation with `+`, interpolation (`$"..."`), `string.Format`, `string.Concat` or `string.Join` | Every new string is an allocation, and building text every frame is usually wasted work when the text rarely changes. |
+| `TS1004` | Warning | `async void` methods and `async` lambdas that become `void` delegates, such as an `Action` | An exception in `async void` code cannot be caught or attributed to a script, so failures disappear or end up in the wrong place. |
+
+Some code is never reported:
+
+- Code inside a `throw` statement, such as `throw new InvalidOperationException($"No enemy within {Range}")`, because it does not run every frame.
+- `new` of a struct, such as `new Vector2(1, 2)` or `new SoundOptions(...)`, which does not allocate.
+- An empty array from a collection expression, `int[] none = []`, which the compiler turns into a shared empty array.
+- Concatenation of constants, such as `"a" + "b"`, which the compiler joins at compile time.
+- Code in methods that an update method calls. The analyzers read the body of the update method itself, so moving an allocation into a helper hides the warning but not the cost.
+
+### TS1001: blocking call in an update method
+
+```csharp
+protected override void Update()
+{
+    if (Input.WasPressed(Key.F5))
+        File.WriteAllText("save.txt", Position.ToString());
+}
+```
+
+`File.WriteAllText` waits for the disk while the game stands still. Start a routine and do the slow part on the thread pool:
+
+```csharp
+protected override void Update()
+{
+    if (Input.WasPressed(Key.F5))
+        Run(SaveAsync);
+}
+
+private async Task SaveAsync()
+{
+    var text = Position.ToString();
+    await Task.Run(() => File.WriteAllText("save.txt", text));
+    Log.Info("Saved");
+}
+```
+
+Read everything the background work needs, here the position, before `Task.Run`, because the world and the script API belong to the game thread. After the `await`, the routine is back on the game thread. (`File` is in `System.IO`, which scripts import with a `using` directive.)
+
+`.Result` on a task blocks in the same way. Await it in a routine instead, usually started from `OnStart`:
+
+```csharp
+private TextureAsset? _texture;
+
+protected override void OnStart() => Run(async () =>
+    _texture = await Assets.LoadAsync<TextureAsset>("sprites/hero.png", DestroyCancellationToken));
+```
+
+### TS1002: allocation in an update method
+
+```csharp
+protected override void Update()
+{
+    var nearby = new List<Entity>();
+    FindAllWithTag("enemy", nearby);
+    Closest = nearby.OrderBy(e => Vector2.Distance(GetComponent<Transform>(e).Position, Position)).FirstOrDefault();
+}
+```
+
+This reports three warnings: the list, `OrderBy` and `FirstOrDefault`. Create the list once and keep it in a field, and replace the LINQ with a loop:
+
+```csharp title="assets/scripts/Radar.cs"
+namespace MyGame;
+
+/// <summary>Keeps track of the closest enemy within range.</summary>
+public sealed class Radar : Script
+{
+    public float Range = 300;
+
+    private readonly List<Entity> _enemies = [];
+
+    public Entity Closest { get; private set; }
+
+    protected override void Update()
+    {
+        _enemies.Clear();
+        FindAllWithTag("enemy", _enemies);
+        var best = Range;
+        Closest = Entity.Null;
+        foreach (var enemy in _enemies)
+        {
+            var distance = Vector2.Distance(GetComponent<Transform>(enemy).Position, Position);
+            if (distance < best)
+            {
+                best = distance;
+                Closest = enemy;
+            }
+        }
+    }
+}
+```
+
+A field initializer such as `= []` runs once, when the script is created, so it is not reported. For short-lived buffers of structs, `Span<T> buffer = stackalloc T[16]` allocates on the stack and is free; the physics queries take spans for this reason.
+
+### TS1003: string building in an update method
+
+```csharp
+protected override void LateUpdate() => Label = $"{Time.DeltaTime * 1000:0.0} ms";
+```
+
+TS1003 is information rather than a warning: building a string once in a while is fine, but doing it 60 times per second for text that changes rarely is not. The console lists TS1003 as an info message, which the severity buttons can hide, and the status bar does not count it as a warning; exports log it at info level. Build the text only when the value behind it changes:
+
+```csharp
+private int _shownMilliseconds = -1;
+
+protected override void LateUpdate()
+{
+    var milliseconds = (int)MathF.Round(Time.DeltaTime * 1000);
+    if (milliseconds == _shownMilliseconds)
+        return;
+    _shownMilliseconds = milliseconds;
+    Label = FormatLabel(milliseconds);
+}
+
+private static string FormatLabel(int milliseconds) => $"{milliseconds} ms";
+```
+
+Log messages count too. `Log.Debug($"Speed {speed}")` in `Update` builds the string every frame even when debug messages are not shown, so log on changes or behind a condition.
+
+### TS1004: async void
+
+```csharp
+protected override void OnStart() => Greet();
+
+private async void Greet()
+{
+    await Wait(1);
+    Log.Info("Hello");
+}
+```
+
+Return `Task` and start the method with `Run`, which logs any failure against the script:
+
+```csharp
+protected override void OnStart() => Run(GreetAsync);
+
+private async Task GreetAsync()
+{
+    await Wait(1);
+    Log.Info("Hello");
+}
+```
+
+The same goes for lambdas: `Action later = async () => await NextFrame();` is `async void`, while `Run(async () => await NextFrame())` passes a `Func<Task>` and is fine. See [Waiting, routines and tweens](./waiting.mdx).
+
+### Silencing a diagnostic
+
+When a warning is deliberate, such as an allocation in a branch that runs once per level, suppress it around the line with the usual C# pragma:
+
+```csharp
+#pragma warning disable TS1002
+var spawned = new List<Entity>();
+#pragma warning restore TS1002
+```
+
+Prefer fixing the code; a suppressed warning is easy to forget when the branch later starts running every frame.
+
+## Missing scripts after a rename
+
+Scenes and prefabs save each script by its full type name, such as `MyGame.PlayerController`. Renaming the class, or changing its namespace or folder in a way that changes the namespace, leaves the saved entries pointing at a type that no longer exists. The same happens while a script's file does not compile.
+
+Talesmith never throws that data away. The entity keeps the script as a missing script: the inspector shows a **Missing script: PlayerController** section, the console logs "The script type MyGame.PlayerController on Hero is unknown, so its data is kept unchanged until the type exists again", and saving the scene writes the entry back exactly as it was read. When the type exists again, because you fixed the compile error or renamed it back, the script returns with its fields, also during play mode through hot reload.
+
+To rename a script that is already used in scenes, rename it, then replace the old type name with the new one in the `.tscene` and `.tprefab` files with a text search, or remove the missing section and add the new script again. Renaming a field has a similar effect on its saved value; see [Fields and the inspector](./fields.mdx) for keeping it.
+
+## Runtime exceptions
+
+Compile errors stop code from running at all. Exceptions are different: the code compiled, and something went wrong while it ran. Talesmith isolates them per script, so one broken script does not take the game down:
+
+| Situation | What happens |
+| --- | --- |
+| A lifecycle method, update or collision callback throws | The console logs "MyGame.Door.Update on Gate failed" with the exception and stack trace, and the game carries on with the next script |
+| A script throws three times in a row | It is disabled for the rest of the play session: "MyGame.Door on Gate failed 3 times in a row and was disabled". Its `OnDisable` runs, and enabling it again does not bring it back. A successful call in between resets the count. |
+| An event handler, tween or `Every` action throws | Logged against the script that registered it, and counted the same way |
+| A routine started with `Run` throws | "An asynchronous routine of MyGame.Door on Gate failed", with the exception |
+| A saved field cannot be read, such as text where a number is expected | "The Speed value of the script MyGame.Door could not be read and keeps its default", and the script is created anyway |
+| A script's constructor throws | "The script MyGame.Door could not be created", and the script is kept as a missing script |
+
+Stack traces point at script files and lines, because scripts are compiled with their sources embedded in the symbols. In the editor a script's messages are logged under its full type name and start with the entity's name, which is also how messages from `Log.Info`, `Log.Warning` and `Log.Error` in your own code appear. See [Console](/guide/play-and-test/console) for filtering and reading them.
+
+## Related
+
+- [Compiling and hot reload](./hot-reload.mdx): when compilation runs and how new code reaches the game
+- [Waiting, routines and tweens](./waiting.mdx): `Run` and asynchronous code without `async void`
+- [Systems](../concepts/systems.mdx): the analyzers also check `ISystem.Update`

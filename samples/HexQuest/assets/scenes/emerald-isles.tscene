@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "id": "2870d9153b364de8afcb4d6ca38d1649",
+  "environment": {
+    "clearColor": "#1B3A5C",
+    "ambientLight": "#FFFFFF",
+    "ambientIntensity": 1,
+    "gravity": [0, 980],
+    "renderLayers": [
+      {
+        "name": "Background",
+        "layer": 0,
+        "lit": true
+      },
+      {
+        "name": "Terrain",
+        "layer": 100,
+        "lit": true
+      },
+      {
+        "name": "Decals",
+        "layer": 200,
+        "lit": true
+      },
+      {
+        "name": "Entities",
+        "layer": 300,
+        "lit": true
+      },
+      {
+        "name": "Effects",
+        "layer": 400,
+        "lit": true
+      },
+      {
+        "name": "Overlay",
+        "layer": 500,
+        "lit": false
+      }
+    ]
+  },
+  "entities": [
+    {
+      "id": "f7fc533da63140559d43faaf52f63c24",
+      "name": "Main Camera",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [-512, 0]
+          }
+        },
+        {
+          "type": "Camera",
+          "data": {
+            "zoom": 0.75,
+            "bounds": [-4160, -2738, 8256, 5365]
+          }
+        }
+      ]
+    },
+    {
+      "id": "5fa5a4b6347e4e22a13d5ff4eca0fb25",
+      "name": "emerald-isles",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [0, 0]
+          }
+        },
+        {
+          "type": "TileMapRenderer",
+          "data": {
+            "map": "4df06f973ccc41c1811a21eb4f703662",
+            "renderLayer": 100
+          }
+        }
+      ]
+    }
+  ]
+}

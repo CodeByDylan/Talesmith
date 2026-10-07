@@ -1,0 +1,246 @@
+---
+title: "Particle presets"
+sidebar_label: ".tparticles"
+description: "The structure of .tparticles presets: emitter settings and modules."
+---
+
+A particle preset (`.tparticles`) is a named set of emitter settings that `ParticleEmitter` components play by guid. The same settings object is what a scene stores for an emitter with inline settings. This page shows a preset, the emitter fields, every built-in module with its fields and defaults, and how ranges, curves and gradients are written. `ParticlePresetSerializer` in `src/Talesmith.VFX/Presets` reads and writes the format.
+
+## Example
+
+Lantern Grove's campfire flames, shortened: modules that are switched off and some fields are left out.
+
+```json title="samples/LanternGrove/assets/particles/campfire.tparticles"
+{
+  "version": 1,
+  "name": "Campfire",
+  "settings": {
+    "duration": 1,
+    "looping": true,
+    "prewarm": true,
+    "playOnStart": true,
+    "simulationSpace": "World",
+    "maxParticles": 300,
+    "culling": "Automatic",
+    "emission": {
+      "enabled": true,
+      "rateOverTime": 70,
+      "rateOverDistance": 0,
+      "bursts": []
+    },
+    "shape": {
+      "enabled": true,
+      "kind": "Circle",
+      "emitFrom": "Volume",
+      "radius": 14,
+      "direction": "Fixed",
+      "angle": -1.5707964,
+      "spread": 0.17453292
+    },
+    "initial": {
+      "lifetime": { "min": 0.5, "max": 0.85 },
+      "speed": { "min": 60, "max": 110 },
+      "size": { "min": 24, "max": 40 },
+      "rotation": { "min": 0, "max": 6.2831855 },
+      "color": { "from": "#FFFFFF", "to": "#FFFFFF" }
+    },
+    "forces": {
+      "enabled": true,
+      "acceleration": [0, -200],
+      "gravityScale": 0
+    },
+    "drag": { "enabled": true, "drag": 0.5 },
+    "colorOverLifetime": {
+      "enabled": true,
+      "color": {
+        "stops": [
+          { "position": 0, "color": "#00FFE8A8" },
+          { "position": 0.06, "color": "#70FFC860" },
+          { "position": 0.5, "color": "#5AE5521A" },
+          { "position": 1, "color": "#00500C00" }
+        ]
+      }
+    },
+    "sizeOverLifetime": {
+      "enabled": true,
+      "size": {
+        "keys": [
+          { "time": 0, "value": 0.8, "outTangent": 2 },
+          { "time": 0.12, "value": 1 },
+          { "time": 1, "value": 0.2, "inTangent": -0.9, "outTangent": -0.9 }
+        ]
+      }
+    },
+    "renderer": {
+      "enabled": true,
+      "texture": null,
+      "builtInTexture": "Smoke",
+      "blend": "Additive",
+      "layer": 460,
+      "alignment": "Stretch",
+      "stretchSpeedScale": 0.004,
+      "stretchLengthScale": 0.85
+    },
+    "customModules": []
+  }
+}
+```
+
+:::note
+The sample presets were written by an earlier version of the serializer: their enum values are PascalCase (`"Circle"`), curves and gradients are wrapped in `{ "keys": [...] }` and `{ "stops": [...] }`, and vectors span several lines. The current serializer reads all of these. When you save a preset in the editor it writes camelCase enum values (`"circle"`), curves and gradients as plain lists, and vectors on one line.
+:::
+
+## Top-level fields
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `version` | integer | 1 | The format version. A newer version fails to load. |
+| `name` | string | `"Particles"` | The name shown in the preset gallery. |
+| `settings` | object | defaults | The emitter settings below. |
+
+The file must be plain JSON: unlike most Talesmith files, comments are not allowed. Missing fields keep their defaults, so presets from older versions load in newer ones.
+
+## Emitter fields
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `duration` | number | 5 | Seconds in one cycle of emission; bursts are timed within it. |
+| `looping` | boolean | true | Starts a new cycle when one ends; otherwise emission stops after one cycle. |
+| `prewarm` | boolean | false | Starts looping effects as if a full cycle had already played. |
+| `playOnStart` | boolean | true | Starts playing as soon as the emitter is simulated. |
+| `startDelay` | number | 0 | Seconds to wait after playing starts before emitting. |
+| `simulationSpeed` | number | 1 | Plays the effect faster or slower than game time. |
+| `simulationSpace` | `world` or `local` | `world` | `world` leaves particles behind when the emitter moves; `local` carries them along. |
+| `maxParticles` | integer | 1000 | The most particles this emitter keeps alive; emission pauses at the limit. |
+| `seed` | integer | 0 | Makes the effect play the same way every time; 0 picks a new seed each time it plays. |
+| `culling` | `automatic`, `alwaysSimulate` or `pauseWhenOffscreen` | `automatic` | What happens outside the camera's view. `automatic` pauses looping emitters and keeps one-shot emitters running so they finish on time. |
+| `customModules` | array | `[]` | Modules added by plugins, each `{ "type", "data" }`; see [Custom modules](#custom-modules). |
+
+## Modules
+
+Every built-in module is an object with an `enabled` flag and its own fields. Modules that are off still keep their values.
+
+### emission
+
+On by default.
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `rateOverTime` | number | 10 | Particles emitted per second. |
+| `rateOverDistance` | number | 0 | Particles emitted per world unit the emitter moves, for trails. |
+| `bursts` | array | `[]` | Bursts, each with `time` (seconds into the cycle, default 0), `count` (a range, default 10), `cycles` (default 1; 0 repeats until the cycle ends), `interval` (default 0.1 seconds) and `probability` (0 to 1, default 1). |
+
+### shape
+
+On by default.
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `kind` | `point`, `line`, `rectangle`, `circle`, `cone`, `tile` or `polygon` | `point` | The region particles are emitted from. |
+| `emitFrom` | `volume` or `edge` | `volume` | Anywhere inside the shape, or only on its outline. |
+| `radius` | number | 16 | The radius of circles, and half the width of a cone's base. |
+| `innerRadius` | number | 0 | Turns a circle into a ring. |
+| `arc` | number | 6.2831855 | The part of the circle that emits, in radians. |
+| `size` | vector | `[32, 32]` | The size of rectangles and the length of lines. |
+| `coneAngle` | number | 0.5 | The full opening angle of a cone, in radians. |
+| `tile` | `hexPointyTop`, `hexFlatTop` or `square` | `hexPointyTop` | The grid whose cell shape a tile emitter uses. |
+| `cellSize` | vector | `[64, 64]` | The cell size of tile emitters. |
+| `points` | array of vectors | `[]` | The corners of a polygon. |
+| `offset` | vector | `[0, 0]` | Moves the shape from the emitter. |
+| `rotation` | number | 0 | Turns the shape, clockwise, in radians. |
+| `direction` | `shape`, `fixed` or `random` | `fixed` | Which way particles start moving: away from the shape, along `angle`, or any direction. |
+| `angle` | number | -1.5707964 | The direction for `fixed`, in radians; the default points up. |
+| `spread` | number | 0 | Turns each particle's direction by a random amount within this angle. |
+| `randomizePosition` | number | 0 | Moves each particle's start by up to this distance. |
+
+### initial
+
+The values each particle starts with. Ranges pick a random value between `min` and `max` per particle.
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `lifetime` | range | 1 to 1.5 | Seconds each particle lives. |
+| `speed` | range | 50 to 100 | Starting speed in world units per second, along the shape's direction. |
+| `size` | range | 8 to 16 | Starting width and height in world units. |
+| `rotation` | range | 0 | Starting rotation, clockwise, in radians. |
+| `angularVelocity` | range | 0 | Rotation per second, clockwise. |
+| `color` | color range | white | Starting tint, multiplied by color over lifetime. |
+| `alignToDirection` | boolean | false | Adds the starting direction to the rotation, for sprites that point forward. |
+| `inheritVelocity` | number | 0 | How much of the emitter's own movement particles carry, 0 to 1. |
+
+### The other modules
+
+These are off by default.
+
+| Module | Fields (defaults) |
+| --- | --- |
+| `velocityOverLifetime` | `linear` (`[0, 0]`), `linearOverLifetime` (curve, 1), `orbital` (0, radians per second, positive is clockwise), `radial` (0, world units per second), `speedMultiplier` (curve, 1) |
+| `forces` | `acceleration` (`[0, 0]`, world units per second squared), `gravityScale` (1; how strongly the scene's gravity pulls, negative rises) |
+| `drag` | `drag` (1; the fraction of speed lost per second) |
+| `noise` | `strength` (60), `scale` (96, the size of the swirls in world units), `scrollSpeed` (0.3), `strengthOverLifetime` (curve, 1) |
+| `colorOverLifetime` | `color` (gradient, white; birth on the left, death on the right) |
+| `sizeOverLifetime` | `size` (curve, 1; a multiplier from birth at time 0 to death at time 1) |
+| `rotationOverLifetime` | `angularVelocity` (3.1415927, radians per second), `overLifetime` (curve, 1) |
+| `textureSheet` | `columns` (4), `rows` (4), `frameCount` (0 uses every frame), `mode` (`overLifetime` or `framesPerSecond`), `framesPerSecond` (12), `cycles` (1), `randomStartFrame` (false) |
+| `collision` | `groundPlane` (true), `groundOffset` (64), `groundAngle` (0), `worldColliders` (false; also collides with physics colliders and tiles), `layerMask` (-1, every layer), `bounce` (0.4), `friction` (0.2), `lifetimeLoss` (0), `killOnCollision` (false), `radiusScale` (0.25), `sendEvents` (false; publishes `ParticleCollision` events) |
+
+### renderer
+
+On by default.
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `texture` | guid or null | null | The image drawn for each particle; when empty, `builtInTexture` is used. |
+| `sprite` | string or null | null | A named sprite of the texture; null uses the whole image. |
+| `builtInTexture` | `softCircle`, `glow`, `disc`, `smoke`, `sparkle`, `streak` or `square` | `softCircle` | The image the engine generates when no texture is set. |
+| `blend` | `alpha`, `additive`, `multiply` or `opaque` | `alpha` | How particles combine with what is behind them. |
+| `layer` | integer | 400 | The render layer. |
+| `sortOrder` | number | 0 | Orders emitters on the same layer; higher draws in front. |
+| `sortByEmitterY` | boolean | false | Orders emitters on the same layer by their Y position. |
+| `sortMode` | `none`, `oldestInFront`, `youngestInFront` or `byY` | `none` | Which particles of this emitter are drawn in front. |
+| `alignment` | `rotation`, `velocity` or `stretch` | `rotation` | How particles are turned. |
+| `stretchSpeedScale` | number | 0.05 | Extra length per unit of speed when stretching. |
+| `stretchLengthScale` | number | 1 | The length multiplier when stretching. |
+
+## Ranges, curves and gradients
+
+| Value | Written as | Also read from |
+| --- | --- | --- |
+| Range | `{ "min": 0.5, "max": 0.85 }` | `[0.5, 0.85]`, or one number for a constant |
+| Color range | `{ "from": "#FFFFFF", "to": "#FFC860" }` | One color string for a constant |
+| Curve | `[{ "time": 0, "value": 0.8, "outTangent": 2 }, { "time": 1, "value": 0.2 }]` | `{ "keys": [...] }`, or one number for a constant |
+| Gradient | `[{ "position": 0, "color": "#00FFE8A8" }, { "position": 1, "color": "#00500C00" }]` | `{ "stops": [...] }`, or one color string for a solid gradient |
+
+Curve keys have a `time` and a `value`, both required, and optional `inTangent`, `outTangent` (0 when missing) and `interpolation` (`smooth` when missing; other values are written only when used). Curves run from time 0 (birth) to 1 (death). Gradient colors include alpha as `#AARRGGBB`, so the campfire's first stop `#00FFE8A8` is fully transparent.
+
+## Custom modules
+
+Plugins register modules with `services.AddParticleModule<T>("type-name")`. Presets save each as its type name and its public fields:
+
+```json
+"customModules": [
+  { "type": "my.wind", "data": { "strength": 40 } }
+]
+```
+
+Modules whose type is not registered, for example because their plugin is switched off, load as unknown modules and are written back unchanged.
+
+## Presets in scenes
+
+A `ParticleEmitter` component stores either a preset reference or inline settings of the same shape as `settings` above:
+
+```json
+{
+  "type": "ParticleEmitter",
+  "data": {
+    "preset": "0bc97c948d6e484b9513f621244aeccd"
+  }
+}
+```
+
+While `preset` holds a guid, the preset's settings are played and the inline `settings` are ignored.
+
+## Related
+
+- [Particles](/guide/effects/particles) in the guide covers the particle editor and its preview.
+- [Writing particle modules](/plugins/runtime/particle-modules) explains custom modules.

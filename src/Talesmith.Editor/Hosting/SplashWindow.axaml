@@ -1,0 +1,45 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="https://talesmith.dev/ui"
+        xmlns:loading="using:Talesmith.Avalonia.Loading"
+        x:Class="Talesmith.Editor.Hosting.SplashWindow"
+        Title="Talesmith"
+        Width="520" Height="300"
+        CanResize="False"
+        WindowDecorations="None"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource SurfaceBrush}">
+  <Border BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+    <Grid RowDefinitions="*,Auto">
+      <Border Grid.RowSpan="2">
+        <Border.Background>
+          <RadialGradientBrush Center="88%,0%" GradientOrigin="88%,0%" RadiusX="75%" RadiusY="110%">
+            <GradientStop Offset="0" Color="#2E6D63F2" />
+            <GradientStop Offset="1" Color="#006D63F2" />
+          </RadialGradientBrush>
+        </Border.Background>
+      </Border>
+
+      <StackPanel Orientation="Horizontal" Spacing="16" Margin="40,0" VerticalAlignment="Center">
+        <Border Width="56" Height="56" CornerRadius="14">
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+              <GradientStop Offset="0" Color="#8B8EFA" />
+              <GradientStop Offset="1" Color="#5B4FE0" />
+            </LinearGradientBrush>
+          </Border.Background>
+          <ui:SymbolIcon Data="{x:Static ui:Icons.Hammer}" Size="30" StrokeThickness="2.2" Foreground="White" />
+        </Border>
+        <StackPanel VerticalAlignment="Center" Spacing="2">
+          <TextBlock Text="Talesmith" FontSize="28" FontWeight="SemiBold" LetterSpacing="-0.5" />
+          <TextBlock x:Name="VersionText" Classes="muted" />
+        </StackPanel>
+      </StackPanel>
+
+      <StackPanel Grid.Row="1" Margin="40,0,40,32" Spacing="10">
+        <TextBlock x:Name="StatusText" Classes="caption muted" Text="Starting…" TextTrimming="CharacterEllipsis" />
+        <loading:LoadingBar Height="3" Foreground="{DynamicResource AccentBrush}" Background="{DynamicResource BorderSubtleBrush}" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>

@@ -1,0 +1,14 @@
+{
+  "actions": {
+    "Move": {
+      "kind": "vector",
+      "bindings": [
+        { "type": "vector", "up": "W", "down": "S", "left": "A", "right": "D" },
+        { "type": "vector", "up": "Up", "down": "Down", "left": "Left", "right": "Right" }
+      ]
+    },
+    "Jump": { "kind": "button", "bindings": [ { "type": "key", "key": "Space" }, { "type": "key", "key": "W" }, { "type": "key", "key": "Up" }, { "type": "key", "key": "Z" } ] },
+    "Dash": { "kind": "button", "bindings": [ { "type": "key", "key": "LeftShift" }, { "type": "key", "key": "X" } ] },
+    "Restart": { "kind": "button", "bindings": [ { "type": "key", "key": "R" } ] }
+  }
+}

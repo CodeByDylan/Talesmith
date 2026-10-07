@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Undo"
+             x:Class="Talesmith.Editor.Undo.HistoryView"
+             x:DataType="vm:HistoryPanel">
+  <UserControl.Styles>
+    <Style Selector="Button.entry">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Padding" Value="10,5" />
+    </Style>
+    <Style Selector="Button.entry.undone TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+      <Setter Property="FontStyle" Value="Italic" />
+    </Style>
+    <Style Selector="Button.entry.current">
+      <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+    </Style>
+    <Style Selector="Button.entry.current TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+  </UserControl.Styles>
+  <Grid RowDefinitions="*,Auto">
+    <ScrollViewer>
+      <ItemsControl ItemsSource="{Binding Entries}" Margin="6,6">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:HistoryEntryViewModel">
+            <Button Classes="subtle entry" Classes.undone="{Binding IsUndone}" Classes.current="{Binding IsCurrent}"
+                    Command="{Binding $parent[ItemsControl].((vm:HistoryPanel)DataContext).JumpToCommand}" CommandParameter="{Binding}">
+              <Grid ColumnDefinitions="Auto,*">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Check}" Size="12" Margin="0,0,8,0" IsVisible="{Binding IsCurrent}" Foreground="{DynamicResource AccentBrush}" />
+                <TextBlock Grid.Column="1" Text="{Binding Description}" TextTrimming="CharacterEllipsis" />
+              </Grid>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+    <Border Grid.Row="1" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,1,0,0" Padding="14,6">
+      <TextBlock Text="{Binding Summary}" Classes="caption muted" />
+    </Border>
+  </Grid>
+</UserControl>

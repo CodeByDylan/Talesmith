@@ -1,0 +1,58 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Assets.Inspectors"
+             x:Class="Talesmith.Editor.Assets.Inspectors.FontInspectorView"
+             x:DataType="vm:FontInspection">
+  <StackPanel>
+    <Border Margin="12,10,12,4" CornerRadius="8" ClipToBounds="True" Background="{DynamicResource SurfaceSunkenBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" Padding="10,8">
+      <StackPanel Spacing="6">
+        <TextBlock Text="{Binding FileFamily}" FontWeight="SemiBold" FontSize="12" />
+        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+          <Image Source="{Binding Preview}" Width="450" Stretch="Uniform" HorizontalAlignment="Left" RenderOptions.BitmapInterpolationMode="HighQuality" />
+        </ScrollViewer>
+        <TextBox Text="{Binding SampleText}" PlaceholderText="Sample text" FontSize="12" />
+      </StackPanel>
+    </Border>
+
+    <ui:PropertyGroup Header="Font" Icon="{x:Static ui:Icons.PenLine}">
+      <StackPanel Spacing="2">
+        <ui:PropertyRow Label="Family" Description="The name text components use for the font; empty uses the name in the file.">
+          <TextBox Text="{Binding FamilyName}" PlaceholderText="{Binding FileFamily}" />
+        </ui:PropertyRow>
+        <ui:PropertyRow Label="Default size">
+          <ui:NumberField Value="{Binding DefaultSize}" Minimum="1" Maximum="512" Step="1" Suffix="px" />
+        </ui:PropertyRow>
+      </StackPanel>
+    </ui:PropertyGroup>
+
+    <ui:PropertyGroup Header="Fallback fonts" Icon="{x:Static ui:Icons.Layers}">
+      <StackPanel Spacing="6">
+        <TextBlock Text="Tried in order for characters this font does not have." Classes="caption muted" TextWrapping="Wrap" />
+        <ItemsControl ItemsSource="{Binding Fallbacks}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:FontChoice">
+              <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6" Margin="0,1">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Type}" Size="13" Foreground="#A855F7" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <Button Grid.Column="2" Classes="icon small" ToolTip.Tip="Move up"
+                        Command="{Binding $parent[UserControl].((vm:FontInspection)DataContext).MoveFallbackUpCommand}" CommandParameter="{Binding}">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.ArrowUp}" Size="12" />
+                </Button>
+                <Button Grid.Column="3" Classes="icon small" ToolTip.Tip="Remove"
+                        Command="{Binding $parent[UserControl].((vm:FontInspection)DataContext).RemoveFallbackCommand}" CommandParameter="{Binding}">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.X}" Size="12" />
+                </Button>
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+          <ComboBox ItemsSource="{Binding AvailableFonts}" SelectedItem="{Binding FallbackToAdd}" PlaceholderText="Choose a font" HorizontalAlignment="Stretch" />
+          <Button Grid.Column="1" Content="Add" Command="{Binding AddFallbackCommand}" />
+        </Grid>
+      </StackPanel>
+    </ui:PropertyGroup>
+  </StackPanel>
+</UserControl>

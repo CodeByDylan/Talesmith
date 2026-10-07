@@ -1,0 +1,173 @@
+#!/bin/sh
+# Starts the Talesmith editor once the system libraries it loads are installed, and otherwise names the packages that provide them.
+# "talesmith --check" only reports.
+set -eu
+
+here=$(dirname "$(readlink -f "$0")")
+editor=
+for candidate in "$here/lib/talesmith/talesmith" "$here/../lib/talesmith/talesmith"; do
+    if [ -x "$candidate" ]; then
+        editor=$candidate
+        break
+    fi
+done
+if [ -z "$editor" ]; then
+    echo "talesmith: the editor is missing; it belongs in lib/talesmith next to this script." >&2
+    exit 1
+fi
+
+check=false
+if [ "${1:-}" = "--check" ]; then
+    check=true
+fi
+
+# Programs built for other distributions only start on NixOS through nix-ld, whose libraries this script cannot see.
+if [ -e /etc/NIXOS ]; then
+    if [ ! -e /lib64/ld-linux-x86-64.so.2 ]; then
+        echo "On NixOS, run Talesmith from its flake: nix run github:CodeByDylan/Talesmith" >&2
+        exit 1
+    fi
+    if $check; then
+        echo "On NixOS, nix-ld provides the libraries Talesmith loads; programs.nix-ld.libraries must include them."
+        exit 0
+    fi
+    exec "$editor" "$@"
+fi
+
+# A library, or alternatives separated by |; whether the editor needs it; the package that provides it with apt, dnf, pacman and
+# zypper; and, for an optional one, what happens without it.
+libraries='
+libfontconfig.so.1;required;libfontconfig1;fontconfig;fontconfig;libfontconfig1;
+libX11.so.6;required;libx11-6;libX11;libx11;libX11-6;
+libXext.so.6;required;libxext6;libXext;libxext;libXext6;
+libXi.so.6;required;libxi6;libXi;libxi;libXi6;
+libXrandr.so.2;required;libxrandr2;libXrandr;libxrandr;libXrandr2;
+libXcursor.so.1;required;libxcursor1;libXcursor;libxcursor;libXcursor1;
+libXfixes.so.3;required;libxfixes3;libXfixes;libxfixes;libXfixes3;
+libICE.so.6;required;libice6;libICE;libice;libICE6;
+libSM.so.6;required;libsm6;libSM;libsm;libSM6;
+libstdc++.so.6;required;libstdc++6;libstdc++;gcc-libs;libstdc++6;
+libgcc_s.so.1;required;libgcc-s1;libgcc;gcc-libs;libgcc_s1;
+libvulkan.so.1;optional;libvulkan1;vulkan-loader;vulkan-icd-loader;libvulkan1;games draw with Skia instead of Vulkan
+libGL.so.1;optional;libgl1;libglvnd-glx;libglvnd;libglvnd;the editor window draws in software where Vulkan is missing too
+libpulse.so.0|libpipewire-0.3.so.0|libasound.so.2;optional;libpulse0;pulseaudio-libs;libpulse;libpulse0;there is no sound
+libgtk-3.so.0;optional;libgtk-3-0;gtk3;gtk3;libgtk-3-0;file dialogs need the file chooser portal of the desktop
+'
+
+cache=
+for ldconfig in /sbin/ldconfig /usr/sbin/ldconfig /usr/bin/ldconfig; do
+    if [ -x "$ldconfig" ]; then
+        cache=$("$ldconfig" -p 2>/dev/null || true)
+        break
+    fi
+done
+
+installed() {
+    case $cache in
+        *"$1 (libc6,x86-64"*) return 0 ;;
+    esac
+    for folder in /usr/lib/x86_64-linux-gnu /lib/x86_64-linux-gnu /usr/lib64 /lib64 /usr/lib; do
+        if [ -e "$folder/$1" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+manager=
+install=
+for id in $(. /etc/os-release 2>/dev/null && echo "${ID:-} ${ID_LIKE:-}"); do
+    case $id in
+        debian | ubuntu) manager=apt install='sudo apt install' ;;
+        fedora | rhel | centos) manager=dnf install='sudo dnf install' ;;
+        arch) manager=pacman install='sudo pacman -S' ;;
+        suse | opensuse*) manager=zypper install='sudo zypper install' ;;
+        *) continue ;;
+    esac
+    break
+done
+
+report=
+required_missing=
+packages=
+notes=
+while IFS=';' read -r names need apt dnf pacman zypper effect; do
+    if [ -z "$names" ]; then
+        continue
+    fi
+    found=
+    for name in $(echo "$names" | tr '|' ' '); do
+        if installed "$name"; then
+            found=$name
+            break
+        fi
+    done
+    shown=$(echo "$names" | sed 's/|/ or /g')
+    if [ -n "$found" ]; then
+        report="$report  ok       $found
+"
+        continue
+    fi
+    case $manager in
+        apt) package=$apt ;;
+        dnf) package=$dnf ;;
+        pacman) package=$pacman ;;
+        zypper) package=$zypper ;;
+        *) package= ;;
+    esac
+    case " $packages " in
+        *" $package "*) ;;
+        *) packages="${packages:+$packages }$package" ;;
+    esac
+    if [ "$need" = required ]; then
+        required_missing="${required_missing:+$required_missing, }$shown"
+        report="$report  missing  $shown
+"
+    else
+        notes="$notes  without $shown, $effect
+"
+        report="$report  missing  $shown (optional; without it, $effect)
+"
+    fi
+done <<EOF
+$libraries
+EOF
+
+fix=
+if [ -n "$packages" ]; then
+    fix="Install what is missing with:
+  $install $packages"
+elif [ -n "$required_missing$notes" ]; then
+    fix="Install the packages that provide these libraries with your distribution's package manager."
+fi
+
+if $check; then
+    printf 'Libraries Talesmith loads:\n%s' "$report"
+    if [ -n "$fix" ]; then
+        printf '%s\n' "$fix"
+    fi
+    if [ -n "$required_missing" ]; then
+        exit 1
+    fi
+    exit 0
+fi
+
+if [ -n "$required_missing" ]; then
+    message="Talesmith cannot start, because these libraries are not installed: $required_missing.
+$fix"
+    echo "$message" >&2
+    if [ ! -t 2 ]; then
+        if command -v zenity > /dev/null 2>&1; then
+            zenity --error --title=Talesmith --text="$message" 2> /dev/null || true
+        elif command -v kdialog > /dev/null 2>&1; then
+            kdialog --title Talesmith --error "$message" 2> /dev/null || true
+        fi
+    fi
+    exit 1
+fi
+
+if [ -n "$notes" ] && [ -t 2 ]; then
+    printf 'Talesmith starts, but some optional libraries are missing:\n%s%s\n' "$notes" "$fix" >&2
+fi
+
+exec "$editor" "$@"

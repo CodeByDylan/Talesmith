@@ -1,0 +1,161 @@
+---
+title: "Plugin settings"
+description: "Give a plugin settings that users can change per project, and read them in code."
+---
+
+Each plugin has a small store of settings: JSON values by key, saved per project in `assets/config/plugins.json`. A plugin reads them with a default when it configures a game, or at any time through its settings service, and can change and save them. This page covers reading and writing settings, value types, where they are stored, how they show in the editor and when changes take effect.
+
+## Read settings in Configure
+
+`builder.Settings` is the plugin's settings. Read each value with the default to use when the project has not set it. Settings are not declared anywhere else; the defaults in code are the declaration.
+
+```csharp title="SpinnersPlugin.cs"
+using Microsoft.Extensions.DependencyInjection;
+using Talesmith.Authoring;
+using Talesmith.Plugins;
+using Talesmith.Systems;
+
+namespace Spinners;
+
+public sealed record SpinnerOptions(float SpeedScale, bool ReverseAll);
+
+public sealed class SpinnersPlugin : IPlugin
+{
+    public void Configure(IPluginBuilder builder)
+    {
+        var options = new SpinnerOptions(
+            builder.Settings.Get("speedScale", 1f),
+            builder.Settings.Get("reverseAll", false));
+        builder.Services.AddSingleton(options);
+        builder.Services.AddComponent<Spinner>();
+        builder.Services.AddSystem<ScaledSpinSystem>();
+    }
+}
+```
+
+The system receives the options through its constructor:
+
+```csharp title="ScaledSpinSystem.cs"
+using Talesmith.Runtime.Components;
+using Talesmith.Systems;
+
+namespace Spinners;
+
+public sealed class ScaledSpinSystem(SpinnerOptions options) : ISystem
+{
+    public void Update(in SystemContext context)
+    {
+        var scale = options.SpeedScale * (options.ReverseAll ? -1 : 1);
+        var radians = context.Time.DeltaTime * MathF.PI / 180 * scale;
+        foreach (var archetype in context.World.Query<Transform, Spinner>())
+        {
+            var transforms = archetype.GetSpan<Transform>();
+            var spinners = archetype.GetSpan<Spinner>();
+            for (var i = 0; i < archetype.Count; i++)
+                transforms[i].Rotation += spinners[i].Speed * radians;
+        }
+    }
+}
+```
+
+## Store settings per project
+
+The values live in the `settings` section of `assets/config/plugins.json`, one object per plugin id, with camelCase names:
+
+```json title="assets/config/plugins.json"
+{
+  "disabled": [],
+  "settings": {
+    "coral-cove.spinners": {
+      "speedScale": 1.5,
+      "reverseAll": false
+    }
+  }
+}
+```
+
+Edit the file by hand, or let code write it. Each project has its own file, so the same plugin can be set differently in two games. Exported games include the file.
+
+## Value types
+
+Values are any type `System.Text.Json` can read and write, using camelCase property names: numbers, strings, booleans, lists, and records or classes of your own.
+
+```csharp
+public sealed record Difficulty(string Name, float EnemySpeed);
+
+var difficulty = settings.Get("difficulty", new Difficulty("normal", 1));
+```
+
+```json
+"difficulty": { "name": "hard", "enemySpeed": 1.4 }
+```
+
+A missing key, or a value that cannot be read as the requested type (a string where a number is expected), returns the default. `Contains` tells whether a key is set at all, and `TryGet` whether its value can be read as the type you ask for.
+
+| Member | What it does |
+| --- | --- |
+| `Get<T>(key, fallback)` | The value, or `fallback` when it is missing or unreadable |
+| `TryGet<T>(key, out value)` | Whether the value is present and readable as `T` |
+| `Contains(key)`, `Keys` | Which keys are set |
+| `Set<T>(key, value)` | Changes a value in memory |
+| `Remove(key)` | Removes a value in memory; returns whether it was there |
+| `Save()` | Writes this plugin's settings to `plugins.json`; throws `IOException` when the file cannot be written |
+| `PluginId` | The plugin the settings belong to |
+
+`Set` and `Remove` change the settings in memory only; nothing is written until `Save`. Saving one plugin's settings keeps other plugins' unsaved changes as they are.
+
+## Use settings at run time
+
+The same settings object is registered in every game as a keyed service, under the plugin's id. Ask for it with `[FromKeyedServices]` to read the current value every time, or to save values the game produces:
+
+```csharp title="BestScore.cs"
+using Microsoft.Extensions.DependencyInjection;
+using Talesmith.Plugins;
+
+namespace Spinners;
+
+/// <summary>Remembers the best score between runs of the game.</summary>
+public sealed class BestScore([FromKeyedServices("coral-cove.spinners")] IPluginSettings settings)
+{
+    public int Value => settings.Get("bestScore", 0);
+
+    public void Offer(int score)
+    {
+        if (score <= Value)
+            return;
+        settings.Set("bestScore", score);
+        settings.Save();
+    }
+}
+```
+
+Register `BestScore` as a singleton in `Configure`. In an exported game, `Save` writes `config/plugins.json` in the game's folder.
+
+## In the editor
+
+Expand a plugin's card in the Plugins panel with **Details** to see its saved settings under **Settings**, key by key. The panel shows them; it does not edit them.
+
+<Screenshot name="plugins/plugin-details" maxWidth={440} />
+
+To change settings from the editor, give your plugin an [editor part](../editor/index.mdx) that edits them. The editor's `PluginManager` service returns the same settings object the plugin's games use:
+
+```csharp
+var settings = plugins.GetSettings("coral-cove.spinners");
+settings.Set("reverseAll", !settings.Get("reverseAll", false));
+settings.Save();
+```
+
+[Commands, menus and the toolbar](../editor/commands.mdx#settings-from-a-command) shows this as a menu command.
+
+## When changes take effect
+
+`Configure` runs every time the editor builds a game: once for the edit game when the project opens, and once for every play session. A value read in `Configure` therefore applies the next time you press **Play**, and in the scene viewport after the project reloads. Code that reads the keyed settings service sees a change at once, in every running game, because they all share the one object.
+
+## Settings in tests
+
+`new PluginSettings("coral-cove.spinners")` makes settings that live only in memory; `Save` does nothing. Use it when you configure a plugin yourself, as in [Testing plugins](../testing.mdx).
+
+## Related
+
+- [Installing and managing plugins](../installing.mdx#pluginsjson)
+- [Services](../runtime/services.mdx)

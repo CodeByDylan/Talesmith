@@ -1,0 +1,261 @@
+---
+title: "Tile maps from scripts"
+description: "Find a scene's tile map, convert between world and cell positions, read and change tiles, read map, tile and object properties, and use the grid helpers."
+---
+
+Scripts can read and change the tile maps in a scene: find the map, turn a world position into a cell and back, read or replace the tile in a cell, and read the custom properties authored on maps, tiles and objects. This page covers the `ScriptTileMap` API, map objects, and the grid helpers in `Talesmith.Grids` for neighbors, distances and pathfinding.
+
+## Dig the tile under the mouse
+
+```csharp title="assets/scripts/Digger.cs"
+using Talesmith.Assets.Maps;
+
+namespace MyGame;
+
+/// <summary>Removes the tile under the mouse from one layer when the player clicks within reach.</summary>
+public sealed class Digger : Script
+{
+    [Tooltip("The tile layer the player can dig.")]
+    public string Layer = "Ground";
+
+    [Range(0, 500)]
+    [Tooltip("How far from the player, in world units, digging reaches.")]
+    public float Reach = 160;
+
+    private ScriptTileMap _map;
+    private bool _hasMap;
+
+    protected override void OnStart() => _hasMap = TryFindTileMap(out _map);
+
+    protected override void Update()
+    {
+        if (!_hasMap || !Input.WasPressed(MouseButton.Left))
+            return;
+        var target = Input.MouseWorldPosition;
+        if (Vector2.Distance(target, Position) > Reach)
+            return;
+        var cell = _map.WorldToCell(target);
+        if (_map.GetCell(Layer, cell).IsEmpty)
+            return;
+        _map.SetCell(Layer, cell, TileCell.Empty);
+        Audio.Play("audio/dig.wav");
+    }
+}
+```
+
+Put the script on the player. It finds the level's map once, in `OnStart`, and keeps it, because looking the map up searches the world. When the dug layer has the collision role, the hole is open for physics on the next step: changed chunks rebuild their collision, their drawing and their shadows on the next frame, and only those chunks.
+
+## Find a map
+
+A map in a scene is an entity with a **Tile Map Renderer**, which shows the map through a `TileMapComponent`. Three methods give you a `ScriptTileMap` for it:
+
+| Method | |
+| --- | --- |
+| `GetTileMap()` | The map shown by the script's own entity; throws when it shows none |
+| `GetTileMap(entity)`, `TryGetTileMap(entity, out map)` | The map shown by another entity, such as one kept in an `Entity` field or found with `Find("Level")` |
+| `TryFindTileMap(out map)` | The first map in the scene, for scenes with one level map |
+
+`ScriptTileMap` is a small struct; store it in a field. Its `Map` property is the `TileMap` itself, with its layers, tilesets, objects and properties (in `Talesmith.Assets.Maps`), and `Entity` is the entity showing it.
+
+## World positions and cells
+
+Cells are addressed by `GridCoord`, a pair of integers in `Talesmith.Grids`. On square grids they are column and row; on hex grids they are axial coordinates.
+
+| Member | |
+| --- | --- |
+| `WorldToCell(position)` | The cell containing a world position |
+| `CellToWorld(cell)` | The world position of a cell's center |
+| `Origin` | The world position of cell (0, 0), which is where the map entity is placed |
+
+Both conversions account for where the map entity is placed, so they stay correct when a level is moved or several maps are stacked. Combine them to snap something to the grid:
+
+```csharp
+var cell = map.WorldToCell(Input.MouseWorldPosition);
+Position = map.CellToWorld(cell);
+```
+
+Use `Input.MouseWorldPosition`, not `MousePosition`, which is in device pixels of the game view.
+
+## Read and change tiles
+
+| Member | |
+| --- | --- |
+| `GetCell(layer, cell)` | The tile in a cell of the named layer, or `TileCell.Empty` |
+| `SetCell(layer, cell, tile)` | Replaces the tile; `TileCell.Empty` clears the cell |
+| `TopTileAt(cell)` | The topmost non-empty tile of the cell across all visible tile layers |
+| `Layer(name)` | The `TileLayer` itself; throws `ArgumentException` when the map has no tile layer of that name |
+
+Layer names are the ones in the map's **Layers** list, matched exactly, including case.
+
+A `TileCell` packs a tileset id, a tile id and an orientation into 32 bits. Create one with `new TileCell(tilesetId, tileId, rotation, flipX)`; read `TilesetId`, `TileId`, `Rotation` and `FlipX`, and `IsEmpty`.
+
+```csharp title="assets/scripts/Builder.cs"
+using Talesmith.Assets.Maps;
+
+namespace MyGame;
+
+/// <summary>Places a tile in the empty cell under the mouse on right click.</summary>
+public sealed class Builder : Script
+{
+    public Entity Level;
+
+    public string Layer = "Ground";
+
+    public int Tileset = 1;
+
+    public int Tile;
+
+    protected override void Update()
+    {
+        if (!Input.WasPressed(MouseButton.Right) || !TryGetTileMap(Level, out var map))
+            return;
+        var cell = map.WorldToCell(Input.MouseWorldPosition);
+        if (map.GetCell(Layer, cell).IsEmpty)
+            map.SetCell(Layer, cell, new TileCell(Tileset, Tile));
+    }
+}
+```
+
+`SetCell` changes the map in memory while the game runs. It never writes the `.hexy` file.
+
+## Read properties
+
+Maps, layers, tiles and objects carry the custom properties authored for them in the map editor, as a `PropertySet`. Read them with typed getters that take a fallback: `GetString`, `GetInt`, `GetFloat`, `GetBool` and `GetColor`.
+
+```csharp title="assets/scripts/TerrainReader.cs"
+namespace MyGame;
+
+/// <summary>Reads how fast the ground under a position is, from the "speed" property of its tile.</summary>
+public sealed class TerrainReader : Script
+{
+    private ScriptTileMap _map;
+
+    protected override void OnStart() => _map = GetTileMap(Find("Level"));
+
+    public float SpeedFactorAt(Vector2 position)
+    {
+        var tile = _map.TopTileAt(_map.WorldToCell(position));
+        if (tile.IsEmpty)
+            return 1;
+        var info = _map.Map.FindTileset(tile.TilesetId)?.Find(tile.TileId);
+        return info?.Properties.GetFloat("speed", 1) ?? 1;
+    }
+
+    public string LevelName => _map.Map.Properties.GetString("title") ?? "Untitled";
+}
+```
+
+| Properties of | Where |
+| --- | --- |
+| The map | `map.Map.Properties` |
+| A layer | `map.Layer("Ground").Properties`, or any layer from `map.Map.Layers` |
+| A tile | `map.Map.FindTileset(tile.TilesetId)?.Find(tile.TileId)?.Properties`; the tile's `TileInfo` also has its `Name` |
+| A map object | `MapObjectComponent.Object.Properties`, below |
+
+Tile properties belong to the tileset, so every cell showing that tile shares them. Use them for rules such as "blocked", "water" or a movement cost, as the [hex movement recipe](../recipes/hex-movement.mdx) does.
+
+## Map objects
+
+When a scene shows a map, every object on the map's object layers becomes a child entity of the map entity, with a `Transform` at the object's position, a `Name` and a `MapObjectComponent`. Polygons also get a trigger area, and image objects a sprite. These entities are created from the map when the scene plays, so they are not in the scene file and you cannot attach scripts to them in the editor. Find them from code instead, and give them behavior with `AddScript`:
+
+```csharp title="assets/scripts/ChestPlacer.cs"
+namespace MyGame;
+
+/// <summary>Turns every map object of type "chest" into a chest, using the properties the level designer set on it.</summary>
+public sealed class ChestPlacer : Script
+{
+    private readonly List<Entity> _chests = [];
+
+    protected override void OnStart()
+    {
+        foreach (var archetype in World.Query<MapObjectComponent>())
+        {
+            var objects = archetype.GetSpan<MapObjectComponent>();
+            for (var i = 0; i < objects.Length; i++)
+            {
+                if (objects[i].Object.Type == "chest")
+                    _chests.Add(archetype.Entities[i]);
+            }
+        }
+
+        foreach (var entity in _chests)
+            AddScript<Chest>(entity);
+    }
+}
+
+public sealed class Chest : Script
+{
+    public int Gold { get; private set; }
+
+    public bool Locked { get; private set; }
+
+    protected override void OnStart()
+    {
+        var placed = GetComponent<MapObjectComponent>();
+        Gold = placed.Object.Properties.GetInt("gold", 10);
+        Locked = placed.Object.Properties.GetBool("locked");
+    }
+}
+```
+
+The placer collects the entities first and adds the scripts after the query, because adding a script component to an entity changes the world's layout, which is not allowed while a query is iterating. Put `ChestPlacer` on any entity of the scene, such as the map.
+
+`MapObjectComponent` holds the `Object` (its `Id`, `Name`, `Type`, `Shape`, `Position`, `Cell`, `Polygon` and `Properties`), the object `Layer` and the `Map` entity. Use the entity's `Transform` for the object's position in the world; `Object.Position` is relative to the map. The [spawners recipe](../recipes/spawners.mdx) uses map objects as spawn points.
+
+## Grid helpers
+
+The map's grid is `map.Map.Layout`, an `IGridLayout` from `Talesmith.Grids`, and works the same on hex and square grids:
+
+| Member | |
+| --- | --- |
+| `NeighborOffsets` | The offsets from a cell to the cells that share an edge: six on hex grids, four on square grids |
+| `Distance(a, b)` | Steps between two cells moving from neighbor to neighbor |
+| `Topology.Range(center, radius, output)` | Every cell within `radius` steps: a hexagon on hex grids |
+| `Topology.Ring(center, radius, output)` | The cells exactly `radius` steps away |
+| `Topology.Line(start, end, output)` | The cells on a straight line, in order |
+| `CellSize`, `Kind` | The size of a cell in world units, and the grid kind |
+
+`GridPathfinder` finds shortest paths with A*. Give it the layout once and a cost function per search: the cost of entering a cell, or `float.PositiveInfinity` for cells that cannot be entered.
+
+```csharp title="assets/scripts/PathPlanner.cs"
+using Talesmith.Grids;
+
+namespace MyGame;
+
+/// <summary>Plans paths through the cells of the Walls layer that are empty.</summary>
+public sealed class PathPlanner : Script
+{
+    public string WallLayer = "Walls";
+
+    private readonly List<GridCoord> _path = [];
+    private GridPathfinder? _pathfinder;
+    private ScriptTileMap _map;
+
+    public IReadOnlyList<GridCoord> Path => _path;
+
+    protected override void OnStart()
+    {
+        if (TryFindTileMap(out _map))
+            _pathfinder = new GridPathfinder(_map.Map.Layout);
+    }
+
+    public bool PlanTo(Vector2 target)
+    {
+        if (_pathfinder is null)
+            return false;
+        var from = _map.WorldToCell(Position);
+        var to = _map.WorldToCell(target);
+        return _pathfinder.TryFindPath(from, to, CostOf, _path, maxVisited: 4000);
+    }
+
+    private float CostOf(GridCoord cell) => _map.GetCell(WallLayer, cell).IsEmpty ? 1 : float.PositiveInfinity;
+}
+```
+
+The path includes both the start and the goal cell. `TryFindPath` returns false, with an empty path, when the goal is blocked or cannot be reached within `maxVisited` cells, which bounds the cost of searching for a goal that is walled in. The pathfinder reuses its buffers, so keep one per script rather than creating one per search.
+
+## Related
+
+- [Top-down movement on hex grids](../recipes/hex-movement.mdx): neighbors, clicking and pathfinding together
+- [Collision and objects](/guide/tile-maps/collision-and-objects): collision layers and object layers in the editor
+- [Layers](/guide/tile-maps/layers): layer roles and names

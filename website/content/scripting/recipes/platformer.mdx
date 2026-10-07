@@ -1,0 +1,281 @@
+---
+title: "Platformer controller"
+description: "A complete run and jump controller with coyote time, jump buffering, variable jump height, a dash and animations by state."
+---
+
+A recipe for a side-scrolling player built on the character controller. The script is the one that runs Lantern Grove's hero: it accelerates instead of snapping to speed, forgives late and early jump presses, jumps higher while the button is held, dashes once per jump and returns to safe ground after a fall. Start from the platformer template or Lantern Grove and add it to the player.
+
+<Screenshot name="scripting/lantern-grove-play" caption="The controller running in Lantern Grove." />
+
+## The script
+
+```csharp title="assets/scripts/PlayerController.cs"
+using Talesmith.Runtime.Scenes;
+
+namespace LanternGrove;
+
+/// <summary>Runs with Move, jumps with Jump (higher while held), dashes with Dash and returns to safe ground after a fall.</summary>
+public sealed class PlayerController : Script
+{
+    [Header("Running")]
+    [Range(0, 800)]
+    public float RunSpeed = 320;
+
+    [Range(0, 10000)]
+    [Tooltip("How quickly the player reaches running speed on the ground, in units per second squared.")]
+    public float Acceleration = 2800;
+
+    [Range(0, 10000)]
+    public float AirAcceleration = 1600;
+
+    [Header("Jumping")]
+    [Range(0, 2000)]
+    public float JumpSpeed = 860;
+
+    [Range(0, 6000)]
+    public float Gravity = 2300;
+
+    [Range(1, 4)]
+    [Tooltip("Gravity is multiplied by this while falling or once the jump button is released, for snappier jumps.")]
+    public float FallGravityScale = 1.6f;
+
+    [Range(0, 3000)]
+    public float MaxFallSpeed = 1150;
+
+    [Range(0, 0.5)]
+    [Tooltip("Seconds after walking off a ledge during which a jump still works.")]
+    public float CoyoteTime = 0.1f;
+
+    [Range(0, 0.5)]
+    [Tooltip("Seconds a jump pressed just before landing is remembered.")]
+    public float JumpBuffer = 0.12f;
+
+    [Header("Dash")]
+    [Range(0, 2000)]
+    public float DashSpeed = 820;
+
+    [Range(0, 1)]
+    public float DashTime = 0.16f;
+
+    [Range(0, 3)]
+    public float DashCooldown = 0.45f;
+
+    [Header("Falling")]
+    [Tooltip("Below this height the player returns to the last ground it stood on.")]
+    public float FallLimit = 832;
+
+    private Vector2 _velocity;
+    private Vector2 _safeGround;
+    private float _coyote;
+    private float _buffer;
+    private float _dashLeft;
+    private float _dashWait;
+    private bool _dashQueued;
+    private bool _airDashUsed;
+    private bool _jumpHeld;
+
+    /// <summary>1 when facing right, -1 when facing left.</summary>
+    public int Facing { get; private set; } = 1;
+
+    public bool IsGrounded { get; private set; }
+
+    public Vector2 Velocity => _velocity;
+
+    protected override void OnStart() => _safeGround = Position;
+
+    protected override void Update()
+    {
+        if (Input.WasPressed("Jump"))
+            _buffer = JumpBuffer;
+        if (Input.WasPressed("Dash"))
+            _dashQueued = true;
+        _jumpHeld = Input.IsDown("Jump");
+        if (Input.WasPressed("Restart"))
+            _ = Scenes.ReloadAsync(SceneTransition.Default);
+
+        ref var sprite = ref GetComponent<Sprite>();
+        sprite.FlipX = Facing < 0;
+        ref var animator = ref GetComponent<SpriteAnimator>();
+        var animation = _dashLeft > 0 ? "run"
+            : !IsGrounded ? _velocity.Y < 0 ? "jump" : "fall"
+            : MathF.Abs(_velocity.X) > 20 ? "run" : "idle";
+        if (animator.Animation != animation)
+            animator.Animation = animation;
+    }
+
+    protected override void FixedUpdate()
+    {
+        var dt = Time.DeltaTime;
+        var move = Input.Vector("Move").X;
+        if (move != 0)
+            Facing = move > 0 ? 1 : -1;
+
+        _coyote = IsGrounded ? CoyoteTime : _coyote - dt;
+        _buffer -= dt;
+        _dashWait -= dt;
+
+        if (_dashQueued && _dashWait <= 0 && !_airDashUsed)
+        {
+            _dashLeft = DashTime;
+            _dashWait = DashCooldown;
+            _airDashUsed = !IsGrounded;
+            _velocity = new Vector2(Facing * DashSpeed, 0);
+            Audio.Play("audio/jump.wav", new SoundOptions(Volume: 0.35f, Pitch: 1.6f));
+        }
+
+        _dashQueued = false;
+        if (_dashLeft > 0)
+        {
+            _dashLeft -= dt;
+        }
+        else
+        {
+            var target = move * RunSpeed;
+            var rate = IsGrounded ? Acceleration : AirAcceleration;
+            _velocity.X = MoveTowards(_velocity.X, target, rate * dt);
+
+            var falling = _velocity.Y > 0 || !_jumpHeld;
+            _velocity.Y = MathF.Min(_velocity.Y + Gravity * (falling ? FallGravityScale : 1) * dt, MaxFallSpeed);
+            if (_buffer > 0 && _coyote > 0)
+            {
+                _velocity.Y = -JumpSpeed;
+                _buffer = 0;
+                _coyote = 0;
+                Audio.Play("audio/jump.wav", new SoundOptions(Volume: 0.5f));
+            }
+        }
+
+        var hits = Physics.MoveCharacter(Entity, _velocity * dt);
+        if ((hits & CharacterCollisions.Above) != 0 && _velocity.Y < 0)
+            _velocity.Y = 0;
+        if ((hits & CharacterCollisions.Sides) != 0)
+            _velocity.X = 0;
+
+        IsGrounded = GetComponent<CharacterController2D>().IsGrounded;
+        if (IsGrounded)
+        {
+            _velocity.Y = MathF.Min(_velocity.Y, 0);
+            _airDashUsed = false;
+            if (OnSolidGround())
+                _safeGround = Position;
+        }
+
+        if (Position.Y > FallLimit)
+            Respawn();
+    }
+
+    private void Respawn()
+    {
+        Audio.Play("audio/fall.wav", new SoundOptions(Volume: 0.5f));
+        Position = _safeGround;
+        _velocity = Vector2.Zero;
+        _dashLeft = 0;
+    }
+
+    private bool OnSolidGround()
+    {
+        var filter = QueryFilter.Default with { Ignore = Entity };
+        var feet = Position + new Vector2(0, -4);
+        return Physics.RayCast(feet + new Vector2(-24, 0), Vector2.UnitY, 16, filter, out _)
+               && Physics.RayCast(feet + new Vector2(24, 0), Vector2.UnitY, 16, filter, out _);
+    }
+
+    private static float MoveTowards(float current, float target, float maxDelta) =>
+        MathF.Abs(target - current) <= maxDelta ? target : current + MathF.Sign(target - current) * maxDelta;
+}
+```
+
+The sounds it plays are Lantern Grove's `audio/jump.wav` and `audio/fall.wav`. Use your own paths, or remove the `Audio.Play` lines.
+
+## Set up the scene
+
+<Steps>
+
+1. Add the input actions below in **Project Settings › Input**, or merge them into `assets/config/input.json`.
+2. Give the map entity a tile layer with the **Collision** role and paint the ground on it. See [Collision and objects](/guide/tile-maps/collision-and-objects).
+3. Select the player entity and add the components in the table, then add the **Player Controller** script with **Add component**.
+4. Press <Keys>Ctrl+P</Keys> and run, jump and dash. Change the fields while playing until the jump feels right, then copy the values back after you stop, since play mode changes are not saved.
+
+</Steps>
+
+```json title="assets/config/input.json"
+{
+  "actions": {
+    "Move": {
+      "kind": "vector",
+      "bindings": [
+        { "type": "vector", "up": "W", "down": "S", "left": "A", "right": "D" },
+        { "type": "vector", "up": "Up", "down": "Down", "left": "Left", "right": "Right" }
+      ]
+    },
+    "Jump": { "kind": "button", "bindings": [ { "type": "key", "key": "Space" }, { "type": "key", "key": "W" }, { "type": "key", "key": "Up" } ] },
+    "Dash": { "kind": "button", "bindings": [ { "type": "key", "key": "LeftShift" }, { "type": "key", "key": "X" } ] },
+    "Restart": { "kind": "button", "bindings": [ { "type": "key", "key": "R" } ] }
+  }
+}
+```
+
+| Component | Settings in Lantern Grove |
+| --- | --- |
+| **Transform** | Where the player starts. |
+| **Sprite** | The hero texture, sprite `hero-0`, **Layer** 310 so the player draws in front of other entities. Its origin is at the feet. |
+| **Sprite Animator** | The same texture, with animations named `idle`, `run`, `jump` and `fall` in its import settings. |
+| **Collider 2D** | **Box**, **Size** 30 × 62, **Offset** (0, -31) so the box stands on the feet, **Friction** 0 so walls do not grab the player. |
+| **Character Controller 2D** | **Step Offset** 8, **Ground Snap Distance** 6, **Interpolate** on. |
+| **Scripts** | **Player Controller**. |
+
+Interpolation draws the player between its last two fixed-step positions, so it moves smoothly on a 144 Hz display even though it only moves 60 times a second.
+
+## How it works
+
+### Input in Update, movement in FixedUpdate
+
+`FixedUpdate` runs zero, one or several times per frame, at a steady 60 steps per second, and the physics world steps right after it. Moving the character there makes jumps the same height at any frame rate. Input is different: `WasPressed` is true only during the frame the key went down, and a frame with no fixed step would miss it. So `Update` records presses (`_buffer`, `_dashQueued`) and the held state (`_jumpHeld`), and `FixedUpdate` consumes them. The [lifecycle](../scripts/lifecycle.mdx) and [time](../scripts/time.mdx) pages explain both loops.
+
+Inside `FixedUpdate`, `Time.DeltaTime` is the fixed step, so `dt` is always 1/60 s with the default settings.
+
+### Running
+
+`MoveTowards` changes the horizontal velocity by at most `Acceleration × dt` per step, so the player speeds up and stops over a few frames instead of instantly. A lower `AirAcceleration` makes direction changes in the air weaker than on the ground, which reads as momentum.
+
+`Physics.MoveCharacter` moves the collider by the velocity times the step and slides along whatever it hits. It returns the sides it touched: hitting a ceiling (`Above`) cancels upward speed and hitting a wall (`Sides`) cancels horizontal speed, so the player does not keep pushing into it. `CharacterController2D.IsGrounded` is true when the move ended standing on ground no steeper than the slope limit. See [Physics from scripts](../scripts/physics.mdx).
+
+### Coyote time and the jump buffer
+
+Two timers make jumping forgiving:
+
+- `_coyote` is reset to `CoyoteTime` every step the player stands on ground and counts down in the air. A jump pressed just after running off a ledge still works.
+- `_buffer` is set to `JumpBuffer` when Jump is pressed and counts down every step. A press shortly before landing is kept and fires on the first grounded step.
+
+The jump happens when both timers are positive, and both are cleared so one press gives one jump.
+
+### Variable jump height and falling
+
+Gravity is multiplied by `FallGravityScale` while the player falls or once the jump button is no longer held. Releasing Jump early therefore ends the rise sooner and gives a short hop, holding it gives the full jump, and every fall is a little faster than the rise, which feels less floaty. `MathF.Min` caps the downward speed at `MaxFallSpeed`; Y points down in Talesmith, so falling speed is positive.
+
+### Dash
+
+A queued dash starts when the cooldown has passed and the player has not dashed in the air since last touching the ground. For `DashTime` seconds the velocity stays horizontal at `DashSpeed` and gravity is skipped, then normal movement resumes. Landing resets `_airDashUsed`.
+
+### Safe ground and falling out of the level
+
+When the player is grounded and both feet are over solid ground, checked with two short ray casts that ignore the player itself, the position is remembered. Falling below `FallLimit` puts the player back there. Checking both feet stops the player from respawning on the very edge it fell from.
+
+### Animations by state
+
+`Update` picks an animation name from the state: `run` while dashing, `jump` or `fall` in the air by the sign of the vertical speed, then `run` or `idle` on the ground. It assigns `SpriteAnimator.Animation` only when the name changes, because assigning switches the clip. `Sprite.FlipX` mirrors the sprite to face the last direction moved. Both components are reached with `GetComponent`, which returns a reference, so the changes apply to the entity directly. See [Working with components](../scripts/components.mdx).
+
+`Facing`, `IsGrounded` and `Velocity` are public read-only properties. They are not saved or shown in the inspector, but other scripts read them: Lantern Grove's camera rig looks ahead in the `Facing` direction.
+
+## Compared with the other samples
+
+- **Lantern Grove** uses this script unchanged, together with a [follow camera](./camera-follow.mdx), [lantern pickups](./pickups.mdx) and a drawn HUD. Open `samples/LanternGrove` in the editor to see the whole scene.
+- **Isle Hopper** builds the same kind of hero as ECS code in a plugin: a `HeroInputSystem` in `PreUpdate` reads input into a component and a `HeroMovementSystem` in `FixedUpdate` moves it. The split between sampling input once per frame and moving once per step is the same.
+- The short controller in [Your first script](../scripts/first-script.mdx) moves the entity directly in `Update`. That is fine for a top-down character without collision, but anything that collides belongs in `FixedUpdate` with `MoveCharacter`.
+
+## Related
+
+- [Physics from scripts](../scripts/physics.mdx)
+- [Input](../scripts/input.mdx)
+- [Camera follow](./camera-follow.mdx)
+- [Pickups](./pickups.mdx)

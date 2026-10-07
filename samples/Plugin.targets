@@ -1,0 +1,27 @@
+<Project>
+  <!-- Builds a sample plugin and copies it, with its plugin.json and private dependencies, into the game folder named by PluginGame (Hex Quest by default). -->
+  <PropertyGroup>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <PluginGame Condition="'$(PluginGame)' == ''">HexQuest</PluginGame>
+    <PluginDestination>$(MSBuildThisFileDirectory)$(PluginGame)/assets/plugins/$(PluginFolder)/</PluginDestination>
+    <!-- Assemblies and packages the host provides: PluginLoadContext.DefaultSharedAssemblies and the native libraries the engine ships. -->
+    <HostSharedPattern>^(Talesmith|Microsoft\.Extensions|Avalonia|SkiaSharp|CommunityToolkit|System|mscorlib|netstandard|HarfBuzzSharp|Silk\.NET)(\.|$)</HostSharedPattern>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="plugin.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(UseSharedSampleCode)' == 'true'">
+    <!-- The pause menu and settings shared by the sample games, compiled into each plugin that uses them. -->
+    <Compile Include="$(MSBuildThisFileDirectory)Shared/*.cs" LinkBase="Shared" />
+  </ItemGroup>
+  <Target Name="CopyPluginToGame" AfterTargets="Build">
+    <ItemGroup>
+      <PluginFiles Include="$(TargetDir)$(TargetName).dll;$(TargetDir)$(TargetName).pdb;$(TargetDir)$(TargetName).deps.json;$(TargetDir)plugin.json" />
+      <PluginDependencies Include="@(ReferenceCopyLocalPaths)"
+                          Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('%(ReferenceCopyLocalPaths.Filename)', '$(HostSharedPattern)')) And !$([System.Text.RegularExpressions.Regex]::IsMatch('%(ReferenceCopyLocalPaths.NuGetPackageId)', '$(HostSharedPattern)'))" />
+    </ItemGroup>
+    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(PluginDestination)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(PluginDependencies)" DestinationFiles="@(PluginDependencies->'$(PluginDestination)%(DestinationSubDirectory)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

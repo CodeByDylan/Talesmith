@@ -1,0 +1,93 @@
+---
+title: "Editor settings"
+description: "Change the theme, accent color, autosave, code editor, grid, renderer and keyboard shortcuts of the editor."
+---
+
+The Settings dialog holds your preferences for the editor: they apply to every project and are not part of any game. This page covers each page of the dialog: the theme and accent color, autosave and the code editor, the viewport's grid, snapping and zoom, the renderer, and changing keyboard shortcuts. Settings that belong to a game, such as its input actions, are in [Project settings](./project-settings.mdx).
+
+Open the dialog with <Keys>Ctrl+,</Keys>, the gear button at the right of the app bar, or **Edit › Settings…**. Changes apply and are saved at once; **Done** closes the dialog. **Reset to defaults**, at the bottom of the sidebar, restores every setting.
+
+## Appearance
+
+<Screenshot name="guide/settings-appearance" maxWidth={560} />
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| **Color mode** | Dark | **System** follows your operating system; **Light** and **Dark** force one. <Keys>Ctrl+Shift+T</Keys> and the sun or moon button in the app bar switch between light and dark. |
+| **Accent color** | #6366F1 | The color of selections, the active tool, play mode and primary buttons. Pick one of the swatches or type a hex color. |
+
+## Editor
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| **Autosave** | off | Saves the open scene periodically while it has unsaved changes. Scenes that were never saved are not autosaved. |
+| **Autosave interval** | 5 minutes | Minutes between automatic saves, from 1 to 120 |
+| **External code editor** | empty | The command that opens a file at a line, for scripts and for double-clicking errors in the console |
+
+The external code editor command uses `{file}`, `{line}` and `{column}` where the file and position go:
+
+| Editor | Command |
+| --- | --- |
+| Visual Studio Code | `code -g {file}:{line}:{column}` |
+| Rider | `rider --line {line} {file}` |
+
+Left empty, the editor uses Visual Studio Code or Rider when either is installed, and otherwise your system's default program for the file.
+
+## Viewport
+
+<Screenshot name="guide/settings" maxWidth={640} />
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| **Show grid** | on | Draws the grid in the Scene panel |
+| **Show tile grid** | on | While a tile tool is active, outlines the edited map's cells in their own shape in place of the grid |
+| **Snap to grid** | off | Snaps moved entities to the grid by default |
+| **Grid size** | 32 px | The grid spacing in world units, from 1 to 4096 |
+| **Rotation snap** | 15° | The angle rotations snap to |
+| **Entity icons** | on | Icons for cameras, lights, sounds and other entities without sprites |
+| **Smooth zoom** | on | Animates zooming with the wheel and shortcuts |
+| **Zoom step** | 1.20× | How much one wheel notch zooms |
+
+The grid, snapping and grid size also have toggles in the tool options bar, which change these settings.
+
+## Rendering
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| **Renderer** | Project setting | Which renderer the editor uses for the scene view and play mode: the one the project sets, **Automatic**, **Vulkan** or **Skia**. Applies when a project opens. |
+
+Use it to try your game with the other renderer, or to fall back to Skia if your graphics driver has trouble with Vulkan, without changing the project.
+
+## Keyboard
+
+Every command of the editor is listed with its category and shortcut.
+
+<Screenshot name="guide/settings-keyboard" maxWidth={560} caption="Recording a new shortcut for Play from start scene." />
+
+<Steps>
+
+1. Type in **Search commands or shortcuts** to find a command by name, category or keys, such as `play` or `Ctrl+Shift`.
+2. Click the command's shortcut. It reads *Press keys…*.
+3. Press the new keys. Press <Keys>Escape</Keys> to cancel.
+
+</Steps>
+
+When another command already uses the keys, the row says so, in the warning color: *Also used by* and the other command. Both keep the keys until you change one of them. The × button removes a shortcut, and the restore button, shown on changed shortcuts, returns to the default. **Reset all** restores every default shortcut.
+
+<Keys>F1</Keys>, or **Help › Keyboard shortcuts**, shows every shortcut as a sheet you can search, including the ones you changed. See [Keyboard shortcuts](../reference/keyboard-shortcuts.mdx).
+
+## Where settings are saved
+
+Settings are saved in `settings.json` in your user's application data folder, together with your recent projects and recently run commands:
+
+| System | Folder |
+| --- | --- |
+| Windows | `%APPDATA%\Talesmith` |
+| Linux | `~/.config/Talesmith` |
+
+Each project's own editor state, such as its layout and viewport cameras, is in its `.talesmith` folder instead. See [Project folder layout](../reference/project-layout.mdx#the-talesmith-folder).
+
+## Related
+
+- [Project settings](./project-settings.mdx)
+- [Panels and layouts](./layouts.mdx)

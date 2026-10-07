@@ -1,0 +1,93 @@
+---
+title: "Layers and roles"
+description: "Stack tile and object layers, and give layers roles such as ground, collision and decoration."
+---
+
+Maps are built from layers stacked on top of each other: ground at the bottom, then paths, trees and decoration, with objects such as spawn points on their own layers. Each layer also has a role that tells the engine what it means, such as **Collision** for solid ground. This page covers tile and object layers, managing layers in the Tile Map panel, the roles and what each does, and how layers are drawn with the rest of the scene.
+
+<Split>
+
+The **Layers** section of the [Tile Map panel](./maps-and-grids.mdx#the-tile-map-panel-and-the-tile-mapping-layout) lists the map's layers from top to bottom, in the order they are drawn over each other. Each row shows:
+
+- A grip to drag the layer to another place in the stack.
+- The role icon. Click it to change the role.
+- The name, and below it the role and what the layer holds: *Collision · 462 tiles*, or *Object · 31 objects*.
+- The eye, to show or hide the layer, and the lock, to stop it from being changed.
+
+The selected layer is the one the tools paint on. Click a row to select it.
+
+<Screenshot name="guide/tilemap-layers" maxWidth={400} caption="Lantern Grove's map: one collision layer and four decoration layers." />
+
+</Split>
+
+## Tile layers and object layers
+
+| Kind | Holds | Painted with |
+| --- | --- | --- |
+| **Tile layer** | One tile per cell, each with its own rotation and flip | The [painting tools](./painting.mdx) |
+| **Object layer** | Points, polygons and placed tile images, each with a name, a type and properties | The **Objects** tool. See [Collision and map objects](./collision-and-objects.mdx). |
+
+Keep things that change together on their own layer. Painting on a *Paths* layer above *Ground* never destroys the ground beneath, and you can hide the paths to check the terrain.
+
+## Manage layers
+
+| Do | How |
+| --- | --- |
+| Add a tile layer | The **+** button (**New tile layer**). It is named *Tiles* and placed above the selected layer. |
+| Add an object layer | The pin button (**New object layer**), named *Objects* |
+| Rename | Double-click the name, or press <Keys>F2</Keys>. <Keys>Enter</Keys> confirms, <Keys>Escape</Keys> cancels. |
+| Reorder | Drag the grip, or use the arrows under the list (**Move up**, **Move down**) |
+| Hide or show | The eye. A hidden layer is not drawn in the editor or the game, and cannot be painted. |
+| Lock or unlock | The lock. A locked layer is drawn but cannot be painted. |
+| Opacity | The **Opacity** slider under the list, from 0 to 100% |
+| Duplicate | **⋯ › Duplicate**. The copy is named after the layer with *copy* added. |
+| Delete | The trash button under the list, or **⋯ › Delete**. A layer with content asks first. |
+
+Every layer change is one undo step, such as *Rename layer to "Paths"* or *Make "Ground" a collision layer*. A drag of the opacity slider is one step.
+
+The tools refuse to paint on a hidden or locked layer, and say why: *Layer is locked: Unlock "Trees" to edit it.*
+
+## Roles
+
+Click a layer's role icon to choose its role:
+
+| Role | Meaning | What the engine does with it |
+| --- | --- | --- |
+| **Ground** | Terrain drawn at the back | Draws it. The default for tile layers. |
+| **Decoration** | Details drawn over the ground | Draws it |
+| **Collision** | Non-empty cells block movement | Draws it, makes every non-empty cell solid for physics, and casts shadows from lights that cast them. See [Collision and map objects](./collision-and-objects.mdx). |
+| **Trigger** | Cells or areas that report entering and leaving | Draws it. Your game code can read the role to treat the layer's cells as areas. |
+| **Object** | Points, areas and placed images | The role of object layers. Their objects become entities when the scene starts. |
+| **Navigation** | Walkability and costs for pathfinding | Draws it. Your game code can read the role, for example to build a pathfinding grid. |
+| **Custom** | Defined by a plugin | Whatever the plugin does with it |
+
+A collision layer is drawn like any other layer. Physics and shadows do not look at visibility or opacity, so for collision you do not want to see, put it on a layer of its own and set the opacity to 0% before you ship. The [Collision tool](./painting.mdx#collision) sets up such a layer for you, with red color tiles at 55% opacity so you can see them while you work.
+
+### Roles and Hexy
+
+Hexy has no layer roles, so Talesmith stores a role in the layer's custom property `role`, which Hexy shows and keeps. It only writes the property when the layer's name does not already suggest the role. When a map is read, layers without a `role` property get one from their name:
+
+| Layer name | Role |
+| --- | --- |
+| *Collision*, *Colliders*, *Solid*, *Walls*, *Blocking* | Collision |
+| *Triggers*, *Zones* | Trigger |
+| *Navigation*, *Nav*, *Navmesh*, *Walkable*, *Pathing* | Navigation |
+| *Decoration*, *Decor*, *Details*, *Overlay* (tile layers) | Decoration |
+| Any other tile layer | Ground |
+| Any other object layer | Object |
+
+So a map made in Hexy with a layer called *Walls* collides in Talesmith without any changes.
+
+## How layers are drawn
+
+Tile layer 0, the bottom one, is drawn on the render layer set in the map entity's **Tile Map Renderer**, 100 by default, and each layer above it one render layer higher: 101, 102 and so on. Sprites are drawn on render layer 300 by default, so they appear in front of the map.
+
+All layers of one map sit together in that range. For tiles that must cover your characters, such as treetops the player walks behind, paint them in a second map and show it with its own entity at a **Render Layer** above 300. The scene's named render layers are listed in the [scene settings](../scenes/scenes.mdx#scene-settings).
+
+Tile objects on object layers become sprites that sort with the other entities by their bottom edge, so a character can walk in front of a tree and behind it.
+
+## Related
+
+- [Painting tools](./painting.mdx)
+- [Collision and map objects](./collision-and-objects.mdx)
+- [Maps and grids](./maps-and-grids.mdx)

@@ -1,0 +1,8 @@
+.section {
+  padding: clamp(4rem, 9vw, 7rem) 1.25rem 0;
+}
+
+.grid {
+  max-width: 76rem;
+  margin: 0 auto;
+}

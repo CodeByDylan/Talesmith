@@ -1,0 +1,184 @@
+---
+title: "Scenes and scene listeners"
+description: "Register code scenes and scene listeners, and keep state for one scene with scoped services."
+---
+
+Most scenes are `.tscene` files made in the editor, but a plugin can also register scenes built in code, run code whenever a scene starts or stops, and keep state that every scene gets fresh. This page covers `AddScene` for scenes built in code, `AddSceneListener` for code that follows the active scene, and `AddScoped` for per-scene state.
+
+All three are registered in `Configure`:
+
+```csharp title="ArenaPlugin.cs"
+using Microsoft.Extensions.DependencyInjection;
+using Talesmith.Plugins;
+using Talesmith.Runtime.Scenes;
+using Talesmith.Systems;
+
+namespace Arena;
+
+public sealed class ArenaPlugin : IPlugin
+{
+    public void Configure(IPluginBuilder builder)
+    {
+        builder.Services.AddScene<ArenaScene>("arena");
+        builder.Services.AddSceneListener<ArenaMusic>();
+        builder.Services.AddScoped<RoundScore>();
+        builder.Services.AddSystem<ScoreSystem>();
+    }
+}
+```
+
+Scenes and scene listeners need the `runtimeScene` [permission](../package/permissions.mdx).
+
+## Scenes built in code
+
+A scene class derives from `Scene` and creates its entities in `LoadAsync`, which runs before the scene becomes active:
+
+```csharp title="ArenaScene.cs"
+using System.Numerics;
+using Spinners;
+using Talesmith.Runtime.Components;
+using Talesmith.Runtime.Scenes;
+
+namespace Arena;
+
+/// <summary>A scene built in code: a camera and a ring of spinners.</summary>
+public sealed class ArenaScene : Scene
+{
+    protected override Task LoadAsync(CancellationToken cancellationToken)
+    {
+        ClearColor = new Talesmith.Mathematics.Color(20, 24, 32);
+        World.Create(new Transform(Vector2.Zero), new Camera(Vector2.Zero));
+        var count = int.TryParse(Request.Get("spinners"), out var value) ? value : 8;
+        for (var i = 0; i < count; i++)
+        {
+            var angle = MathF.Tau * i / count;
+            World.Create(new Transform(new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * 200), new Spinner { Speed = 45 + i * 15 });
+        }
+
+        return Task.CompletedTask;
+    }
+}
+```
+
+| Member | What it is |
+| --- | --- |
+| `World` | The scene's world. |
+| `Services` | The scene's service scope, for scoped and singleton services. |
+| `Request` | The `SceneRequest` the scene was loaded with: its name and string parameters. |
+| `ClearColor`, `Environment` | The background color and scene-wide settings such as ambient light and gravity. |
+| `LoadAsync` | Loads assets and creates entities; may await asset loading. |
+| `LoadProgress` | Where `LoadAsync` reports its progress, which the loading screen shows. |
+| `OnStarted`, `OnUnloading` | Called once the scene is active and before its entities are released. |
+
+A scene that loads assets itself tells the loading screen how far it has come: `Expect` the work as it finds it and `Advance` as each piece is done. Without that, the loading screen's bar sweeps without a value until the scene is ready.
+
+```csharp
+protected override async Task LoadAsync(CancellationToken cancellationToken)
+{
+    var paths = Request.Require("tracks").Split(';');
+    LoadProgress.Expect(paths.Length);
+    foreach (var path in paths)
+    {
+        _tracks.Add(await assets.LoadAsync<MusicTrack>(path, cancellationToken));
+        LoadProgress.Advance();
+    }
+}
+```
+
+Scenes made from `.tscene` files report the assets their entities use, and the built-in `map` scene reports its maps.
+
+`AddScene<T>("name")` makes the scene loadable by name. Load it from any code that has `ISceneManager`, with parameters if it takes any:
+
+```csharp
+await scenes.LoadAsync(new SceneRequest("arena", new Dictionary<string, string> { ["spinners"] = "12" }));
+```
+
+Or make it the game's start scene in `config/game.json`, by name or as an object with parameters:
+
+```json title="assets/config/game.json"
+{
+  "startScene": { "name": "arena", "parameters": { "spinners": "12" } }
+}
+```
+
+The engine registers two scenes itself: `scene`, which loads a `.tscene` file (a `startScene` ending in `.tscene` uses it), and `map`. A scene built in code is not shown in the editor's viewport, which edits scene files; it runs when the game loads it, such as with **Start** in the editor, which plays the project's start scene.
+
+## Scene listeners
+
+A scene listener runs code when a scene starts and before it stops. Use it for work that happens once per scene rather than every frame, such as music:
+
+```csharp title="samples/Talesmith.Samples.HexQuest/AmbientMusic.cs"
+using Talesmith.Assets;
+using Talesmith.Audio;
+using Talesmith.Runtime.Scenes;
+
+namespace Talesmith.Samples.HexQuest;
+
+/// <summary>Fades in the island's ambient music when a scene starts and fades it out when the scene stops.</summary>
+public sealed class AmbientMusic(IAssetManager assets, IAudioService audio) : ISceneListener
+{
+    public const string MusicPath = "audio/ambient.wav";
+
+    public void OnSceneStarted(Scene scene) => audio.PlayMusic(assets.Load<MusicTrack>(MusicPath), loop: true, fade: TimeSpan.FromSeconds(2));
+
+    public void OnSceneStopping(Scene scene) => audio.StopMusic(TimeSpan.FromSeconds(0.5));
+}
+```
+
+`OnSceneStarted` is called after the scene's systems started; `OnSceneStopping`, which is optional, before they stop. Listeners are created in each scene's scope, so every scene gets new instances and a listener can ask for scoped services. They run for every scene; check the scene when a listener is only for some:
+
+```csharp title="ArenaMusic.cs"
+using Talesmith.Assets;
+using Talesmith.Audio;
+using Talesmith.Runtime.Scenes;
+
+namespace Arena;
+
+/// <summary>Plays the arena music while the arena scene is active.</summary>
+public sealed class ArenaMusic(IAssetManager assets, IAudioService audio) : ISceneListener
+{
+    public void OnSceneStarted(Scene scene)
+    {
+        if (scene is ArenaScene)
+            audio.PlayMusic(assets.Load<MusicTrack>("audio/arena.ogg"), loop: true, fade: TimeSpan.FromSeconds(1));
+    }
+
+    public void OnSceneStopping(Scene scene)
+    {
+        if (scene is ArenaScene)
+            audio.StopMusic(TimeSpan.FromSeconds(0.5));
+    }
+}
+```
+
+The cutscene sample's `CutsceneTriggers` is a scene listener that subscribes to trigger events when a scene starts and unsubscribes when it stops; see [Example: the cutscene plugin](../cutscenes-example.mdx#cutscenetriggers-starting-cutscenes-from-map-objects).
+
+## State for one scene
+
+A service registered with `AddScoped` exists once per scene. Every system and listener of the scene that asks for it gets the same instance, and the next scene gets a new one:
+
+```csharp title="RoundScore.cs"
+using Spinners;
+using Talesmith.Systems;
+
+namespace Arena;
+
+/// <summary>The score of the current round; every scene gets a new one.</summary>
+public sealed class RoundScore
+{
+    public int Points { get; set; }
+}
+
+public sealed class ScoreSystem(RoundScore score) : ISystem
+{
+    public void Update(in SystemContext context) => score.Points += context.World.Query<Spinner>().Count;
+}
+```
+
+The Isle Hopper sample keeps its level's progress this way: `services.AddScoped<Course>()`, shared by its spawn, input, movement, crab, pickup, camera and flow systems. Use a singleton instead for state that outlives scenes, such as the player's inventory across levels. A singleton cannot depend on a scoped service; resolving one that does throws.
+
+## Related
+
+- [Systems and components](./systems-and-components.mdx)
+- [Services](./services.mdx)
+- [Scenes in scripting](/scripting/concepts/scenes)

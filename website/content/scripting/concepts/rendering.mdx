@@ -1,0 +1,248 @@
+---
+title: "Rendering, cameras and materials"
+description: "How Talesmith draws a frame for people writing game code: backends, draw order, layers, batching, spaces, cameras, materials, shaders and post effects."
+---
+
+Game code never talks to a graphics API. Systems describe each frame as a list of draws in a `RenderFrame`, and a backend, Vulkan or Skia, turns that list into pixels on its own thread. This page explains what that means for your code: how draw order and batching work, how cameras choose what you see, and how to draw, tint and shade from scripts and systems. Rendering types are in `Talesmith.Rendering`; `RenderContext` is in `Talesmith.Runtime.Rendering`.
+
+## Backends
+
+| Backend | How it draws | Used when |
+| --- | --- | --- |
+| Vulkan | Instanced quads, meshes kept in GPU buffers, SPIR-V shaders, on a dedicated render thread | A Vulkan device is available and the window can take its frames |
+| Skia | Draws onto Avalonia's GPU canvas in a window, or a CPU surface headlessly; SkSL shaders | Machines without Vulkan, and wherever only a Skia canvas is available |
+
+`"renderer": "auto"` in `config/game.json` picks one and logs why; `"vulkan"` and `"skia"` force a backend. Your game code is the same for both. The only place the backend shows through is custom shaders, which need a source for each backend you support.
+
+## Draw order and batching
+
+Every draw has a layer, a sort key and a space. Draws are ordered by layer, then sort key, then the order they were added. `RenderLayers` names the standard layers:
+
+| Layer | Value | Used for |
+| --- | --- | --- |
+| `Background` | 0 | Skies, parallax backdrops |
+| `Terrain` | 100 | Tile layers; layer `i` of a map is drawn on `Terrain + i` |
+| `Decals` | 200 | Marks on the ground |
+| `Entities` | 300 | Characters and objects; the default for sprites |
+| `Effects` | 400 | Particles, highlights |
+| `Overlay` | 500 | In-world UI, and the first layer lighting leaves unlit |
+| `Debug` | 1000 | Debug views |
+
+A sprite's `Layer` field sets its layer; `SortByY` sorts sprites on the same layer by their Y, so characters lower on screen are drawn in front, as top-down games need.
+
+Consecutive draws with the same texture, material, layer and space merge into one batch while they are added, and the frame is sorted only when draws arrived out of order. Fewer batches means less work for the GPU, so it pays to keep sprites that are drawn together on the same texture (a sprite sheet or atlas) and the same layer.
+
+### Spaces
+
+`RenderSpace.World` draws through the camera, in world units. `RenderSpace.Screen` draws in view units from the top-left corner of the game's view, unaffected by the camera, for fades and HUD elements. View units are the design size from the `view` section of `game.json`: in a 640 × 360 view, a HUD drawn at (10, 10) and 120 units wide covers the same part of the game in any window. `render.View.ViewSize` is the view's size in view units, for anchoring to the right or bottom edge. Games without a `view` section draw in logical pixels.
+
+## Cameras
+
+The active camera is the entity with an active `Camera` component and the highest `Priority`. Its `View` is a `Camera2D`: the world position at the center of the view, a zoom in view units per world unit, and a rotation. At zoom 1 the camera shows the view's design size of the world. `CameraSystem` runs in `LateUpdate` and, for every camera:
+
+1. clamps `Zoom` between `MinZoom` and `MaxZoom`,
+2. moves the view toward `Target`'s position with `FollowSharpness` (0 snaps), using unscaled time so a paused game's camera still settles,
+3. keeps the visible area inside `Bounds` when set.
+
+The view starts at the camera entity's `Transform` when the scene loads. After that, the camera's own `Transform` no longer moves the view; move the view through `Target`, or set `View.Position` yourself. To make the camera lead or follow a point that is not an entity, move a separate focus entity and make it the target. Lantern Grove's `CameraRig` script does exactly that in its `LateUpdate`, which runs just before `CameraSystem`.
+
+The game scales the view to the window, so every window shows the same world area: frames multiply the zoom by the view's scale, the device pixels per view unit. Games without a `view` section multiply it by the display's scale instead, so a larger window shows more. `PixelSnap` rounds the view to whole device pixels at that final scale, which keeps pixel art from shimmering. See [Project settings](/guide/workflow/project-settings#view) for the scale modes.
+
+```csharp title="assets/scripts/CameraZoom.cs"
+namespace MyGame;
+
+/// <summary>Zooms the camera with the mouse wheel and keeps it inside the level.</summary>
+public sealed class CameraZoom : Script
+{
+    [Range(0.25, 8)]
+    public float MinZoom = 0.5f;
+
+    [Range(0.25, 8)]
+    public float MaxZoom = 3;
+
+    public Rect2 Level = new(0, 0, 3200, 960);
+
+    protected override void OnStart()
+    {
+        ref var camera = ref GetComponent<Camera>();
+        camera.Bounds = Level;
+        camera.MinZoom = MinZoom;
+        camera.MaxZoom = MaxZoom;
+    }
+
+    protected override void Update()
+    {
+        var wheel = Input.WheelDelta.Y;
+        if (wheel == 0)
+            return;
+        ref var camera = ref GetComponent<Camera>();
+        camera.Zoom = Math.Clamp(camera.Zoom * MathF.Pow(1.15f, wheel), MinZoom, MaxZoom);
+    }
+}
+```
+
+Attach it to the camera entity. For smoothing, dead zones and look-ahead, see the [camera follow recipe](../recipes/camera-follow.mdx).
+
+### Screen and world positions
+
+`Input.MouseWorldPosition` in a script converts the pointer through the camera of the last frame, and `Input.MouseViewPosition` gives it in view units, for clicking a HUD drawn in screen space. Elsewhere, `RenderContext` converts between the spaces:
+
+| Method | Converts |
+| --- | --- |
+| `ScreenToWorld`, `WorldToScreen` | Device pixels of the game view, such as the mouse, and world positions |
+| `ScreenToView` | Device pixels of the game view to view units |
+| `WorldToView` | World positions to view units, to place a HUD marker over an entity |
+
+`RenderContext.VisibleBounds` gives the world rectangle in the view. With a `fit` view, the pointer can be over the bars around the game: its view position is then below 0 or beyond the view size, and its world position lies outside the visible area.
+
+## Drawing from systems
+
+Sprites, tile maps and particles are drawn by engine systems, so most games never draw by hand. For lines, highlights, health bars or a HUD drawn in the game, write a system in the `PreRender` phase and draw into `RenderContext.Frame`. `Frame` exists only while a frame is being built, which is why drawing belongs in `PreRender` and not in a script's `Update`.
+
+```csharp title="assets/scripts/AimLineSystem.cs"
+using Talesmith.Rendering;
+using Talesmith.Runtime.Rendering;
+
+namespace MyGame;
+
+/// <summary>Marks the entity that aims at the mouse pointer.</summary>
+[Component(Category = "Gameplay")]
+public struct Aim;
+
+/// <summary>Draws a line from the aiming entity to the mouse, and a dark strip at the top of the screen.</summary>
+[UpdateIn(SystemPhase.PreRender)]
+[ExecuteIn(ExecutionModes.Play)]
+public sealed class AimLineSystem(RenderContext render, IInputService input) : ISystem
+{
+    public void Update(in SystemContext context)
+    {
+        if (!context.World.Query<Aim, Transform>().TryGetSingle(out var player))
+            return;
+        var from = context.World.Get<Transform>(player).Position;
+        var to = render.ScreenToWorld(input.MousePosition);
+        var frame = render.Frame;
+        frame.DrawLine(from, to, 2, new Color(255, 255, 255, 120), RenderLayers.Overlay);
+        frame.FillRect(new Rect2(0, 0, render.View.ViewSize.X, 32), new Color(0, 0, 0, 160), RenderLayers.Overlay, RenderSpace.Screen);
+    }
+}
+```
+
+`PreRender` systems run in every mode by default, including while you author in the editor; `[ExecuteIn(ExecutionModes.Play)]` keeps this one to play mode.
+
+| Method | Draws |
+| --- | --- |
+| `Draw(texture, material, instance, layer, sortKey, space)` | One sprite, or a span of sprites |
+| `DrawMesh(mesh, texture, material, layer)` | Static geometry the renderer caches until it changes |
+| `FillRect`, `DrawLine`, `DrawRectOutline`, `DrawPolygonOutline` | Shapes with the renderer's white texture |
+| `AddPostEffect(effect)` | A full-screen shader after everything else |
+| `IsVisible(bounds)` | Whether a world rectangle is on screen, to skip draws |
+
+A `SpriteInstance` maps the unit square onto the world (size, origin, rotation and flips) with a source rectangle and a tint; `SpriteInstance.Create(position, size, source, tint)` builds one. Lantern Grove's `LanternHudSystem` draws its lantern counter this way, in screen space, from the scripts folder. Textures come from `TextureAsset`s (in `Talesmith.Assets.Textures`) through `render.Textures.Get(asset)`, which creates one renderer texture per image and shares it.
+
+## Materials and shaders
+
+A `Material` sets a blend mode (`Alpha`, `Additive`, `Multiply` or `Opaque`) and optionally a shader with four `Vector4` parameters. `Material.Default`, `Material.Additive` and `Material.Multiply` are built in. Materials are compared by reference when batching, so create each one once, in a `static readonly` field, and assign it to `Sprite.Material`:
+
+```csharp title="assets/scripts/HitFlash.cs"
+using Talesmith.Rendering;
+
+namespace MyGame;
+
+/// <summary>Flashes the sprite white for a moment when the entity is hit.</summary>
+public sealed class HitFlash : Script
+{
+    private static readonly ShaderSource Flash = new("flash", skSl: """
+        uniform shader image;
+        uniform float4 params[4];
+
+        half4 main(float2 coord) {
+            half4 color = image.eval(coord);
+            return half4(mix(color.rgb, params[0].rgb * color.a, params[0].a), color.a);
+        }
+        """);
+
+    private static readonly Material White = new(BlendMode.Alpha, Flash, [new Vector4(1, 1, 1, 0.9f)]);
+
+    public void Hit() => Run(async () =>
+    {
+        GetComponent<Sprite>().Material = White;
+        await Wait(0.08);
+        GetComponent<Sprite>().Material = null;
+    });
+}
+```
+
+A `ShaderSource` carries one source per backend: SkSL for Skia and compiled SPIR-V for Vulkan. A backend without its source draws as if no shader were set, so this flash shows only on Skia until you add `fragmentSpirV`. For a flash that works everywhere without a shader, tween `Sprite.Tint`. The shader interfaces for both backends are in [Materials and shaders](/developers/file-formats/materials-and-shaders), and materials made in the editor in [Materials](/guide/effects/materials).
+
+## Post effects
+
+A `PostEffect` is a full-screen shader applied to the finished frame: a vignette, a color grade, a screen flash. Create it once, change its `Parameters` and `Enabled` whenever you like, and add it in every frame you want it:
+
+```csharp title="assets/scripts/Vignette.cs"
+using Talesmith.Rendering;
+using Talesmith.Runtime.Rendering;
+
+namespace MyGame;
+
+/// <summary>Darkens the edges of the screen; scripts set the strength on the component.</summary>
+[Component(Category = "Rendering")]
+public struct Vignette
+{
+    [Range(0, 1)]
+    public float Strength;
+}
+
+[UpdateIn(SystemPhase.PreRender)]
+[ExecuteIn(ExecutionModes.Play)]
+public sealed class VignetteSystem(RenderContext render) : ISystem
+{
+    private const string Source = """
+        uniform shader scene;
+        uniform float2 resolution;
+        uniform float time;
+        uniform float4 params[4];
+
+        half4 main(float2 coord) {
+            half4 color = scene.eval(coord);
+            float2 uv = coord / resolution - 0.5;
+            float shade = 1 - params[0].x * smoothstep(0.3, 0.75, length(uv));
+            return half4(color.rgb * shade, color.a);
+        }
+        """;
+
+    private readonly PostEffect _vignette = new(new ShaderSource("vignette", skSl: Source));
+
+    public void Update(in SystemContext context)
+    {
+        if (!context.World.Query<Vignette>().TryGetSingle(out var entity))
+            return;
+        var strength = context.World.Get<Vignette>(entity).Strength;
+        if (strength <= 0)
+            return;
+        _vignette.Parameters[0] = new Vector4(strength, 0, 0, 0);
+        render.Frame.AddPostEffect(_vignette);
+    }
+}
+```
+
+Post effects run in the order they were added, after lighting. Add `Vignette` to one entity under **Add component**, or from a script with `AddComponent(new Vignette { Strength = 0.6f })`.
+
+## Rendering without a window
+
+Headless runs, benchmarks and tests render with Skia onto a CPU surface, or not at all with the null renderer. Both backends can render a frame to an image for screenshots and tests. Systems behave the same in all of them, which is why game code draws through `RenderFrame` and never touches the backend.
+
+## Performance tips
+
+- **Batch.** Same texture, same material, same layer, in a row: one batch. Use sprite sheets and atlases for things drawn together.
+- **Create materials once.** A new `Material` per frame or per sprite breaks batching and allocates.
+- **Cull your own draws.** Check `frame.IsVisible(bounds)` before drawing something large or numerous; sprites, tile maps and particles cull themselves.
+- **Never allocate while drawing.** Keep `SpriteInstance` buffers in fields of the system and reuse them.
+- **Read the counters.** The overlay shows the `PreRender` and `Publish` markers and the number of batches built per frame.
+
+## Related
+
+- [Lighting](./lighting.mdx)
+- [Particles](./particles.mdx)
+- [Camera follow](../recipes/camera-follow.mdx)
+- [Materials in the editor](/guide/effects/materials)
+- [Materials and shaders format](/developers/file-formats/materials-and-shaders)

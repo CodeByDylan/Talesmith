@@ -1,0 +1,189 @@
+---
+title: "Spawning and finding entities"
+description: "Create entities, spawn prefabs by path or guid, copy and destroy entities, and look entities up by name or tag from scripts."
+---
+
+Scripts create and remove entities while the game runs: bullets, pickups, enemies, effects. This page covers every way to do it, from an empty entity built in code to a prefab spawned from the inspector's asset picker, copying and destroying entities, and finding entities by name or tag. It ends with a complete example that shoots projectiles.
+
+## Create an entity in code
+
+`CreateEntity(name, position)` creates an entity with a `Transform` at the position and, when you pass a name, a `Name`. Add whatever else it needs with `AddComponent`:
+
+```csharp
+var marker = CreateEntity("Marker", Position + new Vector2(0, -40));
+AddComponent(marker, new Tags("marker"));
+AddComponent(marker, Collider2D.Circle(8) with { IsTrigger = true });
+```
+
+The entity exists at once and takes part in this frame: queries, physics and rendering see it. To give it behavior, add a script with `AddScript<T>(entity)`, which also adds the entity's **Scripts** component.
+
+Building entities in code is fine for simple helpers. For anything with art, colliders and several components, make a [prefab](/guide/scenes/prefabs) in the editor and spawn it: the data stays editable and every spawn is the same.
+
+## Spawn a prefab
+
+`Spawn` loads a prefab and creates an instance of it, with all its entities, components, scripts and children:
+
+| Overload | |
+| --- | --- |
+| `Spawn(string prefabPath, Vector2? position = null, Entity parent = default)` | By asset path, such as `"prefabs/coin.tprefab"` |
+| `Spawn(AssetGuid prefab, Vector2? position = null, Entity parent = default)` | By the guid an `AssetGuid` field holds |
+
+`position` places the instance's root; leave it out to keep the position saved in the prefab. With a `parent`, the instance becomes a child of that entity and `position` is relative to it.
+
+Prefer a guid field over a path. The inspector shows an asset picker for it, and the field keeps working when someone moves or renames the prefab:
+
+```csharp
+[AssetFilter(".tprefab")]
+public AssetGuid CoinPrefab;
+```
+
+Loading takes time the first time, so `Spawn` is asynchronous: it returns a `ScriptTask<Entity>` that you `await`, and the result is the instance's root entity. Prefabs stay loaded after the first spawn, so later spawns of the same prefab finish at the start of the next frame without loading anything. Await inside a routine started with `Run`, since update methods cannot be `async`:
+
+```csharp
+protected override void Update()
+{
+    if (Input.WasPressed("Interact"))
+        Run(async () =>
+        {
+            var coin = await Spawn(CoinPrefab, Position + new Vector2(0, -32));
+            GetComponent<Transform>(coin).Scale = new Vector2(1.5f);
+        });
+}
+```
+
+The instance's scripts are created at the start of the next update phase after the spawn finishes. Anything you set on them right after `await Spawn(...)` is in place before their `OnCreate` runs, which is how you pass spawn parameters such as a direction or an owner. If the spawning script is destroyed while the prefab loads, the routine simply never resumes; see [Waiting, routines and tweens](./waiting.mdx).
+
+To spawn something the moment a level starts, spawn from `OnStart` and accept that it appears a frame or more later, or place it in the scene and switch it on with `RemoveComponent<Inactive>(entity)` when needed.
+
+## Copy an entity
+
+`Instantiate(original, position)` copies an entity with every saved component and script, field values included. The copy's scripts start like newly spawned ones, with `OnCreate`, `OnEnable` and `OnStart`; runtime state that is not saved, such as private fields, starts fresh.
+
+```csharp
+var copy = Instantiate(Entity, Position + new Vector2(32, 0));
+```
+
+Children are not copied, and neither are components the engine does not save, such as a component type that was never registered. To duplicate a hierarchy, make it a prefab and spawn it. `Instantiate` is synchronous, so it suits copying an entity that is already in the scene, such as a template kept switched off with `Inactive`.
+
+## Destroy an entity
+
+`Destroy()` destroys the script's own entity and `Destroy(entity)` another one. Both destroy the entity's children with it, and every script on those entities runs `OnDisable` and `OnDestroy` before the call returns. Destroying an entity that is already gone does nothing.
+
+The code after `Destroy()` in the same method still runs, but the entity is gone: `World.IsAlive(Entity)` is false and `GetComponent` throws. Return right after destroying your own entity.
+
+Destroying happens at once in scripts. The exception is code running inside a query over the world, such as a `ForEach` callback; there the entity is destroyed at the start of the next update phase, because the world cannot change shape while it is being iterated.
+
+A delayed destroy is a routine:
+
+```csharp
+protected override void OnStart() => Run(async () =>
+{
+    await Wait(Lifetime);
+    Destroy();
+});
+```
+
+## Find entities
+
+| Method | Finds |
+| --- | --- |
+| `Find(name)` | The first entity whose `Name` equals `name` exactly, or `Entity.Null` |
+| `FindWithTag(tag)` | The first entity whose `Tags` contain `tag`, or `Entity.Null` |
+| `FindAllWithTag(tag, results)` | Adds every entity with the tag to your list and returns how many it added |
+
+These methods look at every named or tagged entity in the scene, so their cost grows with the scene. Call them once, in `OnStart` or when something changes, and keep the result in a field:
+
+```csharp
+private readonly List<Entity> _enemies = [];
+private Entity _player;
+
+protected override void OnStart()
+{
+    _player = Find("Player");
+    FindAllWithTag("enemy", _enemies);
+}
+```
+
+`Entity.Null` means nothing was found; `_player.IsNull` tests for it. A found entity can be destroyed later, so check `World.IsAlive` before using a kept handle. Tags are set in the inspector's header with **+ Tag**, or in code with the `Tags` component.
+
+When the entity you need is fixed at design time, an `Entity` field set in the inspector is simpler and faster than a lookup by name. For entities that come and go, such as enemies, keep a list and have them register through [events](./events.mdx), or write a [system](../concepts/systems.mdx) that queries them by component.
+
+## Example: shoot projectiles
+
+The projectile is a prefab with a sprite, a **Collider 2D** with **Is Trigger** on, a **Rigidbody 2D** whose **Type** is **Kinematic**, and this script. It flies in a straight line and disappears when it touches something or after its lifetime:
+
+```csharp title="assets/scripts/Bolt.cs"
+namespace MyGame;
+
+/// <summary>Flies in a straight line and disappears after a while or when it hits something.</summary>
+public sealed class Bolt : Script
+{
+    public Vector2 Velocity;
+
+    [Range(0, 10)]
+    public float Lifetime = 2;
+
+    protected override void OnStart()
+    {
+        GetComponent<Rigidbody2D>().Velocity = Velocity;
+        Run(async () =>
+        {
+            await Wait(Lifetime);
+            Destroy();
+        });
+    }
+
+    protected override void OnTriggerEnter(in ContactInfo contact) => Destroy();
+}
+```
+
+The rigid body matters. Two colliders without rigid bodies are both static, and the physics never checks static colliders against each other, not even triggers. A kinematic body moves by its velocity, is never pushed, and reports overlaps with walls, tile maps and characters alike.
+
+The shooter has a field for the prefab. It spawns a bolt in front of itself, in the direction its sprite faces, and sets the bolt's velocity before the bolt's scripts start:
+
+```csharp title="assets/scripts/Shooter.cs"
+namespace MyGame;
+
+/// <summary>Fires a bolt in the direction it faces when the Fire action is pressed.</summary>
+public sealed class Shooter : Script
+{
+    [AssetFilter(".tprefab")]
+    public AssetGuid BoltPrefab;
+
+    [Range(0, 2000)]
+    public float BoltSpeed = 900;
+
+    [Range(0, 2)]
+    public float Cooldown = 0.25f;
+
+    private float _ready;
+
+    protected override void Update()
+    {
+        _ready -= Time.DeltaTime;
+        if (_ready > 0 || !Input.WasPressed("Fire"))
+            return;
+        _ready = Cooldown;
+        Run(FireAsync);
+    }
+
+    private async Task FireAsync()
+    {
+        var facing = GetComponent<Sprite>().FlipX ? -1 : 1;
+        var bolt = await Spawn(BoltPrefab, Position + new Vector2(24 * facing, 0));
+        if (GetScript<Bolt>(bolt) is { } script)
+            script.Velocity = new Vector2(BoltSpeed * facing, 0);
+    }
+}
+```
+
+Add a **Fire** button action on the **Input** page of [Project Settings](/guide/workflow/project-settings), set **Bolt Prefab** in the shooter's inspector, and press play. Very fast bolts can pass through thin walls between two fixed steps; set the rigid body's **Collision Detection** to **Continuous** for those, as described in [Physics from scripts](./physics.mdx).
+
+For many projectiles at once, such as a bullet-hell pattern, a pool of switched-off entities that you reuse with `Inactive`, or a [system](../concepts/systems.mdx) that moves all bullets in one loop, keeps the cost per bullet low.
+
+## Related
+
+- [Prefabs](/guide/scenes/prefabs)
+- [Spawners](../recipes/spawners.mdx)
+- [Working with components](./components.mdx)
+- [Waiting, routines and tweens](./waiting.mdx)

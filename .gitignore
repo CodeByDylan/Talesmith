@@ -1,0 +1,27 @@
+bin/
+obj/
+/packages/
+*.user
+.idea/
+.vs/
+/_ReSharper.Caches/
+riderModule.iml
+BenchmarkDotNet.Artifacts/
+TestResults/
+/artifacts/
+*.talesmith-profile.json
+
+# Developer captures and plugins built into the sample games
+captures/
+samples/*/assets/plugins/
+
+# Per-project editor state
+.talesmith/
+
+# The scripts' IDE projects, which the editor writes with paths to the engine on this machine
+*.Scripts.csproj
+
+# Documentation site
+website/node_modules/
+website/build/
+website/.docusaurus/

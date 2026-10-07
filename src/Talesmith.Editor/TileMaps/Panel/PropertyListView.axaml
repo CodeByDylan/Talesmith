@@ -1,0 +1,44 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.TileMaps.Panel"
+             x:Class="Talesmith.Editor.TileMaps.Panel.PropertyListView"
+             x:DataType="vm:PropertyListViewModel">
+  <StackPanel Spacing="6">
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBlock Text="Custom properties" Classes="section" VerticalAlignment="Center" />
+      <Button Grid.Column="1" Classes="icon small" Command="{Binding AddCommand}" ToolTip.Tip="Add property">
+        <ui:SymbolIcon Data="{x:Static ui:Icons.Plus}" />
+      </Button>
+    </Grid>
+    <TextBlock Text="None. Properties are saved with the map for your game to read." Classes="caption muted" TextWrapping="Wrap" IsVisible="{Binding IsEmpty}" />
+    <ItemsControl ItemsSource="{Binding Rows}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Spacing="4" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:PropertyRowViewModel">
+          <Border Padding="8" CornerRadius="{DynamicResource CornerRadiusMedium}" Background="{DynamicResource SurfaceSunkenBrush}">
+            <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="4" RowSpacing="6">
+              <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Padding="6,2" MinHeight="26" PlaceholderText="Name" />
+              <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:PropertyListViewModel.Types}" SelectedItem="{Binding Type}" MinHeight="26" Padding="6,2" Width="86"
+                        ToolTip.Tip="Value type" />
+              <Panel Grid.Row="1" Grid.ColumnSpan="3">
+                <TextBox Text="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" IsVisible="{Binding IsText}" Padding="6,2" MinHeight="26" PlaceholderText="Text" />
+                <ui:NumberField Value="{Binding NumberValue}" IsVisible="{Binding IsNumber}" IsInteger="{Binding IsInteger}" Step="1" MinHeight="26" />
+                <CheckBox IsChecked="{Binding BoolValue}" IsVisible="{Binding IsBool}" VerticalAlignment="Center" />
+                <ui:ColorPickerButton Color="{Binding ColorValue}" IsVisible="{Binding IsColor}" MinHeight="26" />
+              </Panel>
+              <Button Grid.Column="2" Classes="icon small" Command="{Binding $parent[ItemsControl].((vm:PropertyListViewModel)DataContext).RemoveCommand}"
+                      CommandParameter="{Binding}" ToolTip.Tip="Remove property">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.X}" />
+              </Button>
+            </Grid>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </StackPanel>
+</UserControl>

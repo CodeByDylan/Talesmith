@@ -1,0 +1,17 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="https://talesmith.dev/ui"
+        xmlns:vm="using:Talesmith.Editor.Shell"
+        x:Class="Talesmith.Editor.Shell.EditorWindow"
+        x:DataType="vm:ShellViewModel"
+        Title="{Binding WindowTitle}"
+        Width="1480" Height="920"
+        MinWidth="1024" MinHeight="640"
+        WindowStartupLocation="CenterScreen">
+  <ui:DialogHost x:Name="Dialogs">
+    <Panel>
+      <vm:ShellView />
+      <ui:ToastHost x:Name="Toasts" />
+    </Panel>
+  </ui:DialogHost>
+</Window>

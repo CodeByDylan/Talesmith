@@ -1,0 +1,129 @@
+{
+  "version": 1,
+  "id": "2cf62c7735fb8d62ffe82ab1b31579a3",
+  "environment": {
+    "clearColor": null,
+    "ambientLight": "#FFFFFF",
+    "ambientIntensity": 1,
+    "gravity": [0, 980],
+    "renderLayers": [
+      {
+        "name": "Background",
+        "layer": 0,
+        "lit": true
+      },
+      {
+        "name": "Terrain",
+        "layer": 100,
+        "lit": true
+      },
+      {
+        "name": "Decals",
+        "layer": 200,
+        "lit": true
+      },
+      {
+        "name": "Entities",
+        "layer": 300,
+        "lit": true
+      },
+      {
+        "name": "Effects",
+        "layer": 400,
+        "lit": true
+      },
+      {
+        "name": "Overlay",
+        "layer": 500,
+        "lit": false
+      }
+    ]
+  },
+  "entities": [
+    {
+      "id": "46f86477853958c9b4f9eba34b5c4ee4",
+      "name": "Lantern",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [0, 0]
+          }
+        },
+        {
+          "type": "Sprite",
+          "data": {
+            "texture": "865d9676bf964c4f8a79f0b94f246fbc",
+            "layer": 295
+          }
+        },
+        {
+          "type": "Emissive",
+          "data": {
+            "color": "#FFE0A0",
+            "intensity": 0.9
+          }
+        },
+        {
+          "type": "Light2D",
+          "data": {
+            "color": "#FFB25A",
+            "intensity": 1.25,
+            "radius": 260,
+            "innerRadius": 0.08,
+            "falloff": 1.8,
+            "castsShadows": true,
+            "shadowSoftness": 0.55,
+            "animation": "flicker",
+            "animationSpeed": 7,
+            "animationAmount": 0.18
+          }
+        },
+        {
+          "type": "Collider2D",
+          "data": {
+            "shape": "circle",
+            "radius": 30,
+            "isTrigger": true
+          }
+        },
+        {
+          "type": "ParticleEmitter",
+          "data": {
+            "preset": "ad5bbc63877f4a29bcc88e0c66311195"
+          }
+        },
+        {
+          "type": "Tags",
+          "data": {
+            "values": [
+              "lantern"
+            ]
+          }
+        },
+        {
+          "type": "ScriptComponent",
+          "data": {
+            "scripts": [
+              {
+                "type": "LanternGrove.Lantern",
+                "enabled": true,
+                "fields": {
+                  "bobHeight": 6,
+                  "bobSpeed": 2.2
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

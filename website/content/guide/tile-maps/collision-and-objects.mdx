@@ -1,0 +1,122 @@
+---
+title: "Collision and map objects"
+description: "Make maps solid with collision layers, and use object layers for spawn points, triggers and properties."
+---
+
+Maps are more than pictures. A tile layer with the **Collision** role becomes solid ground and walls for physics and casts shadows, and object layers hold points and areas your game uses: where the player starts, where a cutscene triggers, where a chest stands. This page covers collision layers, one-way platforms, tile collision shapes, object layers and the Objects tool, what map objects become in the game, and custom properties.
+
+## Collision layers
+
+Give a tile layer the **Collision** role, with the role icon in the Tile Map panel's layer list, and every non-empty cell on it becomes solid. Characters with a [Character Controller 2D](../scenes/components.mdx#character-controller-2d) stand on it and slide along it, rigid bodies bounce off it, and particles with world collision hit it.
+
+There are two ways to set up collision:
+
+- **Use the artwork's own layer.** In a platformer, the layer you paint the ground on can be the collision layer, as in [Your first game](../getting-started/first-game.mdx) and the Lantern Grove sample. Whatever you paint is solid.
+- **Paint collision separately** with the [Collision tool](./painting.mdx#collision) (<Keys>K</Keys>). It adds a *Collision* layer of red cells at 55% opacity on its first stroke. This suits hex and top-down maps, where you decide cell by cell what blocks the player, such as mountains and deep water.
+
+<Screenshot name="guide/tilemap-collision" caption="Mountains marked solid on their own collision layer." />
+
+A map can have several collision layers; all of them collide.
+
+### Collision shapes of tiles
+
+Without shapes, a tile fills its whole cell with collision. For slopes, thin planks or round trees, draw collision shapes in the tile's [properties](./tilesets.mdx#collision-shapes). The shapes replace the full cell wherever the tile is painted on a collision layer, and turn and flip with the tile.
+
+### One-way platforms
+
+Give a tile, or a whole layer, the Bool property `oneWay` set to true to make platforms that are solid only from above: characters can jump up through them and land on top. Add the property in the tile's properties, or in the layer's custom properties in Hexy.
+
+### Collision settings
+
+A map collides without any extra component. To change its friction or bounciness, put it on another collision layer, or turn its collision off, add a **Tile Map Collider 2D** to the map's entity:
+
+| Field | Default | |
+| --- | --- | --- |
+| **Enabled** | on | Turns the map's collision on or off |
+| **Friction** | 0.4 | |
+| **Restitution** | 0 | Bounciness |
+| **Layer**, **Collision Mask** | Default, Everything | The collision layer of the tiles and the layers they collide with, named in [Project Settings › Physics](../workflow/project-settings.mdx) |
+
+### How collision is built
+
+Collision is built per chunk of the map, the first time a moving body or a physics query comes near the chunk, so a large map costs only the parts that are used. On rectangular maps, solid cells are merged into as few rectangles as possible; on hex maps each solid cell is a hexagon. The seams between neighboring cells are smoothed over, so characters slide across tile edges without catching. When you paint on a collision layer while the game runs, only the changed chunk is rebuilt.
+
+### Shadows
+
+Collision layers also block light: lights with **Casts Shadows** on throw shadows from every solid cell. A cell blocks light with its tile's collision shapes when the tile has them. Otherwise it blocks light with the opaque pixels of the tile's artwork inside the cell, so a plank casts a plank-shaped shadow and the transparent space under it casts none. Color tiles, and artwork that fills its cell, block the whole cell. Edges of the artwork within two pixels of the cell's edge count as touching it, so blocks drawn with a soft or rounded rim let no light through the seams between them.
+
+Like shadow casters, solid cells stay lit, even in the shadow of other cells, and the shadows fall on what lies behind them. **Tile shadows** in the [Lighting panel](../effects/lighting.mdx) turns this on or off for the scene, and **Tile layer** chooses which shadow caster layer the map's shadows are on.
+
+## Object layers
+
+Object layers hold objects instead of tiles. Add one with **New object layer** (the pin button) in the Tile Map panel. Each object has a name, a type, a position and custom properties, and is one of:
+
+| Kind | What it is | Typical use |
+| --- | --- | --- |
+| **Point** | A single position | Spawn points, waypoints, where an item lies |
+| **Polygon** | An area of three or more corners | Triggers, zones, water areas |
+| **Tile** | A tile placed as an image, not tied to the cell grid | Trees, rocks and props that should sort in front of or behind characters |
+
+### The Objects tool
+
+Press <Keys>O</Keys> and select an object layer in the Tile Map panel. The tool options bar has four modes:
+
+| Mode | What it does |
+| --- | --- |
+| **Select** | Click an object to select it, drag it to move it, press <Keys>Delete</Keys> to remove it, <Keys>Escape</Keys> to deselect |
+| **Point** | Click to place a point |
+| **Polygon** | Click to add corners; double-click or press <Keys>Enter</Keys> to finish, <Keys>Backspace</Keys> removes the last corner |
+| **Tile** | Click to place the brush's tile as an image object |
+
+New objects snap to the center of the cell under the pointer. Hold <Keys>Ctrl</Keys> to snap to the nearest cell corner instead, or <Keys>Alt</Keys> to place freely. Moving an object snaps the same way. Clicking an object on another layer selects it and makes its layer the selected one.
+
+<Screenshot name="guide/tilemap-objects" caption="Hex Quest's Harbor trigger selected, with its name, type and position on the Properties tab." />
+
+### Edit an object
+
+With an object selected, the **Properties** tab of the Tile Map panel shows it under **Selected object**: its kind, id, layer and cell, and fields for:
+
+| Field | What it is for |
+| --- | --- |
+| **Name** | How your game finds the object, such as `Player spawn`. New objects are named *Point 4*, *Area 7* and so on. |
+| **Type** | A word your game uses to tell objects apart, such as `spawn`, `trigger` or `chest` |
+| **X**, **Y** | The position |
+| Custom properties | Values for your game, such as a trigger's `cutscene` or a chest's `gold` |
+
+Every edit is one undo step.
+
+## What objects become in the game
+
+When the scene starts, the map's entity spawns one child entity per object, named after it:
+
+| Object | Becomes |
+| --- | --- |
+| Point | An entity at the point's position, carrying the object's data (name, type, cell and properties) |
+| Polygon | The same, plus a trigger area of the polygon's shape |
+| Tile | The same, plus a sprite of the tile, sorted with other sprites by its bottom edge |
+
+The tiles themselves never become entities, so a map with millions of cells costs only these few entities. The editor shows the objects in the viewport too, and updates them as you edit.
+
+Scripts find objects by name, read their type and properties, and react when something enters a polygon. A polygon reports entering and leaving for entities that carry a trigger activator, which game code adds to the player; for areas you want to set up entirely in the editor, an entity with a **Collider 2D** with **Is Trigger** ticked works with scripts' `OnTriggerEnter` instead, as the coins in [Your first game](../getting-started/first-game.mdx) do. See [Tile maps from scripts](/scripting/scripts/tile-maps).
+
+The Hex Quest sample uses both: its *Points of interest* layer names places, and polygons with a `cutscene` property start a cutscene when the hero walks in.
+
+## Custom properties
+
+Maps, tiles and objects carry typed custom properties: String, Int, Float, Bool, Color and File. Edit them:
+
+| On | Where |
+| --- | --- |
+| The map | The **Properties** tab, under **Map** |
+| A tile | Its [tile properties](./tilesets.mdx#tile-properties) |
+| An object | The **Properties** tab, under **Selected object** |
+
+Layers and tilesets can have properties too, set in Hexy; Talesmith keeps them and scripts can read them. Properties are saved in the `.hexy` file, so they work the same in Hexy.
+
+The samples drive gameplay with properties: Isle Hopper reads `solid`, `oneWay` and `hazard` from tiles, and Hex Quest marks tiles `blocked` so the hero cannot walk on them.
+
+## Related
+
+- [Layers and roles](./layers.mdx)
+- [Tile maps from scripts](/scripting/scripts/tile-maps)
+- [Physics](/scripting/concepts/physics)

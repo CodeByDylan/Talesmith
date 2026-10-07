@@ -1,0 +1,213 @@
+---
+title: "Commands, menus and the toolbar"
+description: "Add commands with shortcuts, place them in menus and the app bar, and make them show in the command palette."
+---
+
+Everything the user can do from a menu, a shortcut, the app bar or the command palette is a command. Commands are contributed by `IEditorCommandContributor` classes. This page covers adding commands with `CommandBuilder.Add`, ids and categories, shortcuts and user overrides, menu paths and groups, app bar buttons, keeping shortcuts out of text fields, when the editor asks whether a command can run, and status bar items.
+
+## Contribute commands
+
+A contributor adds its commands and places them when the editor window opens:
+
+```csharp title="plugins-src/Spinners.Editor/SpinnerCommands.cs"
+using System.Text.Json.Nodes;
+using Talesmith.Editor.Commands;
+using Talesmith.Editor.Documents;
+using Talesmith.Editor.Selection;
+using Talesmith.Editor.Undo;
+using Talesmith.Runtime.Serialization;
+using Talesmith.UI;
+
+namespace Spinners.Editor;
+
+public sealed class SpinnerCommands(ISceneDocumentService documents, ISelectionService selection, IUndoService undo) : IEditorCommandContributor
+{
+    public static string ComponentType { get; } = ComponentRegistry.GetTypeName(typeof(Spinner));
+
+    public void Contribute(CommandBuilder builder)
+    {
+        builder.Add("spinners.add", "Add spinner", "Spinners", AddToSelection, CanAdd, "Ctrl+Alt+R", Icons.RotateCw,
+            "Adds a Spinner component to the selected entities.");
+        builder.Menu(MenuPaths.Plugins, "spinners.add");
+        builder.Menu(MenuPaths.Component, "spinners.add", "plugins");
+        builder.Toolbar("spinners.add");
+        builder.KeepOutOfText("spinners.add");
+    }
+
+    private bool CanAdd() => documents.Active is { } document && selection.Entities.Any(id => document.Find(id) is { } entity && entity.FindComponent(ComponentType) is null);
+
+    private void AddToSelection()
+    {
+        if (documents.Active is not { } document)
+            return;
+        using var transaction = undo.BeginTransaction("Add spinner");
+        foreach (var id in selection.Entities)
+        {
+            if (document.Find(id) is { } entity && entity.FindComponent(ComponentType) is null)
+                document.AddComponent(id, new ComponentDocument(ComponentType, new JsonObject { ["speed"] = 90 }));
+        }
+    }
+}
+```
+
+```csharp
+services.AddEditorCommands<SpinnerCommands>();
+```
+
+The contributor is created through dependency injection, so it can ask for editor services, and lives as long as the project is open. `Contribute` runs once, when the editor window is created.
+
+:::warning
+`Contribute` runs while the editor builds its window. When it throws, or adds a command id that is already taken, such as `file.save`, the editor keeps none of its commands, menu entries or toolbar buttons, and reports the failure in the Console and on the plugin's card (see [Errors in editor code](../debugging.mdx#errors-in-editor-code)). The contributor's constructor is not guarded: an exception there still stops the project from opening. Keep `Contribute` to `Add`, `Menu`, `Toolbar` and `KeepOutOfText` calls, and do the real work in the commands.
+:::
+
+## Add a command
+
+`CommandBuilder.Add` has four forms:
+
+| Form | Use |
+| --- | --- |
+| `Add(id, title, category, Action execute, Func<bool>? canExecute, gesture, icon, description)` | A command that runs an action. |
+| `Add(id, title, category, Func<Task> execute, …)` | A command that runs asynchronous work; it cannot run again until the work finished. |
+| `Add(id, title, category, ICommand command, gesture, icon, description)` | Any `ICommand`, such as a `RelayCommand` you keep to refresh it yourself. |
+| `Add(EditorCommand command)` | A command with every option, such as `ShowInPalette = false` or a second shortcut in `AlternateGesture`. |
+
+| Argument | Meaning |
+| --- | --- |
+| `id` | A stable, unique id such as `spinners.add`. Shortcut overrides and the palette's recent list refer to it. Prefix it with your plugin's name. |
+| `title` | The name in menus, tooltips and the palette. Use sentence case, and `…` when the command asks for more input. |
+| `category` | The group in the palette and the shortcut list, such as `Spinners`. |
+| `canExecute` | Whether the command can run now. Menus and buttons are disabled, and the shortcut does nothing, while it returns `false`. |
+| `gesture` | A shortcut such as `Ctrl+Alt+R`, `F6` or `Shift+Delete`, or null. |
+| `icon` | A 24 × 24 stroke icon geometry, such as `Icons.RotateCw`; needed for an app bar button. |
+| `description` | One line for tooltips and the palette. |
+
+Every command is in the command palette (<Keys>Ctrl+K</Keys>) with its title, category, shortcut and description, unless it sets `ShowInPalette = false`. It is also in **Settings › Keyboard** and the shortcut list.
+
+### An asynchronous command
+
+Commands that wait for the user or for files use the `Func<Task>` form:
+
+```csharp
+builder.Add("spinners.stopAll", "Stop all spinners", "Spinners", StopAllAsync, () => documents.Active is not null, null, Icons.Stop,
+    "Sets the speed of every spinner in the scene to 0.");
+```
+
+```csharp
+private async Task StopAllAsync()
+{
+    if (documents.Active is not { } document)
+        return;
+    var spinners = document.Entities.Where(e => e.FindComponent(SpinnerType) is not null).ToList();
+    if (spinners.Count == 0 || !await dialogs.ConfirmAsync("Stop all spinners", $"Set the speed of {spinners.Count} spinners to 0?", "Stop"))
+        return;
+    using var transaction = undo.BeginTransaction("Stop all spinners");
+    foreach (var entity in spinners)
+        document.SetProperty(entity.Id, SpinnerType, "speed", 0);
+}
+```
+
+## Shortcuts
+
+Shortcuts are written as modifiers and a key joined with `+`: `Ctrl`, `Shift`, `Alt` and `Meta`, then a letter, `F1` to `F12`, or an Avalonia key name such as `Delete`, `Up` or `Space`. A shortcut that cannot be read is ignored, and the command has none. Users can change any command's shortcut in **Settings › Keyboard**; their choice replaces yours, by command id, and survives plugin updates as long as the id stays the same.
+
+Shortcuts with `Ctrl`, `Alt` or `Meta`, and function keys, work everywhere in the editor. Plain keys, such as the tools' single letters, do not reach the editor while a text field or the running game in the Game panel has the keyboard.
+
+Pick shortcuts the editor does not use; [Keyboard shortcuts](/guide/reference/keyboard-shortcuts) lists them. Combinations with `Ctrl+Alt` are mostly free. When two commands share a shortcut, it runs the first one that can run.
+
+### Keep shortcuts out of text fields
+
+Shortcuts of commands that act on the selection, such as **Delete** or **Duplicate**, must not fire while the user types in a text field. List them with `KeepOutOfText`:
+
+```csharp
+builder.KeepOutOfText("spinners.add");
+```
+
+## Menus
+
+`Menu(path, commandId, group, order)` places a command in the main menu:
+
+- `path` starts with a top-level menu from `MenuPaths`: `File`, `Edit`, `Scene`, `Assets`, `GameObject`, `Component`, `Tools`, `Plugins`, `Window` or `Help`. Add submenus after slashes: `MenuPaths.Plugins + "/Spinners"` makes **Plugins › Spinners**. A top-level name that is not in `MenuPaths` becomes a new menu before **Window**.
+- `group` keeps entries together; groups are separated by lines, in the order they were first used.
+- `order` sorts entries within a group, lower first.
+
+The **Plugins** menu is meant for plugins and only appears when a plugin puts something in it. A command can be in several menus; the Spinners plugin puts **Add spinner** in **Plugins** and, in its own group, in **Component**.
+
+```csharp
+builder.Menu(MenuPaths.Plugins + "/Spinners", "spinners.stopAll", "edit");
+builder.Menu(MenuPaths.Plugins + "/Spinners", "spinners.reverse", "settings");
+builder.Menu(MenuPaths.GameObject, "spinners.stopAll", "spinners", order: 100);
+```
+
+`Menu(path, MenuItemViewModel item, …)` places a custom item, such as a submenu that is filled when it opens.
+
+## App bar buttons
+
+`Toolbar(commandId, order)` shows a command as an icon button in the app bar, left of the command search, with its title and shortcut as the tooltip. The command needs an icon. Buttons are sorted by `order`. Keep it for actions users take all the time; everything else belongs in a menu.
+
+## Can the command run
+
+The editor asks every command whether it can run again after edits, undo and redo, selection changes, when the open scene changes or is saved, and when play mode starts or stops. A `canExecute` function that depends on those needs nothing else.
+
+When it depends on something else, such as the state of your own service, refresh it yourself: keep the `RelayCommand` you passed to `Add` and call its `NotifyCanExecuteChanged()`, or call `EditorCommandRegistry.RefreshCanExecute()` to refresh every command.
+
+## Status bar items
+
+The status bar shows items that features keep up to date, such as the script compiler's state. Add one from an editor service with `StatusBarViewModel.AddItem(id, order)`; it returns the item, or the existing one with that id:
+
+```csharp title="SpinnerToolsCommands.cs (part)"
+public sealed class SpinnerToolsCommands(ISceneDocumentService documents, IUndoService undo, IDialogService dialogs, StatusBarViewModel status,
+    PluginManager plugins) : IEditorCommandContributor
+{
+    private static readonly string SpinnerType = ComponentRegistry.GetTypeName(typeof(Spinner));
+    private readonly StatusBarItem _count = status.AddItem("spinners.count", 50);
+
+    public void Contribute(CommandBuilder builder)
+    {
+        builder.Add(new EditorCommand("spinners.recount", "Count spinners", "Spinners", new RelayCommand(Recount)) { ShowInPalette = false });
+        documents.ActiveChanged += (_, _) => Recount();
+        Recount();
+    }
+
+    private void Recount()
+    {
+        var count = documents.Active?.Entities.Count(e => e.FindComponent(SpinnerType) is not null) ?? 0;
+        _count.Text = $"{count} spinners";
+        _count.Icon = Icons.RotateCw;
+        _count.IsVisible = count > 0;
+    }
+}
+```
+
+| Property | Meaning |
+| --- | --- |
+| `Text`, `Icon`, `ToolTip` | What the item shows. |
+| `Kind` | `Neutral`, `Success`, `Warning`, `Error` or `Busy`, which colors it. |
+| `IsVisible` | Hide the item while it has nothing to say. |
+| `Command` | Runs when the item is clicked; without one the item is plain text. |
+
+Items are sorted by `order`; the editor's build status uses 70.
+
+## Settings from a command
+
+A command can change the plugin's [settings](../package/settings.mdx). The editor's `PluginManager` returns the same settings object that the plugin's games read:
+
+```csharp
+builder.Add("spinners.reverse", "Reverse spinners in games", "Spinners", new RelayCommand(ToggleReverse), "Ctrl+Alt+Shift+R", Icons.RotateCcw);
+```
+
+```csharp
+private void ToggleReverse()
+{
+    var settings = plugins.GetSettings("coral-cove.spinners");
+    settings.Set("reverseAll", !settings.Get("reverseAll", false));
+    settings.Save();
+}
+```
+
+The next play session reads the new value in `Configure`.
+
+## Related
+
+- [Editor plugins](./index.mdx)
+- [Command palette providers](./command-palette.mdx)
+- [Keyboard shortcuts](/guide/reference/keyboard-shortcuts)

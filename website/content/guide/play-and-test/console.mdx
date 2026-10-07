@@ -1,0 +1,89 @@
+---
+title: "Debugging and the console"
+description: "Read messages, warnings and errors from the editor, scripts and the game, and jump to the code that caused them."
+---
+
+The Console collects messages from the editor, asset imports, plugins, your scripts and the running game: what happened, what looks wrong and what failed. This page covers severities and sources, filtering and searching, collapsed duplicates, reading a message's details, jumping to the file, entity or asset a message is about, logging from your own scripts, and the game's debug views.
+
+<Screenshot name="guide/console" caption="Messages of every severity and source; a warning repeated five times, collapsed into one row; and the details of an error." priority />
+
+Open the console with <Keys>Ctrl+Shift+C</Keys> or **Window › Panels › Console**. In the Default layout it is a tab in the bottom panels.
+
+## Read a message
+
+Each row shows the time, the source and the message. A count at the end of the row tells how often a collapsed message repeated, and an arrow marks a message you can open. Click a row to see its details below the list: the full message and, for errors, the exception and stack trace. You can select and copy the text.
+
+| Severity | Icon | Means |
+| --- | --- | --- |
+| Message | blue | Something happened: a scan finished, scripts compiled, a plugin loaded |
+| Warning | amber | Something looks wrong but works, such as a sprite name the texture does not have |
+| Error | red | Something failed: a script threw an exception, a file could not be read, a build failed |
+
+| Source | Messages from |
+| --- | --- |
+| **Editor** | The editor itself |
+| **Game** | The running game, in play mode |
+| **Script** | Script compilation, and your scripts' own logging |
+| **Plugin** | Plugins loading and plugin code |
+| **Assets** | Asset scans and imports |
+
+## Filter and search
+
+The toolbar at the top of the console:
+
+| Control | What it does |
+| --- | --- |
+| Severity buttons | Show or hide messages, warnings and errors. Each shows its count. |
+| **All sources** | Shows only one source, such as **Script** |
+| **Collapse** | Folds repeated messages into one row with a count |
+| **Filter messages** | Shows only messages containing the text |
+| Trash | Clears the console |
+
+The console keeps the newest 20,000 messages. Debug-level messages are not shown.
+
+## Go to the cause
+
+Double-click a message with an arrow to go to what it is about:
+
+- A **script error** opens the file at the line and column in your code editor.
+- An **entity** is selected and framed in the Scene panel.
+- A **scene** opens in the editor.
+- Another **asset** is selected in the Assets panel.
+
+The code editor is set in **Edit › Settings… › Editor › External code editor**: a command with `{file}`, `{line}` and `{column}` in it, such as `code -g {file}:{line}:{column}` or `rider --line {line} {file}`. Left empty, the editor uses Visual Studio Code or Rider when either is installed, and otherwise your system's default program. See [Editor settings](../workflow/settings.mdx).
+
+## Script errors
+
+The editor compiles your scripts when the project opens and shortly after you save a script. Errors, warnings and info diagnostics, such as the hint about building strings every frame, go to the console with their file and line, under the **Script** source, and the status bar shows *2 script errors*. Info diagnostics are messages, so the severity buttons hide them with the other messages. Click the status bar item to see the console filtered to scripts.
+
+<Screenshot name="guide/console-script-errors" caption="A compile error, with the file and line it is in." />
+
+While scripts have errors, [play mode](./play-mode.mdx) does not start, so you never play stale code by accident.
+
+## Log from your scripts
+
+Scripts write to the console through `Log`:
+
+```csharp
+Log.Info("Door opened");
+Log.Warning($"No spawn point named {SpawnName}, using the origin");
+Log.Error("The boss has no health bar");
+```
+
+Messages appear under the **Script** source, prefixed with the name of the entity whose script logged them, so you can tell which of twenty enemies said something. `Log.Error` also takes an exception, whose stack trace shows in the details. See [Diagnostics and analyzers](/scripting/scripts/diagnostics).
+
+## Look inside the running game
+
+In play mode, the Game panel has developer keys for seeing what the game is doing:
+
+- <Keys>F3</Keys> shows the performance overlay, with frame times and counters.
+- <Keys>F4</Keys> cycles through debug views: the map's grid, its chunks, and map objects with the outlines of colliders, colored by body type, and contact points.
+- <Keys>F9</Keys> saves a profiler report of the last 600 frames.
+
+Use the live [hierarchy](../scenes/hierarchy.mdx#while-playing) and [inspector](../scenes/inspector.mdx#while-playing) to read values while the game runs, and pause and step frame by frame (<Keys>Ctrl+Shift+P</Keys>, <Keys>F10</Keys>) to catch something that happens too fast to see. See [Play mode](./play-mode.mdx#developer-keys).
+
+## Related
+
+- [Play mode](./play-mode.mdx)
+- [Compiling and hot reload](/scripting/scripts/hot-reload)
+- [Performance](../performance.mdx)

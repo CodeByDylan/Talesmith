@@ -1,0 +1,302 @@
+---
+title: "Example: the cutscene plugin"
+description: "A tour of the cutscene and dialogue plugin from the Hex Quest sample, file by file."
+---
+
+The Hex Quest sample ships its cutscenes and dialogue as a separate plugin, `samples.cutscenes`, in `samples/Talesmith.Samples.Cutscenes`. This page walks through it file by file to show how a real plugin combines an asset importer, a player for scripted sequences, map triggers, input, an overlay and per-game state, and how it works with the gameplay plugin without depending on it.
+
+## What it does
+
+When the hero walks onto the harbor on the Emerald Isles map, the camera pans to the harbor, the harbormaster speaks, the camera pans to Highgarden and she asks a question with two answers. The answer decides the next line, then the camera returns to the hero and the player has control again. The cutscene plays once per game.
+
+<Screenshot name="plugins/cutscene-dialogue" />
+
+The whole sequence is a data file, `assets/cutscenes/harbor-arrival.cutscene`:
+
+```json title="samples/HexQuest/assets/cutscenes/harbor-arrival.cutscene"
+{
+  // Plays the first time the hero walks into the "Harbor" trigger on the Emerald Isles map.
+  "steps": [
+    { "type": "camera", "target": "Harbor", "duration": 1.4 },
+    { "type": "say", "speaker": "Harbormaster Wren", "text": "Ahoy there! You must be the traveller the gulls have been squawking about." },
+    { "type": "say", "speaker": "Harbormaster Wren", "text": "The ferry to the mainland left at dawn. Next one sails when the tide turns." },
+    { "type": "camera", "target": "Highgarden", "duration": 1.8 },
+    { "type": "choice", "speaker": "Harbormaster Wren", "text": "Until then, Lady Elara up at Highgarden is looking for help. Will you go?",
+      "options": [
+        { "text": "Of course. Which way?", "goto": "accept" },
+        { "text": "I'd rather rest by the water.", "goto": "decline" }
+      ] },
+    { "type": "label", "name": "accept" },
+    { "type": "say", "speaker": "Harbormaster Wren", "text": "Follow the meadow north past Millbrook. You can't miss the towers." },
+    { "type": "goto", "label": "done" },
+    { "type": "label", "name": "decline" },
+    { "type": "say", "speaker": "Harbormaster Wren", "text": "Suit yourself. The offer stands while the tide's out." },
+    { "type": "label", "name": "done" },
+    { "type": "cameraBack", "duration": 1.2 }
+  ]
+}
+```
+
+On the map, the harbor is a trigger object named **Harbor** with a string property `cutscene` set to `harbor-arrival`. The camera targets are map objects too.
+
+## The project and the manifest
+
+The project imports `samples/Plugin.targets`, which installs it into `samples/HexQuest/assets/plugins/cutscenes`, and references the engine at compile time only:
+
+```xml title="samples/Talesmith.Samples.Cutscenes/Talesmith.Samples.Cutscenes.csproj"
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>A cutscene and dialogue plugin: scripted camera moves, dialogue with choices and a dialogue overlay, started by map triggers.</Description>
+    <PluginFolder>cutscenes</PluginFolder>
+  </PropertyGroup>
+  <Import Project="..\Plugin.targets" />
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Talesmith.Runtime\Talesmith.Runtime.csproj" Private="false" ExcludeAssets="runtime" />
+    <ProjectReference Include="..\..\src\Talesmith.Avalonia\Talesmith.Avalonia.csproj" Private="false" ExcludeAssets="runtime" />
+  </ItemGroup>
+</Project>
+```
+
+`Talesmith.Avalonia` is there for the overlay. The manifest declares `runtimeScene`, because the plugin adds a system and a scene listener, and lists what it extends:
+
+```json title="samples/Talesmith.Samples.Cutscenes/plugin.json"
+{
+  "id": "samples.cutscenes",
+  "name": "Cutscenes and dialogue",
+  "version": "1.0.0",
+  "description": "Plays scripted cutscenes with camera moves and dialogue choices when the player enters a map trigger with a 'cutscene' property.",
+  "authors": [ "Talesmith" ],
+  "assembly": "Talesmith.Samples.Cutscenes.dll",
+  "contractVersion": 1,
+  "minEngineVersion": "0.1.0",
+  "permissions": [ "runtimeScene" ],
+  "extensions": [ "importers", "systems", "scene.listeners", "overlays", "services" ]
+}
+```
+
+It has no `dependencies`: nothing in it refers to the gameplay plugin.
+
+## CutscenesPlugin: what it registers
+
+```csharp title="samples/Talesmith.Samples.Cutscenes/CutscenesPlugin.cs"
+public sealed class CutscenesPlugin : IPlugin
+{
+    public void Configure(IPluginBuilder builder)
+    {
+        var services = builder.Services;
+        services.AddSingleton<IAssetImporter, CutsceneImporter>();
+        services.AddSingleton<DialogueState>();
+        services.AddSingleton<CutsceneJournal>();
+        services.AddSingleton<CutscenePlayer>();
+        services.AddSingleton<IGameOverlay, DialogueOverlay>();
+        services.AddSystem<DialogueInputSystem>();
+        services.AddSceneListener<CutsceneTriggers>();
+    }
+}
+```
+
+| Registration | Role |
+| --- | --- |
+| `CutsceneImporter` | Loads `.cutscene` files as `CutsceneScript`s. |
+| `DialogueState` | The dialogue on screen; the one place that changes it. Singleton, so it lasts across scenes. |
+| `CutsceneJournal` | Which cutscenes have played this game. |
+| `CutscenePlayer` | Runs a script's steps. |
+| `DialogueOverlay` | Draws the dialogue box above the game. |
+| `DialogueInputSystem` | Reveals text over time and reads the keys that continue and choose. |
+| `CutsceneTriggers` | Starts cutscenes when the hero enters a trigger. Created per scene. |
+
+## CutsceneScript and CutsceneImporter: the asset type
+
+`CutsceneScript` is a record with a list of steps, read with `System.Text.Json`. Each step type is a record, chosen in the file by its `"type"`:
+
+```csharp title="samples/Talesmith.Samples.Cutscenes/CutsceneScript.cs (part)"
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
+[JsonDerivedType(typeof(SayStep), "say")]
+[JsonDerivedType(typeof(ChoiceStep), "choice")]
+[JsonDerivedType(typeof(CameraStep), "camera")]
+[JsonDerivedType(typeof(CameraBackStep), "cameraBack")]
+[JsonDerivedType(typeof(WaitStep), "wait")]
+[JsonDerivedType(typeof(SoundStep), "sound")]
+[JsonDerivedType(typeof(LabelStep), "label")]
+[JsonDerivedType(typeof(GotoStep), "goto")]
+[JsonDerivedType(typeof(EndStep), "end")]
+public abstract record CutsceneStep;
+
+public sealed record SayStep(string Speaker, string Text) : CutsceneStep;
+
+public sealed record ChoiceStep(string Speaker, string Text, IReadOnlyList<ChoiceOption> Options) : CutsceneStep;
+
+public sealed record CameraStep(string Target, float Duration = 1.2f) : CutsceneStep;
+```
+
+The script also builds a `Labels` dictionary from each label name to its step index, for `goto` and choices. `CutsceneImporter` is the importer shown in [Asset importers](./runtime/importers.mdx#write-an-importer): it opens the file through the import context, parses it, and turns a `JsonException` into an `AssetException` that names the file. Because the importer reads through the context, the same code works on loose files in the editor and inside an exported game's pack.
+
+## CutscenePlayer and DialogueState
+
+`CutscenePlayer` plays a script as one `async` method. Each step awaits what it waits for: a line awaits the player continuing, a camera pan awaits a tween, a wait awaits the game scheduler:
+
+```csharp title="samples/Talesmith.Samples.Cutscenes/CutscenePlayer.cs (part)"
+public sealed class CutscenePlayer(DialogueState dialogue, PlayerControl control, ITweenService tweens, IGameScheduler scheduler, IAssetManager assets,
+    IAudioService audio)
+{
+    public bool IsPlaying { get; private set; }
+
+    public async Task PlayAsync(CutsceneScript script, World world, CancellationToken cancellationToken = default)
+    {
+        if (IsPlaying)
+            throw new InvalidOperationException("A cutscene is already playing.");
+
+        IsPlaying = true;
+        using var suspension = control.Suspend("cutscene");
+        var camera = new CameraDirector(world, tweens);
+        try
+        {
+            var index = 0;
+            while (index < script.Steps.Count)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                index = await RunAsync(script, script.Steps[index], index, world, camera, cancellationToken);
+            }
+        }
+        finally
+        {
+            dialogue.Close();
+            camera.Release();
+            IsPlaying = false;
+        }
+    }
+```
+
+- `control.Suspend("cutscene")` takes control away from the player until the cutscene ends, whichever way it ends. `PlayerControl` is an engine service; the gameplay plugin's movement checks `control.IsSuspended`.
+- `RunAsync` handles one step and returns the index of the next, which is how `goto` and choices jump.
+- `CameraDirector` takes the camera off its target (`Camera.Target`, the hero), moves it with `ITweenService.To`, and gives the target back in `Release`.
+- The game's code continues on the game thread after each `await`, so the player can change the world directly. The engine runs async continuations on the game thread at the start of a frame.
+
+`DialogueState` is the dialogue on screen. `SayAsync` and `ChooseAsync` show a line and return a task that completes when the player continues or chooses; the input system calls `Advance`, `MoveSelection` and `Choose`; `Tick` reveals the text at 45 characters per second. Everything the overlay needs is published as an immutable `DialogueView` through a `ViewState<DialogueView>`:
+
+```csharp title="samples/Talesmith.Samples.Cutscenes/DialogueState.cs (part)"
+public sealed record DialogueView(bool IsOpen, string Speaker, string Text, int VisibleLength, IReadOnlyList<string> Options, int SelectedOption)
+{
+    public static readonly DialogueView Closed = new(false, string.Empty, string.Empty, 0, [], 0);
+
+    public bool IsFullyRevealed => VisibleLength >= Text.Length;
+
+    public string VisibleText => Text[..Math.Min(VisibleLength, Text.Length)];
+}
+
+public sealed class DialogueState(IGameUi ui)
+{
+    public ViewState<DialogueView> View { get; } = new(ui, DialogueView.Closed);
+
+    public Task SayAsync(string speaker, string text) => Show(speaker, text, []);
+
+    public Task<int> ChooseAsync(string speaker, string text, IReadOnlyList<string> options) => Show(speaker, text, options);
+```
+
+Pending lines are `TaskCompletionSource`s: `Close` cancels them, so a cutscene interrupted by a scene change ends cleanly.
+
+## CutsceneTriggers: starting cutscenes from map objects
+
+The engine's trigger system raises `TriggerEntered` when an entity with a `TriggerActivator` enters a trigger area from the map. `CutsceneTriggers` is a [scene listener](./runtime/scenes.mdx#scene-listeners) that listens for it while a scene is active:
+
+```csharp title="samples/Talesmith.Samples.Cutscenes/CutsceneTriggers.cs (part)"
+public sealed partial class CutsceneTriggers(IEventBus events, IAssetManager assets, CutscenePlayer player, CutsceneJournal journal, ILogger<CutsceneTriggers> logger)
+    : ISceneListener, IDisposable
+{
+    public const string CutsceneProperty = "cutscene";
+    public const string RepeatProperty = "repeat";
+
+    public void OnSceneStarted(Scene scene)
+    {
+        _scene = scene;
+        _cancellation = new CancellationTokenSource();
+        _subscription = events.Subscribe<TriggerEntered>(OnTriggerEntered);
+    }
+
+    public void OnSceneStopping(Scene scene) => Dispose();
+
+    private void OnTriggerEntered(ref TriggerEntered e)
+    {
+        var name = e.Area.Properties.GetString(CutsceneProperty);
+        if (string.IsNullOrWhiteSpace(name) || player.IsPlaying || _scene is null)
+            return;
+        if (!e.Area.Properties.GetBool(RepeatProperty) && !journal.MarkPlayed(name))
+            return;
+        _ = PlayAsync(name, _scene, _cancellation!.Token);
+    }
+```
+
+- The trigger's map properties decide everything: `cutscene` names the file, `cutscenes/<name>.cutscene`, and `repeat` lets a cutscene play every time.
+- `CutsceneJournal.MarkPlayed` returns false for a cutscene that already played, so one-time cutscenes do not repeat. The journal is a singleton, so this holds across scenes for the whole game.
+- When the scene stops, `Dispose` unsubscribes and cancels the cutscene in progress.
+- `PlayAsync` loads the script with `assets.LoadAsync<CutsceneScript>`, plays it, and logs a failure with a `[LoggerMessage]` method instead of letting it vanish in a discarded task.
+
+Because the file name is built as `$"cutscenes/{name}{CutsceneScript.Extension}"`, builds include the whole `cutscenes` folder: the literal `cutscenes/` in the plugin's code names it. See [Plugins in exported games](./package/packaging.mdx#plugins-in-exported-games).
+
+## DialogueInputSystem and DialogueOverlay
+
+`DialogueInputSystem` runs in `PreUpdate` while the dialogue is open. It reveals text with the unscaled frame time, so dialogue still reveals while game time is slowed, moves the selection with the arrow keys and <Keys>W</Keys>/<Keys>S</Keys>, picks an option with the number keys, and continues with the game's **Interact** action from `config/input.json`:
+
+```csharp title="samples/Talesmith.Samples.Cutscenes/DialogueInputSystem.cs"
+[UpdateIn(SystemPhase.PreUpdate)]
+public sealed class DialogueInputSystem(DialogueState dialogue, IInputService input) : ISystem
+{
+    public void Update(in SystemContext context)
+    {
+        if (!dialogue.IsOpen)
+            return;
+
+        dialogue.Tick(context.Time.UnscaledDeltaTime);
+        if (input.WasPressed(Key.Up) || input.WasPressed(Key.W))
+            dialogue.MoveSelection(-1);
+        if (input.WasPressed(Key.Down) || input.WasPressed(Key.S))
+            dialogue.MoveSelection(1);
+        for (var i = 0; i < 9; i++)
+        {
+            if (input.WasPressed(Key.D1 + i))
+                dialogue.Choose(i);
+        }
+
+        if (input.Actions.TryGet("Interact", out var interact) && interact!.WasPressed)
+            dialogue.Advance();
+    }
+}
+```
+
+`DialogueOverlay` subscribes to `dialogue.View.Changed` and redraws the speaker, the revealed text, the options and a hint. It never reads `DialogueState`'s fields from the UI thread, only the published snapshot, and it does not take input. [Game overlays](./runtime/overlays.mdx#example-the-dialogue-overlay) shows its code.
+
+## CutsceneJournal
+
+```csharp title="samples/Talesmith.Samples.Cutscenes/CutsceneJournal.cs"
+public sealed class CutsceneJournal
+{
+    private readonly HashSet<string> _played = new(StringComparer.OrdinalIgnoreCase);
+
+    public bool HasPlayed(string name) => _played.Contains(name);
+
+    public bool MarkPlayed(string name) => _played.Add(name);
+}
+```
+
+A plain singleton service: one per game, shared by every scene, gone when the game ends.
+
+## How the two plugins stay independent
+
+Hex Quest's gameplay plugin and the cutscene plugin never reference each other, and neither lists the other as a dependency. They meet only through engine contracts and the game's data:
+
+| The cutscene plugin needs | Provided by |
+| --- | --- |
+| An entity that activates triggers | The gameplay plugin adds `TriggerActivator` to the hero it spawns. |
+| Trigger areas with a `cutscene` property | The map, made in the editor. |
+| A way to stop the hero during a cutscene | The engine's `PlayerControl`, which the gameplay plugin's movement respects. |
+| A camera to move and give back | The engine's `Camera` component, whose `Target` the gameplay plugin sets to the hero. |
+| A key to continue | The game's **Interact** input action. |
+
+So either can be switched off on its own: without the cutscene plugin, Hex Quest plays without cutscenes; without the gameplay plugin there is no hero to enter triggers, and the cutscene plugin waits. The same plugin works in any game that gives an entity a `TriggerActivator`, has trigger objects with a `cutscene` property, uses `PlayerControl` and defines **Interact**.
+
+## Related
+
+- [Asset importers](./runtime/importers.mdx)
+- [Scenes and scene listeners](./runtime/scenes.mdx)
+- [Game overlays](./runtime/overlays.mdx)
+- [Asset inspectors, handlers and thumbnails](./editor/assets.mdx), which gives these files an editor part

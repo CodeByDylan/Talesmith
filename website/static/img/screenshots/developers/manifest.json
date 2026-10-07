@@ -1,0 +1,37 @@
+{
+  "developers/dock-drag": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "A panel tab dragged onto a guide beside another group, with the area it will take highlighted"
+  },
+  "developers/dock-rearranged": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "The dock workspace after rearranging panels"
+  },
+  "developers/dock-workspace": {
+    "width": 2880,
+    "height": 1760,
+    "alt": "A dock workspace with panels in tabs, the app bar and the status bar"
+  },
+  "developers/toolkit-curve-gradient": {
+    "width": 1720,
+    "height": 1040,
+    "alt": "The curve and gradient editors as they appear in their flyouts"
+  },
+  "developers/toolkit-gallery": {
+    "width": 2800,
+    "height": 1800,
+    "alt": "The editor's UI toolkit: buttons, inputs, editor fields, badges, a property grid, a tree, asset tiles and toasts"
+  },
+  "developers/toolkit-icons": {
+    "width": 2720,
+    "height": 1600,
+    "alt": "Every icon of the editor with its name"
+  },
+  "developers/toolkit-property-grid": {
+    "width": 760,
+    "height": 1520,
+    "alt": "The inspector building blocks: an entity header, property groups and a row for every kind of field"
+  }
+}

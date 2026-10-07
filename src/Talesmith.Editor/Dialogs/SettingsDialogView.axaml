@@ -1,0 +1,184 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Dialogs"
+             x:Class="Talesmith.Editor.Dialogs.SettingsDialogView"
+             x:DataType="vm:SettingsDialogViewModel">
+  <UserControl.Styles>
+    <Style Selector="StackPanel.page">
+      <Setter Property="Spacing" Value="8" />
+    </Style>
+    <Style Selector="StackPanel.page > TextBlock.section">
+      <Setter Property="Margin" Value="0,12,0,2" />
+    </Style>
+    <Style Selector="NumericUpDown.setting">
+      <Setter Property="Width" Value="128" />
+    </Style>
+    <Style Selector="Button.binding">
+      <Setter Property="MinWidth" Value="120" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="Padding" Value="8,2" />
+      <Setter Property="MinHeight" Value="26" />
+      <Setter Property="FontFamily" Value="{DynamicResource MonoFontFamily}" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="Button.binding.recording">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <ui:Dialog Header="Settings" Width="820" Height="620" Padding="0">
+    <Grid ColumnDefinitions="200,Auto,*">
+      <DockPanel Margin="12,8,8,12">
+        <Button DockPanel.Dock="Bottom" Classes="subtle small" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Command="{Binding ResetToDefaultsCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.RotateCcw}" Size="14" />
+            <TextBlock Text="Reset to defaults" />
+          </StackPanel>
+        </Button>
+        <ListBox Name="SectionList" Classes="sidebar" ItemsSource="{Binding Sections}" SelectedIndex="{Binding SelectedSectionIndex}">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:SettingsSection">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <ui:SymbolIcon Data="{Binding Icon}" Size="16" />
+                <TextBlock Text="{Binding Title}" VerticalAlignment="Center" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+      <Border Grid.Column="1" Classes="divider-v" Margin="0" />
+
+      <Panel Grid.Column="2">
+        <ScrollViewer Padding="20,4,20,20" IsVisible="{Binding !IsKeyboardSection}">
+          <Panel>
+            <StackPanel Classes="page" IsVisible="{Binding IsAppearanceSection}">
+              <TextBlock Classes="section" Text="Theme" />
+              <ui:SettingRow Icon="{x:Static ui:Icons.Monitor}" Title="Color mode" Description="Follow the system or force light or dark.">
+                <ui:SegmentedControl SelectedIndex="{Binding ThemeModeIndex}">
+                  <ui:SegmentedControlItem>
+                    <StackPanel Orientation="Horizontal" Spacing="6"><ui:SymbolIcon Data="{x:Static ui:Icons.Monitor}" Size="14" /><TextBlock Text="System" /></StackPanel>
+                  </ui:SegmentedControlItem>
+                  <ui:SegmentedControlItem>
+                    <StackPanel Orientation="Horizontal" Spacing="6"><ui:SymbolIcon Data="{x:Static ui:Icons.Sun}" Size="14" /><TextBlock Text="Light" /></StackPanel>
+                  </ui:SegmentedControlItem>
+                  <ui:SegmentedControlItem>
+                    <StackPanel Orientation="Horizontal" Spacing="6"><ui:SymbolIcon Data="{x:Static ui:Icons.Moon}" Size="14" /><TextBlock Text="Dark" /></StackPanel>
+                  </ui:SegmentedControlItem>
+                </ui:SegmentedControl>
+              </ui:SettingRow>
+              <TextBlock Classes="section" Text="Accent" />
+              <Border Classes="card" Padding="16,12">
+                <StackPanel Spacing="10">
+                  <StackPanel Spacing="2">
+                    <TextBlock Text="Accent color" FontWeight="SemiBold" />
+                    <TextBlock Classes="caption muted" Text="Used for selections, the active tool, play mode and primary actions." />
+                  </StackPanel>
+                  <ui:ColorSwatchPicker Colors="{Binding AccentPresets}" SelectedColor="{Binding AccentColor}" />
+                </StackPanel>
+              </Border>
+            </StackPanel>
+
+            <StackPanel Classes="page" IsVisible="{Binding IsEditorSection}">
+              <TextBlock Classes="section" Text="Saving" />
+              <ui:SettingRow Icon="{x:Static ui:Icons.Save}" Title="Autosave" Description="Save the open scene periodically while it has unsaved changes.">
+                <ToggleSwitch IsChecked="{Binding Autosave}" OnContent="" OffContent="" />
+              </ui:SettingRow>
+              <ui:SettingRow Icon="{x:Static ui:Icons.Activity}" Title="Autosave interval" Description="Minutes between automatic saves.">
+                <NumericUpDown Classes="setting" Value="{Binding AutosaveMinutes}" Minimum="1" Maximum="120" Increment="1" FormatString="0 min" IsEnabled="{Binding Autosave}" />
+              </ui:SettingRow>
+              <TextBlock Classes="section" Text="Scripts" />
+              <ui:SettingRow Icon="{x:Static ui:Icons.Code}" Title="External code editor"
+                             Description="The command that opens a file at a line, with {file}, {line} and {column}. Leave empty to use Visual Studio Code or Rider when installed, otherwise the system's default program.">
+                <TextBox Text="{Binding ExternalEditor}" Width="240" PlaceholderText="code -g {file}:{line}" Classes="mono" />
+              </ui:SettingRow>
+            </StackPanel>
+
+            <StackPanel Classes="page" IsVisible="{Binding IsViewportSection}">
+              <TextBlock Classes="section" Text="Grid and snapping" />
+              <ui:SettingRow Icon="{x:Static ui:Icons.Grid}" Title="Show grid" Description="Draw grid lines over the scene.">
+                <ToggleSwitch IsChecked="{Binding ShowGrid}" OnContent="" OffContent="" />
+              </ui:SettingRow>
+              <ui:SettingRow Icon="{x:Static ui:Icons.Hexagon}" Title="Show tile grid" Description="While a tile tool is active, outline the edited map's cells in their own shape in place of the grid.">
+                <ToggleSwitch IsChecked="{Binding ShowTileGrid}" OnContent="" OffContent="" />
+              </ui:SettingRow>
+              <ui:SettingRow Icon="{x:Static ui:Icons.Magnet}" Title="Snap to grid" Description="Snap moved entities to the grid by default.">
+                <ToggleSwitch IsChecked="{Binding SnapToGrid}" OnContent="" OffContent="" />
+              </ui:SettingRow>
+              <ui:SettingRow Icon="{x:Static ui:Icons.Square}" Title="Grid size" Description="The size of a grid cell in world units.">
+                <NumericUpDown Classes="setting" Value="{Binding GridSize}" Minimum="1" Maximum="4096" Increment="1" FormatString="0 px" />
+              </ui:SettingRow>
+              <ui:SettingRow Icon="{x:Static ui:Icons.RotateCw}" Title="Rotation snap" Description="The angle rotations snap to.">
+                <NumericUpDown Classes="setting" Value="{Binding RotationSnap}" Minimum="1" Maximum="180" Increment="1" FormatString="0°" />
+              </ui:SettingRow>
+              <TextBlock Classes="section" Text="Display" />
+              <ui:SettingRow Icon="{x:Static ui:Icons.Camera}" Title="Entity icons" Description="Show icons for cameras, lights, sounds and other entities without sprites.">
+                <ToggleSwitch IsChecked="{Binding ShowEntityIcons}" OnContent="" OffContent="" />
+              </ui:SettingRow>
+              <TextBlock Classes="section" Text="Navigation" />
+              <ui:SettingRow Icon="{x:Static ui:Icons.ZoomIn}" Title="Smooth zoom" Description="Animate zooming with the wheel and shortcuts.">
+                <ToggleSwitch IsChecked="{Binding SmoothZoom}" OnContent="" OffContent="" />
+              </ui:SettingRow>
+              <ui:SettingRow Icon="{x:Static ui:Icons.Maximize}" Title="Zoom step" Description="Zoom factor per wheel notch.">
+                <NumericUpDown Classes="setting" Value="{Binding ZoomStep}" Minimum="1.05" Maximum="2" Increment="0.05" FormatString="0.00×" />
+              </ui:SettingRow>
+            </StackPanel>
+
+            <StackPanel Classes="page" IsVisible="{Binding IsRenderingSection}">
+              <TextBlock Classes="section" Text="Renderer" />
+              <ui:SettingRow Icon="{x:Static ui:Icons.Cpu}" Title="Renderer" Description="The renderer for the viewport and play mode. Applies when a project opens.">
+                <ComboBox ItemsSource="{Binding Renderers}" SelectedIndex="{Binding RendererIndex}" MinWidth="160" />
+              </ui:SettingRow>
+            </StackPanel>
+          </Panel>
+        </ScrollViewer>
+
+        <DockPanel IsVisible="{Binding IsKeyboardSection}" Margin="20,8,20,12">
+          <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+            <TextBox Text="{Binding BindingQuery}" PlaceholderText="Search commands or shortcuts">
+              <TextBox.InnerLeftContent>
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Search}" Size="14" Margin="10,0,0,0" Foreground="{DynamicResource TextMutedBrush}" />
+              </TextBox.InnerLeftContent>
+            </TextBox>
+            <Button Grid.Column="1" Classes="subtle small" Margin="8,0,0,0" Command="{Binding ResetBindingsCommand}" ToolTip.Tip="Restore every default shortcut">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.RotateCcw}" Size="13" />
+                <TextBlock Text="Reset all" />
+              </StackPanel>
+            </Button>
+          </Grid>
+          <ListBox Classes="rows" ItemsSource="{Binding Bindings}" Background="Transparent">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:KeyBindingViewModel">
+                <Grid ColumnDefinitions="Auto,10,*,Auto,8,Auto,Auto" MinHeight="36">
+                  <ui:SymbolIcon Data="{Binding Icon}" Size="14" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="1">
+                    <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <TextBlock Classes="caption muted" Text="{Binding Category}" />
+                      <TextBlock Classes="caption" Foreground="{DynamicResource WarningBrush}" Text="{Binding Conflict}" IsVisible="{Binding HasConflict}" />
+                    </StackPanel>
+                  </StackPanel>
+                  <Button Grid.Column="3" Classes="binding" Classes.recording="{Binding IsRecording}" Content="{Binding DisplayText}" Command="{Binding RecordCommand}"
+                          ToolTip.Tip="Click, then press the new shortcut. Esc cancels." VerticalAlignment="Center" />
+                  <Button Grid.Column="5" Classes="icon small" Command="{Binding ClearCommand}" ToolTip.Tip="Remove the shortcut" VerticalAlignment="Center">
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.X}" Size="13" />
+                  </Button>
+                  <Button Grid.Column="6" Classes="icon small" Command="{Binding ResetCommand}" IsVisible="{Binding IsOverridden}" ToolTip.Tip="Restore the default shortcut"
+                          VerticalAlignment="Center">
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.RotateCcw}" Size="13" />
+                  </Button>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </DockPanel>
+      </Panel>
+    </Grid>
+
+    <ui:Dialog.Footer>
+      <Button Classes="accent" Content="Done" MinWidth="84" IsDefault="True" Command="{Binding CloseCommand}" />
+    </ui:Dialog.Footer>
+  </ui:Dialog>
+</UserControl>

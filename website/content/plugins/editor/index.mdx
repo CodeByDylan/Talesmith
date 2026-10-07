@@ -1,0 +1,211 @@
+---
+title: "Editor plugins"
+description: "Extend the editor with panels, commands, tools, gizmos, inspectors and asset handlers."
+---
+
+Editor code lives in a second assembly that games never load. This page explains how the editor loads that assembly next to the runtime one, the `IEditorPlugin` class that registers editor features, and the editor services they can use. It then gives the Spinners plugin from [Your first plugin](../first-plugin.mdx) an editor part with a panel, a command, a viewport tool and a gizmo.
+
+<Screenshot name="plugins/editor-plugin" caption="The Spinners editor plugin: its Spinners panel on the right, the Place spinner tool active in the tool rail with its speed option, the gizmo of the selected spinner and the Add spinner button in the app bar." />
+
+## The editor assembly
+
+A plugin's editor part is a class library named by `editorAssembly` in `plugin.json`, with one or more public classes implementing `IEditorPlugin`:
+
+```csharp
+public interface IEditorPlugin
+{
+    void ConfigureServices(IServiceCollection services);
+}
+```
+
+When a project opens, the editor:
+
+1. Loads the project's plugins with their editor assemblies, each plugin's two assemblies in the same load context, so the editor part uses the runtime part's types as they are.
+2. Creates one instance of every public, non-abstract `IEditorPlugin` class in each loaded plugin's editor assembly, with its parameterless constructor.
+3. Registers the editor's own services, then calls `ConfigureServices` on each editor plugin with the same service collection.
+4. Builds the project's editor services and opens the window. Closing the project disposes them, so nothing leaks into the next project.
+
+Editor plugins register with the same calls the editor uses for its own panels and tools, and because they register after the editor, a registration of an editor service replaces the editor's. The pages in this section cover each extension point.
+
+Rules for the two assemblies:
+
+- The runtime assembly must never reference the editor assembly or editor-only assemblies (`Talesmith.Editor`, `Talesmith.UI`, `Talesmith.Build`, `Talesmith.Scripting.Compiler`, `Talesmith.App`). Exported games do not contain them; the engine warns when it finds such a reference.
+- The editor assembly may reference the runtime assembly freely.
+- Declare the `editorUi` [permission](../package/permissions.mdx); without it the plugin's card warns.
+- When the editor assembly is missing or cannot be loaded, the runtime part still loads and the card says the editor features are unavailable. When an editor plugin cannot be created or its `ConfigureServices` throws, the console says so, the plugin's card shows **Editor errors**, and the editor opens without that editor plugin. Code a plugin contributes to the editor is guarded in the same way after that; see [Errors in editor code](../debugging.mdx#errors-in-editor-code).
+
+Builds leave the editor assembly out of exported games; see [Packaging](../package/packaging.mdx#plugins-in-exported-games).
+
+## Add an editor part to Spinners
+
+<Steps>
+
+1. Create the folder `plugins-src/Spinners.Editor` next to `plugins-src/Spinners`, with the project file from [The project file](../package/project-file.mdx#the-editor-assembly).
+2. Add the five files below.
+3. In `plugins-src/Spinners/plugin.json`, add the editor assembly, the `editorUi` permission and the new extension points:
+
+   ```json
+   "editorAssembly": "Spinners.Editor.dll",
+   "permissions": [ "runtimeScene", "editorUi" ],
+   "extensions": [ "components", "systems", "editor.panels", "editor.commands", "editor.tools" ],
+   ```
+
+4. Build both parts with `dotnet build plugins-src/Spinners.Editor`, which builds the runtime project first and installs both into `assets/plugins/spinners`.
+5. In the Plugins panel, click **Rescan the plugins folder**, then **Reload now**.
+
+</Steps>
+
+The project now has an **Add spinner** button in the app bar and in the **Plugins** menu, a **Place spinner** tool in the scene viewport's tool rail (<Keys>J</Keys>), and a **Spinners** panel. Selecting an entity with a Spinner shows its gizmo. The editor saves a project's layout as soon as you open or move a panel, as you did with the Plugins panel, and a saved layout does not contain panels that did not exist yet: open the new panel with **Window › Panels › Spinners**, and it docks where the default layout puts it.
+
+The plugin class registers four features:
+
+```csharp title="plugins-src/Spinners.Editor/SpinnersEditorPlugin.cs"
+using Microsoft.Extensions.DependencyInjection;
+using Talesmith.Editor.Commands;
+using Talesmith.Editor.Panels;
+using Talesmith.Editor.Plugins;
+using Talesmith.Editor.Viewport.Gizmos;
+using Talesmith.Editor.Viewport.Tools;
+using Talesmith.UI;
+
+namespace Spinners.Editor;
+
+public sealed class SpinnersEditorPlugin : IEditorPlugin
+{
+    public void ConfigureServices(IServiceCollection services)
+    {
+        services.AddEditorPanel<SpinnersPanel>(new EditorPanelInfo("spinners", "Spinners", Icons.RotateCw, DockLocation.Right) { Order = 40 });
+        services.AddEditorCommands<SpinnerCommands>();
+        services.AddViewportTool<SpinnerTool>();
+        services.AddGizmoProvider<SpinnerGizmo>();
+    }
+}
+```
+
+The other four files, each explained on its page:
+
+- `SpinnersPanel.cs`, a panel listing the scene's spinners: [Panels](./panels.mdx).
+- `SpinnerCommands.cs`, the **Add spinner** command: [Commands, menus and the toolbar](./commands.mdx).
+- `SpinnerTool.cs`, the **Place spinner** tool: [Viewport tools](./viewport-tools.mdx).
+- `SpinnerGizmo.cs`, the speed gizmo and its drag handle: [Gizmo providers](./gizmos.mdx).
+
+## Editor services
+
+Editor plugin classes are created by dependency injection, so their constructors can ask for editor services. The ones plugins use most:
+
+| Service | What it does |
+| --- | --- |
+| `ISceneDocumentService` | The open scene (`Active`, a `SceneDocumentModel`), opening, saving, and `ActiveChanged` |
+| `SceneDocumentModel` | The open scene's entities, with undoable edits: `CreateEntity`, `AddComponent`, `SetProperty`, `DeleteEntities`, and a `Changed` event |
+| `ISelectionService` | Selected entities (by document id), assets and other objects; `SelectEntity`, `Changed` |
+| `IUndoService` | Undo and redo; `BeginTransaction("…")` groups edits into one step |
+| `IEditWorld` | The edit game's world that mirrors the open scene, and the mapping between document ids and runtime entities |
+| `IProjectService` | The project's folders, settings, asset database, plugins and game sessions |
+| `IPlayModeService` | Play mode: state, the play game, `Dispatch` and `InvokeAsync` to run code on the game thread |
+| `IConsole` | Messages in the Console panel, with links to entities, assets and files |
+| `IDialogService`, `IToastService` | Modal dialogs and notifications |
+| `LayoutService` | The dock layout; `ShowPanel(id)` |
+| `EditorCommandRegistry` | Every command; `TryExecute(id)` |
+| `PluginManager` | The project's plugins and their [settings](../package/settings.mdx#in-the-editor) |
+| `ICodeEditor` | Opens files in the user's code editor |
+| `StatusBarViewModel` | The status bar; `AddItem` for [items of your own](./commands.mdx#status-bar-items) |
+
+Editor code runs on the UI thread, and so does the edit game, so panels, tools and gizmos read and change it directly. The play game runs on its own thread: reach it only through `IPlayModeService.Dispatch` and `InvokeAsync`, and copy what you show into plain values there.
+
+## Play session contributors
+
+An `IPlaySessionContributor` is asked before every play session starts. It can refuse, with a reason the editor shows as a notification, or add to the session's request. The editor's script compiler is one: it waits for a compilation in progress and refuses while scripts have errors.
+
+```csharp title="StoppedSpinnerCheck.cs"
+using Spinners;
+using Talesmith.Editor.Documents;
+using Talesmith.Editor.Inspector;
+using Talesmith.Editor.PlayMode;
+using Talesmith.Editor.Projects;
+using Talesmith.Runtime.Serialization;
+
+namespace Spinners.Editor;
+
+/// <summary>Refuses to play while a spinner in the open scene has a speed of 0.</summary>
+public sealed class StoppedSpinnerCheck(ISceneDocumentService documents) : IPlaySessionContributor
+{
+    private static readonly string SpinnerType = ComponentRegistry.GetTypeName(typeof(Spinner));
+
+    public ValueTask<string?> PrepareAsync(CancellationToken cancellationToken)
+    {
+        var stopped = documents.Active?.Entities.FirstOrDefault(e => e.FindComponent(SpinnerType) is { } spinner && JsonValues.Number(spinner.Data["speed"]) == 0);
+        return ValueTask.FromResult(stopped is null ? null : $"{stopped.Name} is a spinner with a speed of 0.");
+    }
+
+    public GameSessionRequest Contribute(GameSessionRequest request) => request;
+}
+```
+
+```csharp
+services.AddSingleton<IPlaySessionContributor, StoppedSpinnerCheck>();
+```
+
+`PrepareAsync` may wait for work in progress. `Contribute` returns the request, changed or not; its `Configure` property takes an action that configures the play game further after its plugins, such as registering a debugging service only in play mode. Contributors are asked in registration order.
+
+## Close guards
+
+An `ICloseGuard` can keep the project or the editor from closing, for example to ask about unsaved changes of your own:
+
+```csharp title="UnsavedNotesGuard.cs"
+using Talesmith.Editor.Hosting;
+using Talesmith.UI.Services;
+
+namespace Spinners.Editor;
+
+/// <summary>Asks before closing the project while the notes have unsaved changes.</summary>
+public sealed class UnsavedNotesGuard(SpinnerNotes notes, IDialogService dialogs) : ICloseGuard
+{
+    public async Task<bool> CanCloseAsync()
+    {
+        if (!notes.HasUnsavedChanges)
+            return true;
+        var choice = await dialogs.AskToSaveChangesAsync("Spinner notes");
+        if (choice == UnsavedChangesChoice.Cancel)
+            return false;
+        if (choice == UnsavedChangesChoice.Save)
+            await notes.SaveAsync();
+        return true;
+    }
+}
+```
+
+```csharp
+services.AddSingleton<SpinnerNotes>();
+services.AddSingleton<ICloseGuard, UnsavedNotesGuard>();
+```
+
+Guards are asked in registration order when the project closes, reloads (including **Reload now** in the Plugins panel) or the editor quits. Returning `false` keeps the project open.
+
+## In this section
+
+<CardGrid columns={2}>
+  <Card title="Panels" icon="minimize" to="/plugins/editor/panels">
+    Dockable panels and their place in the layout.
+  </Card>
+  <Card title="Commands, menus and the toolbar" icon="command" to="/plugins/editor/commands">
+    Commands with shortcuts, menu entries, app bar buttons and status bar items.
+  </Card>
+  <Card title="Viewport tools" icon="pointer" to="/plugins/editor/viewport-tools">
+    Tools in the scene viewport's tool rail.
+  </Card>
+  <Card title="Gizmo providers" icon="crop" to="/plugins/editor/gizmos">
+    Outlines and drag handles for components.
+  </Card>
+  <Card title="Inspector property editors" icon="sliders" to="/plugins/editor/property-editors">
+    Custom editors for field types.
+  </Card>
+  <Card title="Asset inspectors, handlers and thumbnails" icon="image" to="/plugins/editor/assets">
+    Your asset types in the Assets panel.
+  </Card>
+  <Card title="Command palette providers" icon="search" to="/plugins/editor/command-palette">
+    Results of your own in the command palette.
+  </Card>
+  <Card title="Entity icons" icon="tag" to="/plugins/editor/entity-icons">
+    Icons for entities in the viewport and hierarchy.
+  </Card>
+</CardGrid>

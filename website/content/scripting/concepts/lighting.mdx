@@ -1,0 +1,197 @@
+---
+title: "Lighting"
+description: "Lights, shadow casters, emissive sprites and the lighting environment from code, and how a lit frame is drawn."
+---
+
+`Talesmith.Lighting` adds 2D lights with soft shadows. Lights are components you place in the editor and change from scripts like any other component, and each scene has a lighting environment with its ambient light and quality. This page covers the components and their fields, changing lights while the game runs, the environment, and what drawing a lit frame costs. Placing lights in the editor is covered in [Lighting](/guide/effects/lighting).
+
+All lighting types are in `Talesmith.Lighting`; `LightType` and `LightBlend` are in `Talesmith.Rendering.Lighting`.
+
+## Light components
+
+| Component | Purpose |
+| --- | --- |
+| `Light2D` | A point, spot or directional light at the entity's `Transform`; spot and directional lights point along its rotation |
+| `ShadowCaster2D` | A box, circle or polygon, relative to the `Transform`, that blocks shadow-casting lights |
+| `Emissive` | Keeps the entity's `Sprite` bright in the dark, as lamps, screens and magic do |
+
+`Light2D` fields:
+
+| Field | Default | |
+| --- | --- | --- |
+| `Enabled` | true | Turns the light on and off without removing it |
+| `Type` | `Point` | `Point`, `Spot` or `Directional` |
+| `Blend` | `Additive` | `Additive` adds light; `Mix` replaces the light underneath with its color; `Multiply` darkens, for fog of war and colored filters |
+| `Color`, `Intensity` | white, 1 | |
+| `Radius`, `InnerRadius`, `Falloff` | 256, 0, 1.6 | Full brightness inside the inner radius, fading to nothing at the radius |
+| `SpotAngle`, `SpotInnerAngle` | 60°, 30° | The cone of a spot light, in radians in code |
+| `Cookie` | none | A texture the light shines through |
+| `CastsShadows`, `ShadowStrength`, `ShadowSoftness`, `ShadowLength` | off, 1, 0.4, 0 | Soft shadows; `ShadowLength` limits a directional light's shadows |
+| `ShadowLayers` | all | Which shadow caster layers block this light |
+| `Animation`, `AnimationSpeed`, `AnimationAmount` | none, 1, 0.3 | A built-in `Flicker` or `Pulse` of the intensity, which plays in the editor's preview and in play mode |
+
+`ShadowCaster2D` has `Enabled`, `Shape`, `Size`, `Radius`, `Points`, `Offset`, `Layer` and `SelfShadows`. Shadows fall on what lies behind casters: a caster stays lit, even in another caster's shadow, and casts its shadow behind it. Casters that touch block light as one shape. With `SelfShadows` set, a caster darkens itself too, and other casters' shadows darken it. `Emissive` has `Enabled`, `Color` and `Intensity`; the sprite's shape is added to the light map, so it keeps its colors however dark the ambient light is. An emissive sprite does not light its surroundings; add a `Light2D` for that.
+
+### Tile maps cast shadows
+
+Collision layers of tile maps cast shadows too, and stay lit like casters. Each solid cell blocks light with the collision shapes of its tile, or else with the opaque pixels of its artwork, so the transparent space under a plank casts no shadow. Color tiles and artwork that fills its cell block the whole cell. You do not need shadow casters along walls and floors. Lantern Grove's moon is a directional light whose shadows fall from the map's collision layer.
+
+## Change lights while the game runs
+
+Light components are structs, so change them through a reference. This torch flickers with a little noise of its own and can be doused with a tween:
+
+```csharp title="assets/scripts/Torch.cs"
+using Talesmith.Lighting;
+using Talesmith.Runtime.Tweens;
+
+namespace MyGame;
+
+/// <summary>Makes a torch's light flicker, and gutters it out when it is doused.</summary>
+public sealed class Torch : Script
+{
+    [Range(0, 1)]
+    [Tooltip("How far the brightness drops at the darkest moment of a flicker.")]
+    public float Flicker = 0.25f;
+
+    [Range(0, 30)]
+    public float Speed = 9;
+
+    private float _intensity;
+    private float _radius;
+    private float _seed;
+    private bool _doused;
+
+    protected override void OnStart()
+    {
+        ref var light = ref GetComponent<Light2D>();
+        _intensity = light.Intensity;
+        _radius = light.Radius;
+        _seed = Random.Shared.NextSingle() * 100;
+    }
+
+    protected override void Update()
+    {
+        if (_doused)
+            return;
+        var t = (float)Time.TotalTime * Speed + _seed;
+        var noise = (MathF.Sin(t) + MathF.Sin(t * 2.3f + 1.7f) + MathF.Sin(t * 5.1f + 4.2f)) / 3;
+        ref var light = ref GetComponent<Light2D>();
+        light.Intensity = _intensity * (1 - Flicker * (0.5f + 0.5f * noise));
+        light.Radius = _radius * (1 - Flicker * 0.2f * noise);
+    }
+
+    public void Douse()
+    {
+        if (_doused)
+            return;
+        _doused = true;
+        var from = GetComponent<Light2D>().Intensity;
+        Run(async () =>
+        {
+            await Tweens.To(from, 0, 1.2f, value => GetComponent<Light2D>().Intensity = value, Easing.CubicIn);
+            GetComponent<Light2D>().Enabled = false;
+            if (HasComponent<Emissive>())
+                GetComponent<Emissive>().Enabled = false;
+        });
+    }
+}
+```
+
+The random seed keeps a row of torches from flickering in step. For a plain flicker, setting `Animation` to `Flicker` in the inspector does the same without a script and also plays in the editor's preview. Lantern Grove's lanterns use a tween like `Douse` to flare and go out when collected, and its shrine brightens with each lantern by tweening `Intensity`.
+
+Lights you create in code are ordinary components:
+
+```csharp
+AddComponent(new Light2D
+{
+    Type = LightType.Spot,
+    Color = Color.Parse("#FFD58A"),
+    Intensity = 1.4f,
+    Radius = 320,
+    SpotAngle = MathF.PI / 4,
+    CastsShadows = true,
+    Animation = LightAnimation.Flicker,
+});
+```
+
+## The lighting environment
+
+Each scene has one `LightingEnvironment`, a scoped service. The scene's settings fill it when the scene starts, and a script can change it with `GetService<LightingEnvironment>()`:
+
+| Property | Default | |
+| --- | --- | --- |
+| `Enabled` | true | Turns lighting off for the scene |
+| `AmbientColor`, `AmbientIntensity` | white, 1 | The light everywhere before lights add to it |
+| `LitLayerLimit` | `RenderLayers.Overlay` (500) | Render layers below it are lit; overlays, debug views and HUDs drawn above it stay as drawn |
+| `Quality` | `Medium` | `Low`, `Medium`, `High` or `Custom` with `CustomQuality` |
+| `TileMapShadows`, `TileMapShadowLayer` | true, 0 | Whether collision layers cast shadows, and on which caster layer |
+| `CullingMargin` | 32 | How far beyond the screen lights and casters still count |
+
+With the defaults, a scene without lights renders exactly as without lighting, and the renderers skip lighting entirely. Lights brighten such a scene; darken the ambient light for night scenes. A day and night cycle is a script that moves the ambient light:
+
+```csharp title="assets/scripts/DayNight.cs"
+using Talesmith.Lighting;
+
+namespace MyGame;
+
+/// <summary>Fades the scene from day to night and back.</summary>
+public sealed class DayNight : Script
+{
+    public Color Day = Color.White;
+
+    public Color Night = Color.Parse("#3D4C85");
+
+    [Range(1, 600)]
+    public float SecondsPerDay = 120;
+
+    private LightingEnvironment? _lighting;
+
+    protected override void OnStart() => _lighting = GetService<LightingEnvironment>();
+
+    protected override void Update()
+    {
+        if (_lighting is null)
+            return;
+        var daylight = (MathF.Cos((float)Time.TotalTime / SecondsPerDay * MathF.Tau) + 1) / 2;
+        _lighting.AmbientColor = Color.Lerp(Night, Day, daylight);
+        _lighting.AmbientIntensity = 0.3f + 0.7f * daylight;
+    }
+}
+```
+
+The environment belongs to the game thread. A graphics menu in an overlay changes `Quality` through `Game.Post`; see [Game UI](./game-ui.mdx).
+
+### Quality
+
+| Quality | Light map | Lights | Shadowed lights | Shadow map | Samples | Shadow casters |
+| --- | --- | --- | --- | --- | --- | --- |
+| `Low` | 1/4 | 16 | 4 | 256 | 1 (hard) | 64 |
+| `Medium` | 1/2 | 32 | 8 | 512 | 5 | 256 |
+| `High` | full | 64 | 16 | 1024 | 9 | 1024 |
+
+The caps are per frame, after culling against the view. When more lights are visible than the cap allows, the most important are kept, by brightness, size and distance to the screen center, so a scene with 200 torches still draws the 32 that matter. Lights over the shadowed-light cap still light the scene, just without shadows.
+
+## How a lit frame is drawn
+
+`LightingSystem` runs in `PreRender` in every mode, so the editor's scene view shows lighting while you author. Each frame it collects the visible lights, the emissive sprites and the outlines of shadow casters and collision chunks near shadow-casting lights, without allocating. Tile map outlines merge the shapes of a chunk's solid cells into a few long edges and are rebuilt only when the chunk or the map's tilesets change. The renderer then:
+
+1. Builds a one-dimensional shadow map per shadow-casting light: where the shadow starts in each direction around it, which is where the light leaves the casters it passed through.
+2. Builds a mask of the casters that do not shadow themselves, at the light map's resolution. Shadows skip what it covers, so those casters stay lit.
+3. Clears a light map at reduced resolution to the ambient light and draws each light as one quad with its falloff, cone, cookie and soft shadows. Emissive sprites add their shape.
+4. Draws the lit layers, multiplies them by the light map, then draws the layers above `LitLayerLimit` and post effects.
+
+The light map stores half the light, so lighting can brighten colors up to twice. On Vulkan and on Skia with a GPU canvas this runs in shaders; on CPU canvases Skia draws equivalent gradients, so headless runs stay fast.
+
+## Performance tips
+
+- **Shadows are the expensive part.** Turn `CastsShadows` on for the lights that need it, and leave fill lights without.
+- **Use the quality setting as a budget.** It caps lights, shadowed lights and casters per frame regardless of how many the scene has.
+- **Lower the light map resolution before cutting lights.** Lighting is smooth, so `Low`'s quarter-resolution light map often looks nearly the same.
+- **Animate with the built-in animations** where they fit; they cost nothing in scripts.
+- **Read the counters.** The profiler markers `Lighting/*` and `Render/Skia/Lighting`, and counters for lights drawn, shadowed lights, shadow casters, occluder edges and occluder chunks built, show what lighting costs.
+
+## Related
+
+- [Lighting in the editor](/guide/effects/lighting)
+- [Rendering, cameras and materials](./rendering.mdx)
+- [Waiting, routines and tweens](../scripts/waiting.mdx)

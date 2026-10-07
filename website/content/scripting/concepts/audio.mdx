@@ -1,0 +1,140 @@
+---
+title: "Audio"
+description: "How Talesmith plays sound: formats and backends, sound clips and music tracks, Audio Source components and distance, the listener, mixer buses and the IAudioService."
+---
+
+Talesmith plays short sound effects from memory and streams music while it plays, through an `IAudioService` that every game, script and system shares. Entities can also carry an **Audio Source** component that plays a sound from where they are. This page explains the model underneath: formats, the backend, sources and the listener, buses and volumes, and what happens when there is no audio device. For the script calls themselves, see [Playing sounds](../scripts/audio.mdx).
+
+## Formats and backends
+
+| | Sound clip (`SoundClip`) | Music track (`MusicTrack`) |
+| --- | --- | --- |
+| Files | `.wav` and `.ogg` | `.wav` and `.ogg` |
+| In memory | Decoded completely when loaded, as 16-bit samples | Decoded while it plays, from the file or from memory |
+| For | Short, frequent sounds: jumps, hits, coins, UI clicks | Long tracks, ambience |
+| Plays | Many at once, on any bus | One at a time on the `Music` bus, with cross-fades |
+
+A file's import settings, stored in its `.meta` file and edited in the asset inspector, set whether it loops, loop points (an intro before `LoopStart` plays once), the bus it plays on when no options say otherwise, a volume multiplier, and how it is loaded. See [Audio assets](/guide/assets/audio).
+
+Games play audio through OpenAL Soft. Sound effects use a pool of 64 voices: when all are busy, the oldest sound that is not looping is cut off. Music streams on a background thread, so it keeps playing smoothly when frames are slow. Panning applies to mono clips; stereo clips play unpanned.
+
+### Without an audio device
+
+When no device can be opened, the game logs a warning and uses `SilentAudioService`; headless runs and tests use it from the start. It plays nothing but keeps track of sounds as if it did: a sound counts as playing until its duration has passed, and a looping sound until it is stopped. Game code never needs to check whether audio works, and tests can assert that a sound "played". `Audio.Service.DeviceName` is `"Silent"` in that case.
+
+## Playing sounds
+
+Every call goes to the same service, `IAudioService`, which a script reaches through `Audio.Service` and a system through its constructor. Its methods are thread-safe.
+
+| Member | |
+| --- | --- |
+| `Play(clip, options)` | Plays a clip and returns a `SoundHandle`; without options it uses the clip's own loop setting and bus |
+| `Stop(handle)`, `IsPlaying(handle)` | |
+| `SetVolume`, `SetPitch`, `SetPan` | Change a playing sound |
+| `PlayMusic(track, loop, fade, volume)` | Plays music, cross-fading from the current track |
+| `StopMusic(fade)`, `CurrentMusic` | |
+| `MasterVolume`, `GetBusVolume`, `SetBusVolume` | The mixer |
+| `IsPaused` | Pauses everything, for example while the window is minimized |
+| `ActiveSounds` | Sounds playing now, for diagnostics |
+
+`SoundOptions(Volume, Pitch, Pan, Loop, Bus)` describes one play. A `SoundHandle` identifies one playing sound, so you can change it later. This engine hum follows a vehicle's speed:
+
+```csharp title="assets/scripts/EngineSound.cs"
+namespace MyGame;
+
+/// <summary>A looping engine hum whose pitch and volume follow the vehicle's speed.</summary>
+public sealed class EngineSound : Script
+{
+    public SoundClip? Hum;
+
+    [Range(0, 2000)]
+    public float TopSpeed = 600;
+
+    private SoundHandle _hum;
+    private Vector2 _last;
+
+    protected override void OnEnable()
+    {
+        if (Hum is not null)
+            _hum = Audio.Play(Hum, new SoundOptions(Volume: 0.4f, Loop: true));
+        _last = Position;
+    }
+
+    protected override void OnDisable() => Audio.Stop(_hum);
+
+    protected override void Update()
+    {
+        if (_hum.IsNone || Time.DeltaTime <= 0)
+            return;
+        var speed = Vector2.Distance(Position, _last) / Time.DeltaTime;
+        _last = Position;
+        var amount = Math.Clamp(speed / TopSpeed, 0, 1);
+        Audio.Service.SetPitch(_hum, 0.8f + 0.6f * amount);
+        Audio.Service.SetVolume(_hum, 0.25f + 0.35f * amount);
+    }
+}
+```
+
+The `Hum` field is a `SoundClip` reference, so the inspector offers a picker and the scene loads the clip before it starts. Playing by path, `Audio.Play("audio/hit.wav")`, loads and decodes the file the first time it is used and keeps it cached afterwards; for a sound that must play without a hitch the first time, prefer a field or play it once while the scene loads. Stopping the loop in `OnDisable` matters: a looping sound keeps playing after its script is gone, because sounds belong to the audio service, not to the entity.
+
+## Audio sources
+
+An **Audio Source** component (`AudioSource`, in `Talesmith.Runtime.Audio`) plays a clip or a music track from an entity, without a script. `AudioSourceSystem` plays it when the entity appears in a running game if `PlayOnStart` is set, applies volume and pitch changes every frame, and stops it when the entity or the component goes away or the scene ends.
+
+| Field | |
+| --- | --- |
+| `Clip` or `Music` | What to play; music plays on the music channel, replacing the current track, and is never spatial |
+| `Volume`, `Pitch`, `Loop` | |
+| `PlayOnStart` | Plays as soon as the scene runs |
+| `Bus` | Overrides the clip's bus |
+| `Spatial`, `MinDistance`, `MaxDistance` | Fades and pans the sound by distance from the listener |
+
+The component has no methods. To start or stop it from code, publish an event naming the entity:
+
+```csharp
+Events.Publish(new PlayAudioSource(Speaker));   // starts it, or restarts it when playing
+Events.Publish(new StopAudioSource(Speaker));
+```
+
+Change its fields through `GetComponent<AudioSource>(entity)` like any other component; volume and pitch apply on the next frame.
+
+### Distance and the listener
+
+A spatial source needs a `Transform`. Its volume falls linearly from full at `MinDistance` (128 world units by default) to silent at `MaxDistance` (1024), and its pan follows the horizontal offset from the listener, reaching fully left or right at the maximum distance. The listener is the entity with an **Audio Listener** component, or, without one, the active camera with the highest priority. Put the listener on the player in games where the camera leads far ahead, so sounds are heard from where the character stands.
+
+## Mixer buses
+
+Every sound plays on one of four buses, each with its own volume, multiplied with `MasterVolume`:
+
+| Bus | For |
+| --- | --- |
+| `Effects` | Gameplay sounds; the default |
+| `Music` | Music tracks, always |
+| `Voice` | Dialogue |
+| `Interface` | Menu clicks and other UI sounds |
+
+Players expect separate sliders for music and effects. A settings menu sets them with `SetBusVolume`; the samples' pause menu does this and saves the values with the player's preferences. Choose the bus per sound with `SoundOptions(Bus: AudioBus.Interface)` or in the sound's import settings.
+
+```csharp
+var audio = Audio.Service;
+audio.MasterVolume = 0.8f;
+audio.SetBusVolume(AudioBus.Music, 0.5f);
+```
+
+## Music across scenes
+
+The audio service lives for the whole game, so music keeps playing when a scene changes unless something stops it. Two patterns cover most games: start each level's music from a scene listener, which runs for every scene, or from a script on an entity of the scene that should have the music. `PlayMusic` with a `fade` cross-fades from whatever is playing, so a new level's track takes over smoothly. See [Scenes and scene files](./scenes.mdx) for a listener that does this.
+
+## Performance tips
+
+- **Use clips for short sounds and tracks for long ones.** A clip is decoded completely into memory; a three-minute clip costs about 30 MB of samples.
+- **Do not start a sound every frame.** A sound per frame from a stay callback fills the 64 voices and cuts off others. Start it once and keep the handle.
+- **Vary instead of layering.** A small random `Pitch` between 0.9 and 1.1 makes a repeated footstep sound natural without more voices.
+- **Watch the counter.** `ActiveSounds` and the `Audio voices` counter in the performance overlay show how many sounds play at once.
+
+## Related
+
+- [Playing sounds](../scripts/audio.mdx)
+- [Audio assets](/guide/assets/audio)
+- [Scenes and scene files](./scenes.mdx)
+- [Game UI](./game-ui.mdx)

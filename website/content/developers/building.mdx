@@ -1,0 +1,142 @@
+---
+title: "Building and testing"
+description: "Build Talesmith from source, run the tests and the samples, and compile the Vulkan shaders."
+---
+
+Talesmith builds with the .NET 10 SDK and nothing else. This page covers building the solution, running the tests (all of them, one project, or without the slow ones), what the end-to-end tests do, running the editor, the player and the samples from source, and recompiling the Vulkan backend's shaders. Commands run from the repository root.
+
+## Prerequisites
+
+| Need | Why |
+| --- | --- |
+| .NET 10 SDK, 10.0.400 or later | Everything. Exporting a game also uses it to publish the player. `global.json` pins the version; see [The SDK version](./continuous-integration.mdx#the-sdk-version). |
+| A Vulkan driver (optional) | Games and the editor render with Vulkan when a device is available, and with Skia otherwise. |
+| Node.js 20 or later (optional) | Only for this website. |
+| `xvfb-run`, `xdotool`, ImageMagick (optional) | Only for the [editor smoke test](./tools.mdx#the-editor-smoke-test). |
+
+On Linux the native libraries for Skia, HarfBuzz and OpenAL come from NuGet packages, so no system packages are needed beyond a graphics driver and fontconfig, which the editor's Skia uses and every desktop has. Exported games do not need fontconfig; see [The player](/guide/exporting#the-player).
+
+## Build
+
+```bash
+dotnet build Talesmith.slnx
+```
+
+Building the solution also builds the sample plugins into their games' `assets/plugins` folders and Lantern Grove's scripts into `samples/LanternGrove/assets/scripts/bin`, so the player can run all three samples straight away. Add `-c Release` for measurements; Debug builds also check game thread access on every change of `IsPaused`, `TimeScale`, `Mode` and `CameraOverride`.
+
+## Run the editor, the player and the samples
+
+```bash
+dotnet run --project src/Talesmith.App                                      # the hub
+dotnet run --project src/Talesmith.App -- samples/LanternGrove              # open a project
+dotnet run --project src/Talesmith.App -- --new platformer /tmp/games "My Game"   # create from a template and open it
+dotnet run --project src/Talesmith.Player -- samples/IsleHopper             # play a game without the editor
+```
+
+The templates are `empty`, `platformer` and `hex-adventure`. The player takes the game folder (or its `assets` folder) and the options in [Performance](/guide/performance#headless-benchmarks), such as `--renderer skia`, `--benchmark` and `--mute`; `--help` lists them all.
+
+:::note
+Opening a sample in the editor works on the files in `samples/`. Undo anything you do not mean to commit, or copy the sample folder first.
+:::
+
+## Run the tests
+
+The tests use xUnit v3 on the Microsoft Testing Platform, selected for the whole repository in `global.json`, which also pins the SDK:
+
+```json title="global.json"
+{
+  "sdk": {
+    "version": "10.0.400",
+    "rollForward": "latestFeature"
+  },
+  "test": {
+    "runner": "Microsoft.Testing.Platform"
+  }
+}
+```
+
+With this runner, `dotnet test` takes the solution or project with an option rather than a positional argument:
+
+```bash
+dotnet test --solution Talesmith.slnx                                       # everything
+dotnet test --project tests/Talesmith.Physics.Tests                         # one project
+dotnet test --solution Talesmith.slnx -- --filter-not-trait "Category=Slow"  # without the slow tests
+dotnet test --project tests/Talesmith.Runtime.Tests -- --filter-method "*Prefab*"
+```
+
+Everything after `--` goes to the xUnit runner. Each test project is also an executable, so `dotnet run --project tests/Talesmith.Core.Tests` runs it directly and `-- --help` lists the runner's options.
+
+### Slow tests
+
+Tests that publish a player or build a plugin carry `[Trait("Category", "Slow")]`:
+
+| Test | What it does |
+| --- | --- |
+| `Talesmith.Build.Tests` `PlayerExportTests` | Publishes the player for an export. |
+| `Talesmith.EndToEnd.Tests` `ExportTests` | Exports Lantern Grove for Linux and plays the build. |
+| `Talesmith.Editor.Tests` `PluginScaffoldBuildTests` | Builds a scaffolded plugin with `dotnet build` and loads what it installed. |
+
+Publishing takes a minute or two the first time; later runs reuse the player cache in `~/.cache/Talesmith/players` (or `$TALESMITH_CACHE`). Leave them out while you iterate with `--filter-not-trait "Category=Slow"`, and run them before you push changes to the build, the player or the asset pipeline:
+
+```bash
+dotnet test --solution Talesmith.slnx -- --filter-trait "Category=Slow" --ignore-exit-code 8
+```
+
+Projects without slow tests run no tests, which the test platform reports with exit code 8; `--ignore-exit-code 8` treats that as success. CI runs the slow tests on every push to `main`; see [Continuous integration](./continuous-integration.mdx#slow-tests).
+
+### End-to-end tests
+
+`Talesmith.EndToEnd.Tests` copies the samples and templates into temporary folders and drives them without a window:
+
+| Test | Checks |
+| --- | --- |
+| `TemplateTests` | Every project template creates a project whose start scene runs for two seconds without errors or warnings. |
+| `LanternGroveTests` | Lantern Grove's compiled scripts run: the player runs, jumps and collects the first lantern with simulated keys. |
+| `PluginTests` | Hex Quest's cutscene plugin loads only while it is switched on in `plugins.json`. |
+| `ExportTests` | Lantern Grove exports for Linux, and the exported build plays its scene with its scripts (slow). |
+
+### Editor tests
+
+`Talesmith.Editor.Tests` and `Talesmith.UI.Tests` run Avalonia headlessly, so they need no display. They create projects in temporary folders; no test writes into `samples/`.
+
+## Compile the Vulkan shaders
+
+The Vulkan backend's GLSL sources and their compiled SPIR-V live side by side in `src/Talesmith.Rendering.Vulkan/Shaders` (`sprite.vert`, `sprite.frag`, `light.frag`, `emissive.frag`, `composite.frag`, `fullscreen.vert`). The `.spv` files are committed, so a normal build needs no shader compiler. After you change a shader, recompile it:
+
+```bash
+dotnet run --project tools/Talesmith.ShaderCompiler                              # every src/**/Shaders/*.vert and *.frag
+dotnet run --project tools/Talesmith.ShaderCompiler -- src/Talesmith.Rendering.Vulkan/Shaders/light.frag
+```
+
+The tool compiles GLSL 450 for Vulkan 1.0 with the bundled shaderc library and writes `<file>.spv` next to each source. If shaderc cannot be loaded on your system, it prints the equivalent `glslc` command, for example with Nix:
+
+```bash
+nix shell nixpkgs#shaderc -c glslc --target-env=vulkan1.0 -O light.frag -o light.frag.spv
+```
+
+Material and post-effect shaders that games write are different: they ship as `.tshader` files with SkSL for Skia and precompiled SPIR-V for Vulkan. See [Materials and shaders](./file-formats/materials-and-shaders.mdx).
+
+## Build settings
+
+`Directory.Build.props` applies to every project:
+
+| Setting | Value |
+| --- | --- |
+| `TargetFramework` | `net10.0` |
+| `LangVersion` | `latest` |
+| `Nullable` | `enable` |
+| `ImplicitUsings` | `enable` |
+| `AnalysisLevel` | `latest-recommended` |
+| `AllowUnsafeBlocks` | `false` |
+| `GenerateDocumentationFile` | `true`, except for test and benchmark projects |
+
+Package versions are managed centrally in `Directory.Packages.props` (`ManagePackageVersionsCentrally`), grouped by area: runtime, graphics and audio, scripting, user interface, and testing. A project references a package without a version; to add or upgrade one, change `Directory.Packages.props`. Avalonia packages share the `AvaloniaVersion` property and the `Microsoft.Extensions` packages share `MicrosoftExtensionsVersion`, so they always move together.
+
+Test projects set `IsTestProject` and `OutputType` `Exe` and reference `xunit.v3`, `xunit.runner.visualstudio` and `Microsoft.NET.Test.Sdk`. Sample plugins import `samples/Plugin.targets`, which sets `EnableDynamicLoading`, copies the built plugin with its `plugin.json` and its private NuGet dependencies into the game named by `PluginGame` and compiles `samples/Shared` into plugins that set `UseSharedSampleCode`.
+
+## Related
+
+- [Repository layout and layering](./project-layout.mdx)
+- [Screenshots, smoke tests and benchmarks](./tools.mdx)
+- [Continuous integration](./continuous-integration.mdx)
+- [Contributing](./contributing.mdx)

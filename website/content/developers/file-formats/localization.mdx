@@ -1,0 +1,55 @@
+---
+title: "Localization tables"
+sidebar_label: ".tloc"
+description: "The structure of .tloc localization tables: keys, languages, placeholders and fallbacks."
+---
+
+A localization table (`.tloc`) maps text keys to their translations, one object of languages per key. The game's `ILocalization` service loads every table in the asset folder and looks keys up in the player's language. This page describes the format, how languages are matched and what happens when a translation is missing. The format is read by `StringTable` in `src/Talesmith.Assets/Localization`.
+
+## Example
+
+The samples have no tables. This one is from the localization tests, `tests/Talesmith.Assets.Tests/LocalizationTests.cs`:
+
+```json title="assets/text/menu.tloc"
+{
+  "version": 1,
+  "strings": {
+    "menu.start": { "en": "Start", "nl": "Beginnen", "pt": "Começar" },
+    "menu.quit": { "en": "Quit" },
+    "hud.coins": { "en": "{0:N0} coins", "nl": "{0:N0} munten" }
+  }
+}
+```
+
+## Fields
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `version` | integer | 1 | The format version. A newer version fails to load. |
+| `strings` | object | `{}` | One entry per key. Each value is an object from language tag to text. A value that is not an object fails the import. |
+
+- **Keys** are any string and are compared exactly, including case. A dotted form such as `menu.start` keeps related keys together, but the dots mean nothing to the engine.
+- **Languages** are IETF tags such as `en`, `nl` or `pt-BR`, compared without regard to case. A key does not need every language.
+- **Text** is a .NET composite format string when you read it with `Format`: `{0}` is the first argument and `{0:N0}` formats it as a number without decimals, using the current language's culture. With `Get` the text is returned as it is.
+
+## Looking up a key
+
+`Get` tries these languages in order and returns the first text it finds:
+
+1. The current language, such as `pt-BR`.
+2. Its parent language, `pt`.
+3. The fallback language, `en` unless the game sets another.
+4. The fallback's parent.
+
+When none has the key, `Get` returns the key itself, so a missing translation shows up as `menu.start` on screen instead of an empty label. `Format` uses the same text and fills its placeholders; if the text is not a valid format string, the error is logged and the text is returned unfilled.
+
+The current language starts as the system's UI language. With the table above and the language `pt-BR`, `menu.start` gives "Começar" and `menu.quit` falls back to "Quit".
+
+## Several tables
+
+Every `.tloc` file in the asset folder is loaded when the service starts, in path order. A key defined in several tables takes the text from the table loaded last, so you can split strings by screen or by language without conflicts as long as keys are unique. When a table changes on disk in the editor, it is reloaded and the service raises `Changed` so shown text can refresh. Builds always ship every string table, even ones nothing refers to.
+
+## Related
+
+- [Localization](/guide/assets/localization) in the guide shows how to use tables in a game.
+- [Meta files](./meta-files.mdx) lists the `localization` importer.

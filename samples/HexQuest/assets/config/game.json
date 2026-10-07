@@ -1,0 +1,16 @@
+{
+  // Settings of the Hex Quest sample game.
+  "title": "Hex Quest",
+  "windowWidth": 1280,
+  "windowHeight": 800,
+  // Every window shows at least the 1280×800 of the default window, and more of the map along its longer side.
+  "view": { "width": 1280, "height": 800, "scaleMode": "expand" },
+  "renderer": "auto",
+  "fixedUpdateRate": 60,
+  "textureFilter": "linear",
+  "clearColor": "#1B3A5C",
+  "startScene": "scenes/emerald-isles.tscene",
+  "inputProfile": "config/input.json",
+  "pluginsFolder": "plugins",
+  "pauseWhenInactive": true
+}

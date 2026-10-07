@@ -1,0 +1,173 @@
+.hero {
+  position: relative;
+  padding: clamp(3.5rem, 8vw, 6.5rem) 1.25rem 0;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(60rem 30rem at 50% -8rem, rgba(99, 102, 241, 0.22), transparent 70%),
+    radial-gradient(30rem 20rem at 85% 20%, rgba(168, 85, 247, 0.12), transparent 70%);
+}
+
+.backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='97' viewBox='0 0 56 97'%3E%3Cpath d='M28 0 56 16.2v32.4L28 64.8 0 48.6V16.2zM28 64.8 56 81v32.4M28 64.8 0 81v32.4' fill='none' stroke='%236366f1' stroke-opacity='.16'/%3E%3C/svg%3E");
+  background-size: 56px 97px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 20%, #000 20%, transparent 75%);
+}
+
+.inner {
+  max-width: 54rem;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0.85rem 0.3rem 0.3rem;
+  margin-bottom: 1.75rem;
+  border: 1px solid var(--ts-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ts-surface) 80%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--ts-text-secondary);
+  font-size: 0.86rem;
+  transition: border-color 160ms ease;
+}
+
+.pill:hover {
+  color: var(--ts-text);
+  text-decoration: none;
+  border-color: var(--ts-accent-border);
+}
+
+.pillBadge {
+  padding: 0.12rem 0.6rem;
+  border-radius: 999px;
+  background: var(--ts-accent-soft);
+  color: var(--ifm-color-primary);
+  font-weight: 650;
+}
+
+.title {
+  margin: 0 0 1.5rem;
+  text-wrap: balance;
+  font-size: clamp(2.5rem, 6.4vw, 4.6rem);
+  font-weight: 800;
+  line-height: 1.04;
+  letter-spacing: -0.045em;
+}
+
+.gradient {
+  background: var(--ts-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.subtitle {
+  text-wrap: pretty;
+  max-width: 40rem;
+  margin: 0 auto 2.25rem;
+  color: var(--ts-text-secondary);
+  font-size: clamp(1.05rem, 1.6vw, 1.25rem);
+  line-height: 1.6;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.primary,
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.8rem 1.35rem;
+  border-radius: 12px;
+  font-weight: 650;
+  font-size: 1rem;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.primary {
+  background: var(--ts-gradient);
+  color: #fff;
+  box-shadow: 0 10px 30px -10px rgba(91, 91, 239, 0.7);
+}
+
+.primary:hover {
+  color: #fff;
+  text-decoration: none;
+  transform: translateY(-1px);
+  box-shadow: 0 14px 34px -10px rgba(91, 91, 239, 0.85);
+}
+
+.secondary {
+  border: 1px solid var(--ts-border-strong);
+  background: var(--ts-surface);
+  color: var(--ts-text);
+}
+
+.secondary:hover {
+  color: var(--ts-text);
+  text-decoration: none;
+  border-color: var(--ts-accent-border);
+  transform: translateY(-1px);
+}
+
+.showcase {
+  position: relative;
+  max-width: 76rem;
+  margin: clamp(3rem, 6vw, 4.5rem) auto 0;
+  padding: 0 0.5rem;
+}
+
+.showcase::before {
+  content: '';
+  position: absolute;
+  inset: 8% 10% auto;
+  height: 70%;
+  z-index: -1;
+  background: var(--ts-gradient);
+  filter: blur(90px);
+  opacity: 0.32;
+}
+
+.shot {
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primary,
+  .secondary {
+    transition: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .pill {
+    padding-left: 0.85rem;
+    font-size: 0.8rem;
+  }
+
+  .pillBadge {
+    display: none;
+  }
+}

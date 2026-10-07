@@ -1,0 +1,146 @@
+---
+title: "Project configuration"
+sidebar_label: "game.json, input.json, physics.json"
+description: "The fields of game.json, input.json and physics.json in assets/config."
+---
+
+A project's settings live in three JSON files in `assets/config/`, which the editor's **Project Settings** window writes and the game reads at startup: `game.json` for the game itself, `input.json` for input actions and their bindings, and `physics.json` for gravity and physics layers. This page lists every field with its type and default. All three accept comments and trailing commas, and a missing file means every default.
+
+## game.json
+
+```json title="samples/LanternGrove/assets/config/game.json"
+{
+  // Lantern Grove: a night platformer made only of scenes, prefabs, particle presets, a .hexy map and C# scripts.
+  "title": "Lantern Grove",
+  "windowWidth": 1280,
+  "windowHeight": 720,
+  // A 640×360 view scaled by whole numbers, which keeps the art crisp: 2× at 1280×720, 3× at 1920×1080, 4× at 2560×1440.
+  // Overlays are designed for 1280×720 and scale with the view.
+  "view": { "width": 640, "height": 360, "scaleMode": "fit", "integerScale": true, "borderColor": "#000000", "overlayWidth": 1280, "overlayHeight": 720 },
+  "renderer": "auto",
+  "fixedUpdateRate": 60,
+  "textureFilter": "nearest",
+  "clearColor": "#0B1030",
+  "startScene": "scenes/grove.tscene",
+  "inputProfile": "config/input.json",
+  "pluginsFolder": "plugins",
+  "pauseWhenInactive": true
+}
+```
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `title` | string | `"Talesmith Game"` | The window title, and the name of exported builds and their executable. |
+| `windowWidth` | integer | 1280 | The window's starting width. |
+| `windowHeight` | integer | 800 | The window's starting height. |
+| `view` | object | none | The design size and how it scales to the window; see below. Without it, a larger window shows more of the world. |
+| `renderer` | `auto`, `vulkan` or `skia` | `auto` | The render backend. `auto` uses Vulkan when a device is available and Skia otherwise. The player's `--renderer` option overrides it. |
+| `fixedUpdateRate` | integer | 60 | Fixed simulation steps per second, for physics and `FixedUpdate`. |
+| `maxFixedStepsPerFrame` | integer | 5 | The most fixed steps one frame runs before simulation time is dropped, so a slow frame cannot snowball. |
+| `textureFilter` | `linear` or `nearest` | `linear` | The default filter for textures whose import settings do not set one. Use `nearest` for pixel art. |
+| `clearColor` | color | `"#0E0F12"` | The color behind everything when a scene sets none. |
+| `startScene` | string or object | `"map"` | The scene loaded at startup; see below. |
+| `loadingScreen` | object | the title on `clearColor` | What the window shows while the game starts and during slow scene changes; see below. |
+| `inputProfile` | string | `"config/input.json"` | The input profile applied at startup, relative to the asset folder. |
+| `pluginsFolder` | string | `"plugins"` | The folder of plugins, relative to the asset folder. |
+| `vSync` | boolean | true | Runs one frame per display refresh. When false, frames run as fast as `maxFramesPerSecond` allows. |
+| `maxFramesPerSecond` | integer | 0 | The most frames per second; 0 means no limit. |
+| `pauseWhenInactive` | boolean | false | Stops game time while the window is in the background. |
+| `showPerformanceOverlay` | boolean | false | Starts with the performance overlay (F3) visible. |
+
+`view` has these fields, all optional:
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `width` | integer | 1280 | The design width in view units. Must be positive. |
+| `height` | integer | 720 | The design height in view units. Must be positive. |
+| `scaleMode` | `fit`, `expand`, `crop` or `none` | `fit` | `fit` shows exactly the design size with bars around it; `expand` shows at least the design size and more along the window's longer side; `crop` fills the window and cuts off the longer side; `none` does not scale, as without a `view` section. |
+| `integerScale` | boolean | false | Scales by whole numbers only. A scale of 1 or more is rounded down, or up for `crop`; a scale below 1 is used as it is. |
+| `borderColor` | color | `"#000000"` | The bars around the view. |
+| `overlayWidth` | integer | none | The width Avalonia overlays are designed for, in overlay units. Set it together with `overlayHeight`. Without both, overlays lay out in view units. |
+| `overlayHeight` | integer | none | The height Avalonia overlays are designed for, in overlay units. |
+
+With an overlay size, overlays lay out at the overlay size in `fit` mode and scale onto the view, so UI designed at 1280 × 720 keeps its size relative to a 640 × 360 pixel-art game. In `expand` and `crop` the overlay area grows or shrinks along the same axis as the view, and `none` ignores the overlay size. [Game UI](/scripting/concepts/game-ui) shows the effect.
+
+A width or height of 0 or less, an unknown scale mode, or an overlay size with only one of its fields or a value of 0 or less stops the game from starting with a message that names the field, such as *The view width must be positive, but is 0.*
+
+`startScene` takes three forms:
+
+| Form | Example | Loads |
+| --- | --- | --- |
+| A `.tscene` path | `"scenes/grove.tscene"` | The scene document, through the built-in `scene` scene |
+| A scene name | `"title"` | A scene registered in code with `services.AddScene<T>("title")` |
+| An object | `{ "name": "map", "parameters": { "map": "maps/world.hexy", "zoom": "2" } }` | A named scene with string parameters. Non-string parameter values are passed as their JSON text. |
+
+The window opens on the loading screen and keeps it until the start scene has faded in. `loadingScreen` changes how it looks; leave it out for the game's title on its clear color:
+
+```json
+"loadingScreen": { "image": "ui/logo.png", "backgroundColor": "#0E1726", "foregroundColor": "#F2C66D", "betweenScenes": true }
+```
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `image` | string | none | An image asset shown in the middle, such as the game's logo, scaled to fit most of the window, by whole steps when `textureFilter` is `nearest`. Without one, the title is shown. Builds ship it in the content pack. |
+| `backgroundColor` | color | `clearColor` | The color behind the image or the title. |
+| `foregroundColor` | color | white or near-black | The color of the title and the progress bar. Without one, whichever of the two stands out on the background. |
+| `betweenScenes` | boolean | true | Shows the loading screen again when a scene change is still loading 0.4 seconds after the old scene has faded out. |
+
+## input.json
+
+```json title="samples/LanternGrove/assets/config/input.json"
+{
+  "actions": {
+    "Move": {
+      "kind": "vector",
+      "bindings": [
+        { "type": "vector", "up": "W", "down": "S", "left": "A", "right": "D" },
+        { "type": "vector", "up": "Up", "down": "Down", "left": "Left", "right": "Right" }
+      ]
+    },
+    "Jump": { "kind": "button", "bindings": [ { "type": "key", "key": "Space" }, { "type": "key", "key": "W" }, { "type": "key", "key": "Up" }, { "type": "key", "key": "Z" } ] },
+    "Dash": { "kind": "button", "bindings": [ { "type": "key", "key": "LeftShift" }, { "type": "key", "key": "X" } ] },
+    "Restart": { "kind": "button", "bindings": [ { "type": "key", "key": "R" } ] }
+  }
+}
+```
+
+The file has one field, `actions`, an object from action name to action. Action names are compared without regard to case; game code reads them by the same name, such as `input.Actions["Jump"]`.
+
+| Action field | Type | Meaning |
+| --- | --- | --- |
+| `kind` | `button`, `axis` or `vector` | `button` is on or off; `axis` is a value from -1 to 1; `vector` is a direction with a length up to 1. Every kind also reports whether any binding is held. |
+| `bindings` | array | The inputs that drive the action. Any binding can trigger it. |
+
+| Binding `type` | Fields | Meaning |
+| --- | --- | --- |
+| `key` | `key`, optional `modifiers` | A key, with modifiers that must be held, such as `"modifiers": "Control, Shift"` (`Shift`, `Control`, `Alt`, `Meta`). On an axis it counts as +1. |
+| `mouse` | `button` | `Left`, `Right`, `Middle`, `XButton1` or `XButton2`. On an axis it counts as +1. |
+| `axis` | `negative`, `positive` | Two keys giving -1 and +1. |
+| `vector` | `up`, `down`, `left`, `right` | Four keys giving a direction. |
+
+Keys are names of the `Key` enum, such as `Space`, `LeftShift`, `Up` or `F1`, compared without regard to case, plus common aliases: digits `0` to `9`, `Ctrl`, `Shift`, `Alt`, `Win`, `Esc`, `Return`, `Del`, `Ins`, `PgUp`, `PgDn`, `ArrowUp`, `Backtick` and punctuation such as `-` or `[`. An unknown key name fails to load with an error naming it.
+
+The file is the default profile. A game that lets players rebind keys saves its own copy elsewhere, as Hex Quest does, and leaves this file unchanged.
+
+## physics.json
+
+The samples do not have one. This is the example from `PhysicsConfiguration`:
+
+```json title="assets/config/physics.json"
+{ "gravity": [0, 980], "layers": { "1": "Player", "2": "Enemies" }, "ignoredCollisions": [ [1, 1], [2, 5] ] }
+```
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `gravity` | `[x, y]` | `[0, 980]` | The gravity new scenes start with, in world units per second squared; Y points down. Each scene's environment then sets its own. |
+| `layers` | object | `{}` | Names of physics layers by number, `"0"` to `"31"`. Unnamed layers show as "Layer n"; layer 0 is "Default" unless renamed. |
+| `ignoredCollisions` | array of pairs | `[]` | Pairs of layers that do not collide, such as `[1, 1]` (players do not collide with each other). Every other pair collides. |
+
+Layer numbers outside 0 to 31, or a pair that is not two such numbers, fail to load with a message naming the file. The writer leaves out `layers` and `ignoredCollisions` when they are empty and sorts the pairs, lower layer first.
+
+`physics.json` has no step settings. The fixed step rate comes from `fixedUpdateRate` in `game.json`; substeps and solver settings are code-level `PhysicsSettings`.
+
+## Related
+
+- [Project layout](/guide/reference/project-layout) in the guide shows where these files sit.
+- [Plugin files](./plugin-files.mdx) describes `plugins.json`, the fourth file in `assets/config/`.

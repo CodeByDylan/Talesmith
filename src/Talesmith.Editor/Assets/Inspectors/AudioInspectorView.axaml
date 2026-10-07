@@ -1,0 +1,55 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Assets.Inspectors"
+             xmlns:controls="using:Talesmith.Editor.Assets.Controls"
+             x:Class="Talesmith.Editor.Assets.Inspectors.AudioInspectorView"
+             x:DataType="vm:AudioInspection">
+  <StackPanel>
+    <Border Margin="12,10,12,4" CornerRadius="8" ClipToBounds="True" Background="{DynamicResource SurfaceSunkenBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+      <Grid RowDefinitions="Auto,110">
+        <Grid ColumnDefinitions="Auto,*,Auto" Margin="6,6,8,0" ColumnSpacing="8">
+          <Button Classes="icon" Command="{Binding PlayCommand}" ToolTip.Tip="Play or stop">
+            <Panel>
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Play}" Size="15" IsVisible="{Binding !IsPlaying}" />
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Stop}" Size="15" IsVisible="{Binding IsPlaying}" />
+            </Panel>
+          </Button>
+          <TextBlock Grid.Column="1" Text="{Binding Info}" Classes="caption muted" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="2" Text="{Binding DurationText}" Classes="caption mono" VerticalAlignment="Center" />
+        </Grid>
+        <controls:WaveformView Grid.Row="1" Margin="8,6,8,8" Waveform="{Binding Waveform}" ShowLoop="{Binding Loop}"
+                               LoopStart="{Binding LoopStart}" LoopEnd="{Binding LoopEnd}" Playhead="{Binding Playhead}"
+                               WaveBrush="#EF4444" Accent="{DynamicResource AccentBrush}" />
+      </Grid>
+    </Border>
+    <TextBlock Text="Drag the markers to set the loop; hold Shift for exact frames." Classes="caption muted" Margin="14,2,12,8" IsVisible="{Binding Loop}" />
+
+    <ui:PropertyGroup Header="Audio" Icon="{x:Static ui:Icons.Volume}">
+      <StackPanel Spacing="2">
+        <ui:PropertyRow Label="Load type" Description="Auto decodes clips and streams music; Preload keeps the file in memory.">
+          <ui:SegmentedControl ItemsSource="{Binding LoadTypes}" SelectedIndex="{Binding LoadTypeIndex}" HorizontalAlignment="Left" />
+        </ui:PropertyRow>
+        <ui:PropertyRow Label="Bus">
+          <ComboBox ItemsSource="{Binding Buses}" SelectedIndex="{Binding BusIndex}" HorizontalAlignment="Stretch" />
+        </ui:PropertyRow>
+        <ui:PropertyRow Label="Volume">
+          <Grid ColumnDefinitions="*,52" ColumnSpacing="8">
+            <Slider Minimum="0" Maximum="1" Value="{Binding Volume}" VerticalAlignment="Center" />
+            <ui:NumberField Grid.Column="1" Value="{Binding Volume}" Minimum="0" Maximum="1" Step="0.05" FormatString="0.00" />
+          </Grid>
+        </ui:PropertyRow>
+        <ui:PropertyRow Label="Loop">
+          <CheckBox IsChecked="{Binding Loop}" Content="Loop when played" />
+        </ui:PropertyRow>
+        <ui:PropertyRow Label="Loop points" IsVisible="{Binding Loop}" Description="The part before the loop start plays once, as an intro. An end of 0 loops at the end.">
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+            <ui:NumberField Label="from" Value="{Binding LoopStart}" Minimum="0" Step="0.01" FormatString="0.00" Suffix="s" />
+            <ui:NumberField Grid.Column="1" Label="to" Value="{Binding LoopEnd}" Minimum="0" Step="0.01" FormatString="0.00" Suffix="s" />
+          </Grid>
+        </ui:PropertyRow>
+      </StackPanel>
+    </ui:PropertyGroup>
+  </StackPanel>
+</UserControl>

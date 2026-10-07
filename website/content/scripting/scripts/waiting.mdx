@@ -1,0 +1,224 @@
+---
+title: "Waiting, routines and tweens"
+description: "Write timed behavior with Wait, NextFrame and WaitUntil, run routines, repeat with Every and animate values with tweens."
+---
+
+Talesmith has no coroutines. Timed behavior is ordinary C# `async` code that runs on the game thread: `await Wait(2)` pauses a routine for two seconds of game time and carries on where it left off. This page covers the waits, starting routines with `Run`, repeating with `Every`, what happens to all of them when the script is destroyed, and tweens for animating floats, vectors and colors.
+
+## A door that opens, waits and closes
+
+```csharp title="assets/scripts/SlidingDoor.cs"
+using Talesmith.Runtime.Tweens;
+
+namespace MyGame;
+
+/// <summary>Slides open when something enters its trigger, stays open for a while, then slides shut.</summary>
+public sealed class SlidingDoor : Script
+{
+    [Tooltip("How far the door slides when it opens, in world units.")]
+    public Vector2 Slide = new(0, -96);
+
+    [Range(0.1, 5)]
+    public float OpenSeconds = 1;
+
+    [Range(0, 10)]
+    public float StayOpenSeconds = 2;
+
+    private Vector2 _closed;
+    private bool _busy;
+
+    protected override void OnStart() => _closed = Position;
+
+    protected override void OnTriggerEnter(in ContactInfo contact)
+    {
+        if (_busy)
+            return;
+        _busy = true;
+        Run(OpenAndCloseAsync);
+    }
+
+    private async Task OpenAndCloseAsync()
+    {
+        var open = _closed + Slide;
+        await Tweens.To(_closed, open, OpenSeconds, SetPosition, Easing.CubicOut);
+        await Wait(StayOpenSeconds);
+        await Tweens.To(open, _closed, OpenSeconds, SetPosition, Easing.QuadInOut);
+        _busy = false;
+    }
+
+    private void SetPosition(Vector2 position) => Position = position;
+}
+```
+
+The whole sequence reads top to bottom. `Run` starts it; each `await` hands control back to the engine, and the routine continues in a later frame when the tween or the wait is done. If the door is destroyed halfway, the routine simply stops.
+
+## Waits
+
+| Method | Resumes |
+| --- | --- |
+| `Wait(seconds)` | After that many seconds of game time. Follows `Time.TimeScale` and stops while the game is paused. |
+| `WaitRealtime(seconds)` | After that many real seconds, ignoring the time scale and pauses. Use it for pause menus and UI. |
+| `NextFrame()` | At the start of the next frame. |
+| `WaitUntil(condition)` | On the first frame where `condition()` returns true. The condition is checked once per frame. |
+
+All of them return a `ScriptTask`, which you `await` inside an `async` method or lambda. Waits resume on the game thread at the start of a frame, in the scheduling step that comes after input and queued events and before `FixedUpdate`, `Update` and `LateUpdate`. So code after an `await` sees this frame's input, but runs before any script updates in the frame. See [The game loop and threads](../concepts/game-loop.mdx) for the whole frame.
+
+Waits count in whole frames: `Wait(0.05)` at 60 frames per second resumes on the first frame at or after 0.05 seconds have passed, not at that exact instant. A wait of 0 resumes on the next frame.
+
+```csharp
+protected override void OnStart() => Run(async () =>
+{
+    await WaitUntil(() => GetScript<Gate>(Find("Gate"))?.IsOpen == true);
+    Log.Info("The gate is open");
+});
+```
+
+Keep `WaitUntil` conditions cheap. They run every frame until they come true, and the one above calls `Find` each time, which searches every named entity; look the entity up once before the wait instead.
+
+:::note
+`Time` reports the frame and the update phase that last ran. Right after an `await` resumes, no update has run yet in the new frame, so `Time.DeltaTime`, `Time.TotalTime` and `Time.FrameCount` still describe the previous frame. Read them after the next update, or keep timing in the routine itself with `Wait`.
+:::
+
+## Routines with Run
+
+`Run(Func<Task>)` starts an asynchronous routine on the game thread. Pass a method that returns `Task`, or an `async` lambda:
+
+```csharp
+protected override void OnStart() => Run(async () =>
+{
+    Log.Info("Lit");
+    await Wait(Fuse);
+    Log.Info("Boom");
+    Destroy();
+});
+```
+
+`Run` does two things a bare `async` call does not. It watches the routine and logs any exception it throws as "An asynchronous routine of MyGame.Bomb on Hero failed", with the stack trace, so failures are never silent. And it hides the `Task`, so you do not leave a fire-and-forget `_ = SomethingAsync();` around. Prefer it to `async void` methods, whose exceptions cannot be traced to the script; the compiler warns about those with [TS1004](./diagnostics.mdx).
+
+A routine can start other routines, await other tasks and use any C# control flow: loops, `try`/`finally`, `using`. A `while (true)` loop with an `await` inside is how you write a behavior that repeats for the script's lifetime:
+
+```csharp
+private async Task PatrolAsync()
+{
+    while (true)
+    {
+        await Tweens.To(_left, _right, 2, SetPosition, Easing.SineInOut);
+        await Wait(0.5);
+        await Tweens.To(_right, _left, 2, SetPosition, Easing.SineInOut);
+        await Wait(0.5);
+    }
+}
+```
+
+## Repeat with Every
+
+`Every(interval, action)` calls a method every `interval` seconds of game time until the script is destroyed. Pass `scaled: false` for real time.
+
+```csharp title="assets/scripts/Sparkler.cs"
+namespace MyGame;
+
+/// <summary>Emits a few sparks every quarter second while it is enabled.</summary>
+public sealed class Sparkler : Script
+{
+    [Range(0.05, 2)]
+    public float Interval = 0.25f;
+
+    private IDisposable? _sparks;
+
+    protected override void OnEnable() => _sparks = Every(Interval, Spark);
+
+    protected override void OnDisable() => _sparks?.Dispose();
+
+    private void Spark() => Log.Debug("Spark");
+}
+```
+
+`Every` returns an `IDisposable`; dispose it to stop the repetition earlier, as this script does while it is disabled. Like a wait, the first call comes one interval after `Every` is called, and the calls happen at the start of a frame. An exception in the action is logged against the script, and the repetition continues.
+
+## What happens when the script is destroyed
+
+When a script is destroyed, because it was removed, its entity was destroyed or its scene unloaded, everything it started stops with it:
+
+- Awaits on `Wait`, `WaitRealtime`, `NextFrame`, `WaitUntil`, tweens and `Spawn` never resume. The routine is abandoned at the `await`, like a coroutine that is stopped. No exception is thrown into it, so `catch` and `finally` blocks after that point do not run.
+- `Every` stops calling its action.
+- Tweens stop calling their `apply` method.
+- Event subscriptions made through `Events` end.
+
+Code after `Destroy()` in the same routine still runs until the next `await`:
+
+```csharp
+Destroy();
+Log.Info("This still runs");
+await NextFrame();
+Log.Info("This never runs");
+```
+
+`DestroyCancellationToken` is cancelled at the same moment. Pass it to asynchronous APIs that take a `CancellationToken`, so their work stops too instead of finishing for nobody:
+
+```csharp
+var texture = await Assets.LoadAsync<TextureAsset>("sprites/boss.png", DestroyCancellationToken);
+```
+
+If you `await` such a task directly, a cancellation throws `OperationCanceledException` into the routine; `Run` treats that as the routine ending with its script, not as a failure.
+
+### Combining tasks
+
+A `ScriptTask` has `AsTask()` for the `Task` combinators:
+
+```csharp
+await Task.WhenAll(
+    Tweens.To(0f, 1f, 0.3f, SetAlpha).AsTask(),
+    Tweens.To(Vector2.One, new Vector2(1.5f), 0.3f, SetScale).AsTask());
+```
+
+Awaiting the plain `Task` from `AsTask()` resumes even if the script was destroyed in between, so check `IsDestroyed` after it when the routine goes on to touch the entity.
+
+## Tweens
+
+`Tweens.To(from, to, seconds, apply, easing)` animates a value over time: every frame it calls `apply` with the value for that moment, and it ends by calling it with `to`. There are overloads for `float`, `Vector2` and `Color`. `Tweens.Run(seconds, apply, easing)` is the general form: it passes eased progress from 0 to 1 and you compute whatever you like from it.
+
+```csharp
+// Fade a sprite out.
+await Tweens.To(1f, 0f, 0.4f, alpha => GetComponent<Sprite>().Tint = Color.White.WithAlpha((byte)(alpha * 255)));
+
+// Pop to one and a half times the size with a slight overshoot.
+await Tweens.Run(0.25f, t => Transform.Scale = new Vector2(1 + 0.5f * t), Easing.BackOut);
+
+// Flash red and return to white.
+await Tweens.To(Color.Parse("#FF5050"), Color.White, 0.2f, tint => GetComponent<Sprite>().Tint = tint);
+```
+
+Every tween returns a `ScriptTask`, so `await` chains them, and leaving out the `await` runs several at once. Tweens advance at the start of each frame, in the same step as waits, and follow game time; pass `scaled: false` to animate in real time, for example in a pause menu. A tween stops with its script, so a tween that writes to the script's own components is always safe.
+
+`apply` should only set the value. Look components up inside it, as above, rather than capturing a `ref` from outside, because a `ref` to a component cannot be captured by a lambda and may move when components are added.
+
+### Easing
+
+`Easing` lives in `Talesmith.Runtime.Tweens`. Leaving out the easing gives linear motion.
+
+| Easing | Shape |
+| --- | --- |
+| `Linear` | Constant speed |
+| `QuadIn`, `CubicIn` | Start slowly, end fast; cubic is stronger |
+| `QuadOut`, `CubicOut` | Start fast, end slowly; good for things arriving |
+| `QuadInOut`, `CubicInOut`, `SineInOut` | Slow at both ends; good for back-and-forth motion |
+| `BackOut` | Overshoots slightly before settling; good for pops and bounces |
+
+An easing is an `EasingFunction`, a delegate from progress (0 to 1) to eased progress, so you can write your own:
+
+```csharp
+private static readonly EasingFunction Steps = t => MathF.Floor(t * 4) / 4;
+```
+
+## Pitfalls
+
+- **`Task.Delay` is not game time.** It counts real time on a timer thread, ignores pause and slow motion, and is not cancelled when the script is destroyed. It does resume on the game thread, since the engine installs its synchronization context, but it can resume after the entity is gone. Use `Wait` or `WaitRealtime`.
+- **Threads do not belong in scripts.** The world, components and the script API belong to the game thread. Work started with `Task.Run` or a `Thread` must not touch them; `await` the task from a routine and continue on the game thread, or send results back with `Events.Enqueue`.
+- **Blocking waits freeze the game.** `Thread.Sleep`, `task.Wait()` and `task.Result` stop the game thread until they return. The compiler warns about them in update methods ([TS1001](./diagnostics.mdx)).
+- **Starting a routine every frame.** `Run` in `Update` starts a new routine each frame. Guard it with a flag, as the door's `_busy` does.
+
+## Related
+
+- [The script lifecycle](./lifecycle.mdx): when `OnStart` and the updates run
+- [Time](./time.mdx): time scale, pausing and unscaled time
+- [Spawners](../recipes/spawners.mdx): waves and timed spawning built from these pieces

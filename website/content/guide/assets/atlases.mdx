@@ -1,0 +1,61 @@
+---
+title: "Sprite atlases"
+description: "Pack many sprites into one texture with a .tatlas asset to reduce draw calls."
+---
+
+A sprite atlas packs the sprites of several textures into one texture. The renderer draws sprites that share a texture in one batch, so a scene whose characters, items and props come from one atlas costs fewer draw calls than one where each comes from its own file. This page covers creating an atlas, choosing what goes in, the packing settings, using the packed sprites, and when an atlas is worth it.
+
+<Screenshot name="guide/asset-atlas" caption="An atlas of every texture in the characters folder, packed and shown in the Inspector." priority />
+
+## Create an atlas
+
+<Steps>
+
+1. In the Assets panel, select the textures or folders to pack.
+2. Choose **Create › Sprite Atlas**. The editor creates *New Atlas.tatlas* in the open folder, with the selected textures and folders as its sources, and lets you name it.
+3. In the Inspector, check the **Sources** and the **Packing** settings.
+4. Click **Pack**. The atlas is packed as the game will pack it, and the preview shows the result.
+
+</Steps>
+
+## Sources
+
+The **Sources** list holds textures and folders. Drag more from the Assets panel onto the list, and click × to remove one. A folder includes every texture in it, including textures you add to the folder later.
+
+- A texture without sprites becomes one sprite, named after the file.
+- A texture sliced in the [sprite editor](./sprites.mdx) adds each of its sprites, and its animations.
+
+Identical images are stored only once, so two textures that share frames do not waste space.
+
+## Packing
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| **Padding** | 2 px | Empty pixels between sprites and around the edge, which keeps neighbors from bleeding into each other when the atlas is scaled |
+| **Trim** | on | **Remove transparent borders** of each sprite to pack tighter. Pivots are adjusted, so trimmed sprites stay anchored where they were. |
+| **Size** | off | **Power of two** makes the atlas's width and height powers of two |
+| **Max size** | 4096 | The largest the atlas may grow, in pixels |
+
+Sprites are packed without rotation into the smallest atlas that fits. The line under the preview gives the atlas's size, its number of sprites and how full it is, such as *1159 × 76 px · 6 sprites · 90% filled*. Changes are not applied until you click **Pack** or **Apply**. An atlas uses the filtering and wrapping of texture import settings.
+
+## Use the packed sprites
+
+An atlas is a texture of its own. To draw from it, set a Sprite's **Texture** to the atlas and pick the sprite by name in its **Sprite** field; a Sprite Animator plays the animations it took over from its sources the same way. Sprites and animators that still use the original textures keep drawing from them.
+
+## When an atlas is worth it
+
+- **Many small sprites on screen at once** from different files: items, props, UI icons, enemies. Packing them saves draw calls.
+- **Not for tile maps**, which already draw each visible chunk as one mesh per tileset.
+- **Not for particles**, which draw each emitter as one batch.
+- **Not for a few large images**, such as backgrounds, which gain nothing from sharing a texture.
+
+The performance overlay (<Keys>F3</Keys> in a running game) shows the frame's draw calls, so you can check whether an atlas helps. See [Performance](../performance.mdx).
+
+## Atlases in builds
+
+An exported game ships the atlas when something uses it, and the sources it packs. Since the atlas refers to whole folders, everything in a source folder ships with it. See [Exporting a game](../exporting.mdx). The file format is described in [Sprite atlases](/developers/file-formats/atlases).
+
+## Related
+
+- [Sprites and the sprite editor](./sprites.mdx)
+- [The Assets panel](./assets-panel.mdx)

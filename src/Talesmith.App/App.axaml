@@ -1,0 +1,11 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             x:Class="Talesmith.App.App"
+             Name="Talesmith"
+             RequestedThemeVariant="Dark">
+  <Application.Styles>
+    <ui:ToolkitTheme />
+    <StyleInclude Source="avares://Talesmith.Editor/Themes/EditorStyles.axaml" />
+  </Application.Styles>
+</Application>

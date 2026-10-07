@@ -1,0 +1,163 @@
+---
+title: "Scenes and scene files"
+description: "Load and switch scenes from code, react to scenes starting and stopping, keep per-scene state in scoped services, and understand scene and prefab files."
+---
+
+A scene is one self-contained part of a game, such as a level, a menu or a battle, with its own world, systems and services. Most scenes are `.tscene` files made in the editor; plugins can also register scenes built in code. This page covers switching scenes from scripts, transitions, scene listeners, per-scene services and how scene files refer to assets.
+
+## Load a scene from a script
+
+A script reaches the scene manager through `Scenes`, an `ISceneManager`. Scene files run in the built-in scene named `"scene"`, so you load one with a request from `DocumentScene`:
+
+```csharp title="assets/scripts/Door.cs"
+using Talesmith.Runtime.Scenes;
+
+namespace MyGame;
+
+/// <summary>Sends the player to another scene file when they enter the door's trigger.</summary>
+public sealed class Door : Script
+{
+    [AssetFilter(".tscene")]
+    public AssetGuid Destination;
+
+    private bool _leaving;
+
+    protected override void OnTriggerEnter(in ContactInfo contact)
+    {
+        if (_leaving || GetScript<PlayerController>(contact.Other) is null)
+            return;
+        _leaving = true;
+        _ = Scenes.LoadAsync(DocumentScene.ForGuid(Destination), new SceneTransition(FadeOutSeconds: 0.4f, FadeInSeconds: 0.6f));
+    }
+}
+```
+
+The `Destination` field shows as an asset picker limited to scene files, and it survives renaming and moving the scene because it stores the guid. `DocumentScene.ForPath("scenes/level-2.tscene")` works too when you prefer a path.
+
+| Member | What it does |
+| --- | --- |
+| `Scenes.LoadAsync(request, transition)` | Loads a scene in the background, fades out the current one, swaps them and fades in. The task completes when the new scene is active. |
+| `Scenes.ReloadAsync(transition)` | Loads the current scene again with the same request, the usual way to restart a level. Lantern Grove's player does this on <Keys>R</Keys>. |
+| `Scenes.Current` | The active `Scene`, with its `World`, `Services`, `Request` and `Environment`. |
+| `Scenes.IsLoading` | Whether a load is in progress, from the start of the fade-out until the new scene has faded in. |
+| `Scenes.LoadProgress` | How far the scene being loaded has come: `Loaded` and `Total` assets and their `Fraction`, or null while no scene loads. |
+| `Scene` (on a script) | The script's own scene. |
+
+Loading a scene ends the current one, and with it every script in it. A script that calls `LoadAsync` is destroyed before the task completes, so do not await it for work afterwards: `await` in a script never resumes once the script is destroyed. Discard the task with `_ =` as above, or put follow-up work in the next scene.
+
+### Transitions
+
+`SceneTransition(FadeOutSeconds, FadeInSeconds, Color)` fades to a color, swaps scenes and fades back. `SceneTransition.Default` fades out over 0.25 seconds and in over 0.35; `SceneTransition.Instant` cuts. The color defaults to black, and fades use real time, so they also work while the game is paused.
+
+The order matters when a scene does a lot of loading. The current scene keeps running while it fades out and while the next scene's `LoadAsync` awaits its assets, so the game never freezes; by then the fade color covers the screen. Then the old scene stops (its listeners, systems and scripts are told, and pending waits and tweens are cancelled), the new one starts, and the fade-in plays.
+
+When the new scene is still loading 0.4 seconds after the fade-out, the game's [loading screen](/guide/workflow/project-settings#loading-screen) fades in over the fade color, with a bar that fills as the scene's assets load, and goes once the new scene has faded in. Turn **Between scenes** off in Project Settings when the game shows progress of its own, from `Scenes.LoadProgress`.
+
+### Requests and parameters
+
+A `SceneRequest` is a scene name plus string parameters. The engine registers two scenes:
+
+| Name | Scene | Parameters |
+| --- | --- | --- |
+| `"scene"` | `DocumentScene`: runs a `.tscene` file | `path` or `guid` |
+| `"map"` | `MapScene`: shows tile maps without a scene file | `map` (one path, or several separated by semicolons, back to front), `focus` (a map object to center on), `zoom` |
+
+```csharp
+private static readonly SceneRequest WorldMap =
+    new("map", new Dictionary<string, string> { ["map"] = "maps/world.hexy", ["zoom"] = "2" });
+
+private void OpenWorldMap() => _ = Scenes.LoadAsync(WorldMap, new SceneTransition(Color: Color.White));
+```
+
+`startScene` in `config/game.json` names the first scene: a `.tscene` path, a scene name, or a name with parameters. See [Project configuration](/developers/file-formats/project-config).
+
+### Scene events
+
+The event bus reports scene changes to anything that subscribes: `SceneLoading(Request)`, `SceneLoaded(Request, Scene)`, `SceneUnloaded(Request)` and `SceneLoadFailed(Request, Error)`. When a scene fails to load, the previous scene stays active. All of them are in `Talesmith.Runtime.Scenes`.
+
+## Scene files and code scenes
+
+| | Scene file (`.tscene`) | Code scene |
+| --- | --- | --- |
+| Made with | The editor | A class deriving from `Scene` |
+| Loaded by | `DocumentScene` with a `path` or `guid` | Its registered name |
+| Entities come from | The document: entities, components and prefab instances | Your `LoadAsync`, which creates them in `World` |
+| Needs a plugin | No | Yes: `services.AddScene<TitleScene>("title")` |
+
+Code scenes suit screens that are mostly generated, such as a procedurally built level or a title screen assembled from code. A scene's constructor can ask for services, and `LoadAsync` runs on the game thread and may await asset loading while the previous scene is still shown:
+
+```csharp title="MyGamePlugin/TitleScene.cs"
+using System.Numerics;
+using Talesmith.Assets;
+using Talesmith.Assets.Textures;
+using Talesmith.Rendering;
+using Talesmith.Runtime.Components;
+using Talesmith.Runtime.Rendering;
+using Talesmith.Runtime.Scenes;
+
+namespace MyGame;
+
+/// <summary>A title screen built in code: a logo in the middle of the screen.</summary>
+public sealed class TitleScene(IAssetManager assets, TextureCache textures) : Scene
+{
+    protected override async Task LoadAsync(CancellationToken cancellationToken)
+    {
+        var logo = await assets.LoadAsync<TextureAsset>("sprites/logo.png", cancellationToken);
+        World.Create(new Transform(Vector2.Zero), new Sprite(textures.Get(logo), RenderLayers.Overlay));
+        World.Create(new Transform(Vector2.Zero), new Camera(Vector2.Zero));
+    }
+}
+```
+
+Override `OnStarted` for work once the scene is active and `OnUnloading` for cleanup. Registering and writing code scenes is covered in [Scenes in plugins](/plugins/runtime/scenes). Scripts cannot register scenes, but they can load any registered scene by name.
+
+## Scene listeners
+
+An `ISceneListener` is told when each scene starts and stops: `OnSceneStarted(scene)` after the scene's systems started, and `OnSceneStopping(scene)` before they stop. Use it for work that belongs to every scene but does not need to run each frame, such as music:
+
+```csharp title="assets/scripts/LevelMusic.cs"
+using Talesmith.Runtime.Scenes;
+
+namespace MyGame;
+
+/// <summary>Plays the level's music while a scene runs and fades it out when the scene stops.</summary>
+public sealed class LevelMusic(IAudioService audio, IAssetManager assets) : ISceneListener
+{
+    public void OnSceneStarted(Scene scene) =>
+        audio.PlayMusic(assets.Load<MusicTrack>("audio/theme.ogg"), loop: true, fade: TimeSpan.FromSeconds(1.5));
+
+    public void OnSceneStopping(Scene scene) => audio.StopMusic(TimeSpan.FromSeconds(0.5));
+}
+```
+
+A listener declared in a script file is registered automatically, like systems; a plugin registers it with `services.AddSceneListener<LevelMusic>()`. Listeners are created in each scene's scope, so every scene gets a fresh instance. Like systems, a listener in the scripts folder stops the scripts from hot reloading in play mode; put listeners in a plugin if that matters to you.
+
+For work that belongs to one particular scene, a script on an entity of that scene is usually simpler: `OnSceneLoaded` and `OnSceneUnloaded` tell it when its scene starts and stops. See [The script lifecycle](../scripts/lifecycle.mdx).
+
+## Scoped services: state for one scene
+
+Every scene gets its own service scope. The `World`, the physics world, the lighting environment, the scene's systems and every service a plugin registers with `AddScoped` are created for that scene and disposed with it. Services registered with `AddSingleton`, such as input, audio, assets, the event bus and the scene manager, live for the whole game.
+
+That gives you two places for game state:
+
+| Lifetime | Register with | Holds | Example |
+| --- | --- | --- | --- |
+| One scene | `services.AddScoped<WaveDirector>()` | State that must reset when the level reloads | The current wave, enemies left, a level timer |
+| The whole game | `services.AddSingleton<Inventory>()` | State that survives scene changes | The player's inventory, unlocked levels, the HUD |
+
+A script gets either kind with `GetService<T>()`, which resolves from its scene's scope; a system asks for it in its constructor. Registering services needs a plugin; see [Services in plugins](/plugins/runtime/services).
+
+## Scene and prefab documents
+
+A `.tscene` file is JSON: the scene's environment (clear color, ambient light, gravity, render layers and lighting settings) and a list of entities, each with an id, a name, a parent and its components with their saved fields. Scripts are saved inside a `ScriptComponent` as a list of type names, enabled flags and fields. A `.tprefab` has the same entity list with one root.
+
+Documents never refer to other assets by path. A texture, map, sound, prefab or scene reference is stored as the asset's guid, which lives in the `.meta` file beside the asset. That is why you can move and rename assets in the editor without breaking scenes, and why a script field that refers to an asset should be an asset type or an `AssetGuid` rather than a path string. Entity references inside a document, such as a camera's follow target or a script's `Entity` field, are stored as the target's id in the same document.
+
+When a scene starts, the game creates its entities from the document, then starts the scene's systems, then creates its scripts. The full format is in [Scenes and prefabs](/developers/file-formats/scenes-and-prefabs). Prefabs are spawned from scripts with `Spawn`; see [Spawning and finding entities](../scripts/spawning.mdx).
+
+## Related
+
+- [Scenes in the editor](/guide/scenes)
+- [Prefabs](/guide/scenes/prefabs)
+- [The game loop and threads](./game-loop.mdx)
+- [Scenes in plugins](/plugins/runtime/scenes)

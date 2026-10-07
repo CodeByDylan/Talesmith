@@ -1,0 +1,269 @@
+---
+title: "Asset importers and value converters"
+description: "Teach the engine new asset types with importers, and new field types with value converters."
+---
+
+An asset importer turns a file into an object the game can load by path, such as a `.cutscene` file into a `CutsceneScript`. A value converter teaches scenes and the inspector a new field type. This page covers writing importers, import settings, registering an asset kind so the editor shows the files properly, telling the asset database which files a file refers to, and value converters and converter factories.
+
+## Write an importer
+
+Derive from `AssetImporter<T>`, list the extensions it reads and turn the file into a `T`. This is the importer of the cutscene sample:
+
+```csharp title="samples/Talesmith.Samples.Cutscenes/CutsceneImporter.cs"
+using System.Text.Json;
+using Talesmith.Assets;
+
+namespace Talesmith.Samples.Cutscenes;
+
+/// <summary>Imports ".cutscene" files, which are JSON scripts.</summary>
+public sealed class CutsceneImporter : AssetImporter<CutsceneScript>
+{
+    public override IReadOnlyList<string> Extensions { get; } = [CutsceneScript.Extension];
+
+    public override Task<CutsceneScript> ImportAsync(AssetImportContext context, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var stream = context.OpenRead();
+            return Task.FromResult(CutsceneScript.Parse(stream));
+        }
+        catch (JsonException ex)
+        {
+            throw new AssetException($"The cutscene '{context.Path}' is not valid: {ex.Message}", ex);
+        }
+    }
+}
+```
+
+Register it as an `IAssetImporter`:
+
+```csharp
+builder.Services.AddSingleton<IAssetImporter, CutsceneImporter>();
+```
+
+Game code then loads the asset by its path relative to `assets`, like any other:
+
+```csharp
+var script = await assets.LoadAsync<CutsceneScript>("cutscenes/harbor-arrival.cutscene", cancellationToken);
+```
+
+The asset manager picks the importer by the file's extension and the type you ask for, imports each asset once and keeps it while it is in use. In the editor, saving a change to the file imports it again for the scene viewport.
+
+| Member | Meaning |
+| --- | --- |
+| `Extensions` | Lower-case extensions with the dot, such as `.cutscene`. |
+| `ImportAsync` | Reads the file and returns the asset. Runs on a background thread. Throw `AssetException` with a readable message when the file is invalid. |
+| `Id` | The importer's id, written to `.meta` files. Defaults to the asset type's name in lower case, `cutscenescript`. |
+| `Version` | Raise it when the importer's output changes, so assets imported by older versions are imported again. Default 1. |
+
+### The import context
+
+| Member | What it gives you |
+| --- | --- |
+| `Path` | The asset's path relative to the asset root, such as `cutscenes/harbor-arrival.cutscene`. |
+| `OpenRead()` | A stream of the file, from a folder or from an exported game's pack. |
+| `Resolve(relative)` | A path written inside the file, relative to the file's folder, as an asset path. |
+| `Assets` | The asset manager, to load assets this one depends on, such as a tileset's image. They stay loaded while this asset is. |
+| `Guid`, `Meta` | The asset's guid and `.meta` information. |
+| `GetSettings<T>()` | The import settings from the `.meta` file, or defaults. |
+| `ResolveGuid(guid)`, `Catalog` | Paths of assets the file refers to by guid. |
+| `Logger` | For warnings that do not stop the import. |
+
+Read files only through `OpenRead`, never with `File`: exported games keep assets in a pack, not in a folder.
+
+### Import settings
+
+Importers with options derive from `AssetImporter<T, TSettings>`. Settings are stored per asset in its `.meta` file, and `context.GetSettings<TSettings>()` reads them, with the defaults of a new `TSettings` when the asset has none:
+
+```csharp title="LinesImporter.cs"
+using System.Text;
+using Talesmith.Assets;
+
+namespace Dialogue;
+
+/// <summary>Lines of dialogue, one per line of the file, with the voice clip each refers to.</summary>
+public sealed record DialogueLines(IReadOnlyList<string> Lines, string? Voice);
+
+public sealed class LinesImportSettings
+{
+    public bool TrimLines { get; set; } = true;
+}
+
+/// <summary>Imports ".lines" files: plain text, one line of dialogue per line, and an optional "voice: path" first line.</summary>
+public sealed class LinesImporter : AssetImporter<DialogueLines, LinesImportSettings>
+{
+    public override IReadOnlyList<string> Extensions { get; } = [".lines"];
+
+    public override int Version => 2;
+
+    public override async Task<DialogueLines> ImportAsync(AssetImportContext context, CancellationToken cancellationToken)
+    {
+        var settings = context.GetSettings<LinesImportSettings>();
+        using var reader = new StreamReader(context.OpenRead(), Encoding.UTF8);
+        var text = await reader.ReadToEndAsync(cancellationToken);
+        var lines = text.Split('\n').Select(l => settings.TrimLines ? l.Trim() : l).Where(l => l.Length > 0).ToList();
+        if (lines.Count == 0)
+            throw new AssetException($"'{context.Path}' has no lines.");
+        string? voice = null;
+        if (lines[0].StartsWith("voice:", StringComparison.Ordinal))
+        {
+            voice = context.Resolve(lines[0]["voice:".Length..].Trim());
+            lines.RemoveAt(0);
+        }
+
+        return new DialogueLines(lines, voice);
+    }
+}
+```
+
+The editor has inspectors for the engine's own import settings. To let users change your settings in the editor, add an [asset inspector](../editor/assets.mdx#asset-inspectors) that writes them with `AssetOperations.SetImportSettingsAsync`.
+
+## Asset kinds
+
+The editor sorts files into kinds (Texture, Audio, Scene, and so on) for the icons, badges and filters of the Assets panel and to pick the asset inspector. Files of an unknown extension are of the kind **File**. Register a kind for your extension:
+
+```csharp
+builder.Services.AddAssetKind(new AssetKind("lines", "Dialogue Lines", "type"), ".lines");
+```
+
+`AssetKind(id, displayName, icon)` takes a stable id, the name shown in the editor and the name of an icon from the editor's set. A kind registered in the runtime plugin reaches the editor through the edit game; an [editor plugin](../editor/assets.mdx#asset-kinds) can register kinds too. A later registration of an extension wins over an earlier one.
+
+## Dependencies between assets
+
+The editor's asset database keeps a graph of which asset refers to which, for the Assets panel's dependency lists, for moving and renaming files, and for builds. It finds references in the engine's formats itself. For your format, register an `IAssetDependencyExtractor`:
+
+```csharp title="LinesDependencyExtractor.cs"
+using Talesmith.Assets;
+using Talesmith.Assets.Database;
+using Talesmith.Assets.Database.Dependencies;
+
+namespace Dialogue;
+
+/// <summary>Tells the asset database which voice clip a ".lines" file uses.</summary>
+public sealed class LinesDependencyExtractor : IAssetDependencyExtractor
+{
+    public bool CanExtract(string path) => AssetPath.GetExtension(path) == ".lines";
+
+    public async Task<IReadOnlyList<AssetReference>> ExtractAsync(AssetDependencyContext context, CancellationToken cancellationToken)
+    {
+        using var reader = new StreamReader(context.OpenRead());
+        var first = await reader.ReadLineAsync(cancellationToken);
+        if (first is null || !first.StartsWith("voice:", StringComparison.Ordinal) || context.Resolve(first["voice:".Length..].Trim()) is not { } path)
+            return [];
+        return [AssetReference.ToPath(path)];
+    }
+}
+```
+
+```csharp
+builder.Services.AddSingleton<IAssetDependencyExtractor, LinesDependencyExtractor>();
+```
+
+Extractors run on background threads and must not throw for malformed files; return what you found. For JSON formats, `JsonDependencyExtractor` finds every guid in a file and the paths in properties you name, relative to the file: `new JsonDependencyExtractor([".quest"], pathProperties: ["icon"])`.
+
+## Value converters
+
+Scenes save components as JSON. The engine knows how to save numbers, strings, enums, vectors, colors, curves, gradients, asset and entity references, lists and nested objects. For any other field type, add a value converter:
+
+```csharp title="Heading.cs"
+using System.Text.Json.Nodes;
+using Talesmith.Authoring;
+using Talesmith.Runtime.Serialization;
+using Talesmith.Runtime.Serialization.Converters;
+
+namespace Weather;
+
+/// <summary>A compass direction in degrees, 0 pointing right.</summary>
+public readonly record struct Heading(float Degrees);
+
+/// <summary>Saves a heading as a plain number.</summary>
+public sealed class HeadingConverter : ValueConverter<Heading>
+{
+    public override PropertyKind Kind => PropertyKind.Number;
+
+    public override JsonNode Write(Heading value, ICaptureContext context) => JsonValue.Create(value.Degrees);
+
+    public override Heading Read(JsonNode node, IInstantiationContext context) => new((float)JsonFormats.GetNumber(node));
+
+    public override PropertyDescriptor Describe(PropertyDescriptor property) => base.Describe(property) with { Min = 0, Max = 360, Step = 15 };
+}
+
+[Component(Category = "Environment", Icon = "compass")]
+public struct Weathervane
+{
+    public Heading Wind;
+}
+```
+
+```csharp
+builder.Services.AddValueConverter<HeadingConverter>();
+builder.Services.AddComponent<Weathervane>();
+```
+
+| Member | Meaning |
+| --- | --- |
+| `Kind` | How the inspector edits the value: `Number`, `String`, `Vector2`, `Color` and the other `PropertyKind`s. A `Heading` saved as a number gets a number field. |
+| `Write` | The JSON to save. |
+| `Read` | The value from saved JSON, which is never null here. Throw `FormatException` when it is not a valid value. `JsonFormats.GetNumber`, `GetString` and the other helpers read numbers that were written as integers or as decimals alike. |
+| `Describe` | Fills in editing hints, such as a range. |
+| `CollectDependencies` | Adds the assets a saved value refers to, for converters of types that hold asset references. |
+
+A converter added later wins over an earlier one and over the engine's for the same type. To edit the type with a control of your own instead of the editor for its kind, add an [inspector property editor](../editor/property-editors.mdx).
+
+### Converter factories
+
+A factory makes converters for a family of types, such as every strongly typed id:
+
+```csharp title="StringIds.cs"
+using System.Text.Json.Nodes;
+using Talesmith.Runtime.Serialization;
+using Talesmith.Runtime.Serialization.Converters;
+
+namespace Inventory;
+
+/// <summary>A strongly typed id saved as a string, such as the id of an item or a quest.</summary>
+public interface IStringId<TSelf>
+    where TSelf : IStringId<TSelf>
+{
+    string Value { get; }
+
+    static abstract TSelf From(string value);
+}
+
+public readonly record struct ItemId(string Value) : IStringId<ItemId>
+{
+    public static ItemId From(string value) => new(value);
+}
+
+/// <summary>Saves every IStringId type as a string.</summary>
+public sealed class StringIdConverterFactory : IValueConverterFactory
+{
+    public bool CanConvert(Type type) =>
+        type.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IStringId<>));
+
+    public IValueConverter Create(Type type, ValueConverterRegistry converters) =>
+        (IValueConverter)Activator.CreateInstance(typeof(StringIdConverter<>).MakeGenericType(type))!;
+}
+
+public sealed class StringIdConverter<T> : ValueConverter<T>
+    where T : IStringId<T>
+{
+    public override PropertyKind Kind => PropertyKind.String;
+
+    public override JsonNode Write(T value, ICaptureContext context) => JsonValue.Create(value.Value);
+
+    public override T Read(JsonNode node, IInstantiationContext context) => T.From(JsonFormats.GetString(node));
+}
+```
+
+```csharp
+builder.Services.AddValueConverterFactory<StringIdConverterFactory>();
+```
+
+Factories registered later are asked first. `Create` receives the registry, so a factory for containers can get the converter of the element type with `converters.Get(elementType)`.
+
+## Related
+
+- [Example: the cutscene plugin](../cutscenes-example.mdx)
+- [Asset inspectors, handlers and thumbnails](../editor/assets.mdx)
+- [Systems and components](./systems-and-components.mdx#components)

@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Imports maps made with the Hexy editor (.hexy) as tile maps.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Talesmith.Assets\Talesmith.Assets.csproj" />
+  </ItemGroup>
+</Project>

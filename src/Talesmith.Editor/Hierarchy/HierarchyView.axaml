@@ -1,0 +1,98 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Hierarchy"
+             x:Class="Talesmith.Editor.Hierarchy.HierarchyView"
+             x:DataType="vm:HierarchyViewModel">
+  <UserControl.Styles>
+    <Style Selector="Border.hrow">
+      <Setter Property="Height" Value="26" />
+      <Setter Property="Margin" Value="4,0" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <BrushTransition Property="Background" Duration="0:0:0.08" />
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="Border.hrow:pointerover">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+    <Style Selector="Border.hrow.selected">
+      <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+    </Style>
+    <Style Selector="Border#Host:focus-within Border.hrow.selected">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="Border.banner">
+      <Setter Property="Margin" Value="8,4,8,4" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+      <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+    </Style>
+    <Style Selector="Border.banner.paused">
+      <Setter Property="Background" Value="#29F59E0B" />
+    </Style>
+    <Style Selector="Border.live-dot">
+      <Setter Property="Width" Value="8" />
+      <Setter Property="Height" Value="8" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.banner.paused Border.live-dot">
+      <Setter Property="Background" Value="{DynamicResource WarningBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="8,8,8,4">
+      <ui:SearchBox Name="Search" Text="{Binding Filter}" PlaceholderText="Filter entities" />
+      <Button Name="CreateButton" Grid.Column="1" Classes="icon small" Margin="6,0,0,0" ToolTip.Tip="Create an entity" IsEnabled="{Binding !IsLive}">
+        <ui:SymbolIcon Data="{x:Static ui:Icons.Plus}" Size="15" />
+      </Button>
+    </Grid>
+
+    <Border DockPanel.Dock="Top" Classes="banner" IsVisible="{Binding IsEditingPrefab}">
+      <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*">
+        <Button Classes="icon small" Click="OnBackClick" ToolTip.Tip="Back to the scene" Margin="-4,0,4,0">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.ArrowLeft}" Size="14" />
+        </Button>
+        <TextBlock Grid.Column="1" Text="{Binding ReturnName}" Classes="secondary" FontSize="12" VerticalAlignment="Center" />
+        <ui:SymbolIcon Grid.Column="2" Data="{x:Static ui:Icons.ChevronRight}" Size="12" Margin="4,0" Foreground="{DynamicResource TextMutedBrush}" />
+        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="5">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.Package}" Size="13" Foreground="{DynamicResource AccentBrush}" />
+          <TextBlock Text="{Binding SceneTitle}" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Border DockPanel.Dock="Top" Classes="banner" Classes.paused="{Binding IsPaused}" IsVisible="{Binding IsLive}">
+      <Grid ColumnDefinitions="Auto,*">
+        <Border Classes="live-dot" Margin="0,0,9,0" />
+        <StackPanel Grid.Column="1" Spacing="1">
+          <TextBlock Text="Playing · live world" FontWeight="SemiBold" FontSize="12" />
+          <TextBlock Text="Spawned entities show here; changes end with Stop." Classes="caption muted" TextWrapping="Wrap" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Panel>
+      <Border Name="Host" Focusable="True" Background="Transparent" DragDrop.AllowDrop="True">
+        <ScrollViewer Name="Scroller" HorizontalScrollBarVisibility="Disabled">
+          <vm:HierarchyItems Name="Tree" ItemsSource="{Binding Rows}" Margin="0,2,0,24">
+            <vm:HierarchyItems.ItemsPanel>
+              <ItemsPanelTemplate>
+                <VirtualizingStackPanel />
+              </ItemsPanelTemplate>
+            </vm:HierarchyItems.ItemsPanel>
+          </vm:HierarchyItems>
+        </ScrollViewer>
+      </Border>
+      <ui:EmptyState Name="Empty" IsVisible="False" Icon="{x:Static ui:Icons.ListTree}" />
+    </Panel>
+  </DockPanel>
+</UserControl>

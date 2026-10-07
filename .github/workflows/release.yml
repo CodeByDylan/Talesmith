@@ -1,0 +1,308 @@
+# Packages the editor when a version tag such as v0.2.0 is pushed: a Debian package and an archive for Linux, an installer and an archive
+# for Windows, the Nix package and Lantern Grove as a game for both systems. Each package is installed and started on clean systems before
+# the GitHub release is published with checksums and build attestations. Pull requests that change the packaging, and runs on demand, do
+# everything but the release.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - packaging/**
+      - flake.nix
+      - flake.lock
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  linux:
+    name: Package for Linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Set up .NET from global.json
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore the NuGet cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      # MSBuild reads TalesmithVersion from the environment, so every build below gets it, the players' included.
+      - name: Take the version from the tag
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then version="${GITHUB_REF_NAME#v}"; else version="0.0.0-ci.$GITHUB_RUN_NUMBER"; fi
+          echo "TalesmithVersion=$version" >> "$GITHUB_ENV"
+
+      - name: Publish the editor
+        run: >-
+          dotnet publish src/Talesmith.App --configuration Release --runtime linux-x64 --self-contained --output artifacts/editor
+          -p:GenerateDocumentationFile=false
+
+      # The installed editor exports games with the players in its players folder, without the .NET SDK or the engine's sources.
+      - name: Publish the players
+        run: |
+          for profile in development release; do
+            artifacts/editor/talesmith --publish-player artifacts/editor/players --target linux-x64 --profile "$profile"
+          done
+
+      - name: Export Lantern Grove as a game to download
+        run: >-
+          artifacts/editor/talesmith --export samples/LanternGrove --target linux-x64 --profile distribution
+          --output "$RUNNER_TEMP/games"
+
+      - name: Archive
+        run: |
+          package="talesmith-$TalesmithVersion-linux-x64"
+          mkdir -p "$RUNNER_TEMP/$package/lib" artifacts/release
+          cp -a artifacts/editor "$RUNNER_TEMP/$package/lib/talesmith"
+          install -m 755 packaging/linux/talesmith "$RUNNER_TEMP/$package/talesmith"
+          tar -C "$RUNNER_TEMP" -czf "artifacts/release/$package.tar.gz" "$package"
+          cp "$RUNNER_TEMP"/games/*.tar.gz "artifacts/release/lantern-grove-$TalesmithVersion-linux-x64.tar.gz"
+
+      - name: Build the Debian package
+        uses: docker://ghcr.io/goreleaser/nfpm:v2.47.0
+        env:
+          TALESMITH_VERSION: ${{ env.TalesmithVersion }}
+        with:
+          args: package --config packaging/linux/nfpm.yaml --packager deb --target artifacts/release/
+
+      - name: Upload the packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          path: artifacts/release
+          retention-days: 7
+          if-no-files-found: error
+
+  linux-install:
+    name: Install on ${{ matrix.system }}
+    needs: linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - system: Ubuntu 22.04
+            image: ubuntu:22.04
+            package: deb
+          - system: Ubuntu 24.04
+            image: ubuntu:24.04
+            package: deb
+          - system: Ubuntu 26.04
+            image: ubuntu:26.04
+            package: deb
+          - system: Debian 13
+            image: debian:13
+            package: deb
+          - system: Fedora
+            image: fedora:latest
+            package: archive
+          - system: Arch Linux
+            image: archlinux:latest
+            package: archive
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Download the packages
+        uses: actions/download-artifact@v4
+        with:
+          name: release-linux
+          path: release
+
+      - name: Install, run Lantern Grove and start the editor
+        run: sh packaging/linux/test-install.sh ${{ matrix.package }} release
+
+  nix:
+    name: Build and start the Nix package
+    needs: linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Set up Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Download the packages
+        uses: actions/download-artifact@v4
+        with:
+          name: release-linux
+          path: ${{ runner.temp }}/release
+
+      # The flake packages the published release; this builds the same package from the archive above instead.
+      - name: Build the package
+        run: |
+          archive=$(echo "$RUNNER_TEMP"/release/talesmith-*-linux-x64.tar.gz)
+          version=${archive##*/talesmith-}
+          version=${version%-linux-x64.tar.gz}
+          nix build --impure --print-build-logs --expr "
+            (builtins.getFlake \"path:$PWD\").inputs.nixpkgs.legacyPackages.x86_64-linux.callPackage ./packaging/nix/package.nix {
+              release.version = \"$version\";
+              src = $archive;
+            }"
+
+      - name: Start the editor
+        run: nix shell nixpkgs#xvfb-run nixpkgs#xdotool --command sh packaging/linux/test-start.sh result/bin/talesmith
+
+  windows:
+    name: Package for Windows
+    runs-on: windows-2025
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Set up .NET from global.json
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Take the version from the tag
+        run: |
+          $version = if ($env:GITHUB_REF -like 'refs/tags/v*') { $env:GITHUB_REF_NAME.Substring(1) } else { "0.0.0-ci.$env:GITHUB_RUN_NUMBER" }
+          "TalesmithVersion=$version" >> $env:GITHUB_ENV
+
+      - name: Publish the editor
+        run: >-
+          dotnet publish src/Talesmith.App --configuration Release --runtime win-x64 --self-contained --output artifacts/editor
+          -p:GenerateDocumentationFile=false
+
+      # The editor is a Windows application, so PowerShell waits for it and shows its output only through a pipe.
+      - name: Publish the players
+        run: |
+          foreach ($profile in 'development', 'release') {
+            artifacts/editor/talesmith.exe --publish-player artifacts/editor/players --target win-x64 --profile $profile | Write-Output
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      # OpenAL Soft needs the Visual C++ runtime, which a clean Windows lacks, so the editor and every player carry it. Exported games
+      # copy their player's folder, so they carry it too.
+      - name: Add the Visual C++ runtime
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+          $runtime = Get-ChildItem "$vs\VC\Redist\MSVC\*\x64\Microsoft.VC*.CRT" -Directory |
+            Where-Object { $_.Parent.Parent.Name -match '^\d+(\.\d+)+$' } |
+            Sort-Object { [version]$_.Parent.Parent.Name } |
+            Select-Object -Last 1
+          if (-not $runtime) { throw "Visual Studio at $vs has no Visual C++ runtime to redistribute" }
+          $files = 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll' | ForEach-Object { Join-Path $runtime.FullName $_ }
+          foreach ($folder in @('artifacts/editor') + (Get-ChildItem artifacts/editor/players -Directory).FullName) {
+            Copy-Item $files $folder
+          }
+          Write-Output "Added the Visual C++ runtime from $($runtime.FullName)"
+
+      - name: Export Lantern Grove as a game to download
+        run: |
+          artifacts/editor/talesmith.exe --export samples/LanternGrove --target win-x64 --profile distribution --output "$env:RUNNER_TEMP/games" | Write-Output
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build the installer and the archive
+        run: |
+          $package = "talesmith-$env:TalesmithVersion-win-x64"
+          New-Item -ItemType Directory -Force artifacts/release | Out-Null
+          $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe", "$env:ProgramFiles\Inno Setup *\ISCC.exe" -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+          if (-not $iscc) { throw "Inno Setup is not installed on this runner" }
+          & $iscc.FullName /Qp "/DVersion=$env:TalesmithVersion" "/DSource=$PWD\artifacts\editor" "/DOutput=$PWD\artifacts\release" packaging\windows\talesmith.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item -Recurse artifacts/editor "$env:RUNNER_TEMP/$package"
+          7z a -tzip -mx=9 "artifacts/release/$package.zip" "$env:RUNNER_TEMP/$package" | Out-Null
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item "$env:RUNNER_TEMP/games/*.zip" "artifacts/release/lantern-grove-$env:TalesmithVersion-win-x64.zip"
+
+      - name: Install, start and uninstall the editor
+        run: |
+          $setup = Get-Item artifacts/release/*-setup.exe
+          $install = Start-Process $setup.FullName -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER' -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "The installer exited with $($install.ExitCode)" }
+          $folder = "$env:LOCALAPPDATA\Programs\Talesmith"
+          foreach ($file in 'talesmith.exe', 'soft_oal.dll', 'vcruntime140_1.dll', 'players\win-x64-r2r-nosymbols\talesmith-player.exe', 'players\win-x64-r2r-nosymbols\vcruntime140_1.dll') {
+            if (-not (Test-Path "$folder\$file")) { throw "The installation has no $file" }
+          }
+          $editor = Start-Process "$folder\talesmith.exe" -PassThru
+          Start-Sleep -Seconds 20
+          if ($editor.HasExited) { throw "The editor exited with $($editor.ExitCode)" }
+          Stop-Process -Id $editor.Id
+          Start-Process "$folder\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
+          # The uninstaller finishes from a copy of itself in the temporary folder, after the process above has exited.
+          for ($second = 0; $second -lt 60 -and (Test-Path "$folder\talesmith.exe"); $second++) { Start-Sleep -Seconds 1 }
+          if (Test-Path "$folder\talesmith.exe") { throw "Uninstalling left the editor behind" }
+
+      - name: Run Lantern Grove
+        run: |
+          $game = Get-ChildItem "$env:RUNNER_TEMP/games" -Recurse -Filter 'Lantern Grove.exe' | Select-Object -First 1
+          foreach ($file in 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll') {
+            if (-not (Test-Path (Join-Path $game.DirectoryName $file))) { throw "Lantern Grove has no $file" }
+          }
+          $report = "$env:RUNNER_TEMP\benchmark.json"
+          $run = Start-Process $game.FullName -ArgumentList '--benchmark', '--frames', '120', '--warmup', '30', '--no-render', '--report', "`"$report`"" -Wait -PassThru
+          if ($run.ExitCode -ne 0) { throw "Lantern Grove exited with $($run.ExitCode)" }
+          if (-not (Test-Path $report)) { throw "Lantern Grove wrote no benchmark report" }
+
+      - name: Upload the packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: artifacts/release
+          retention-days: 7
+          if-no-files-found: error
+
+  release:
+    name: Publish the release
+    needs: [linux-install, nix, windows]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Download the packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: release
+
+      - name: Write checksums
+        run: cd release && sha256sum -- * > SHA256SUMS.txt
+
+      # Anyone can check that a download was built here from its tag: gh attestation verify <file> --repo CodeByDylan/Talesmith
+      - name: Attest the build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: release/*
+
+      # A tag with a pre-release part, such as v0.3.0-rc.1, makes a pre-release.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          prerelease=()
+          if [[ "$version" == *-* ]]; then prerelease=(--prerelease); fi
+          gh release create "$GITHUB_REF_NAME" release/* --repo "$GITHUB_REPOSITORY" --verify-tag --title "Talesmith $version" --generate-notes "${prerelease[@]}"

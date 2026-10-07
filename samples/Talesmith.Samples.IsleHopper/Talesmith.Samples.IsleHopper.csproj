@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Gameplay of the Isle Hopper sample: a side-scrolling platformer on a rectangular map with a parallax backdrop map behind it.</Description>
+    <PluginFolder>islehopper</PluginFolder>
+    <PluginGame>IsleHopper</PluginGame>
+    <UseSharedSampleCode>true</UseSharedSampleCode>
+  </PropertyGroup>
+  <Import Project="..\Plugin.targets" />
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Talesmith.Runtime\Talesmith.Runtime.csproj" Private="false" ExcludeAssets="runtime" />
+    <ProjectReference Include="..\..\src\Talesmith.Avalonia\Talesmith.Avalonia.csproj" Private="false" ExcludeAssets="runtime" />
+  </ItemGroup>
+</Project>

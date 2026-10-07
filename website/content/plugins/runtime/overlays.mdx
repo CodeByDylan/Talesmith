@@ -1,0 +1,183 @@
+---
+title: "Game overlays"
+description: "Draw Avalonia UI above the game, such as HUDs, menus and dialogue boxes."
+---
+
+Game UI is Avalonia. An overlay is a class implementing `IGameOverlay` that creates an Avalonia control, which the game view stacks above the game: a HUD, a pause menu, a dialogue box. This page covers registering overlays, the threads they live on and how they exchange data with the game, input focus, and the dialogue overlay of the cutscene sample.
+
+Overlays need `Talesmith.Avalonia.dll`, `Avalonia.Base.dll` and `Avalonia.Controls.dll` as references; see [The project file](../package/project-file.mdx#engine-references).
+
+## Write an overlay
+
+```csharp
+public interface IGameOverlay
+{
+    int Order => 0;
+
+    Control Create(IServiceProvider services);
+}
+```
+
+`Create` is called once, on the UI thread, when the game view is shown: in the editor's Game panel when play mode starts, and in the player's or exported game's window. Overlays are stacked by `Order`, lower below higher. Headless games, such as tests and benchmarks, create no overlays. If `Create` throws, the error is logged (**The overlay … could not be created and is left out**) and the game runs without that overlay.
+
+Overlays cover the game's view and scale with it. They lay out in view units, or in the overlay size set by `overlayWidth` and `overlayHeight` in the `view` section of `game.json`, so a menu designed at 1280 × 720 fits a 640 × 360 pixel-art game without scaling code of its own; see [Game UI](/scripting/concepts/game-ui#overlay-size).
+
+Register overlays as `IGameOverlay` singletons, with the state they show:
+
+```csharp title="SpinnerHudPlugin.cs"
+using Microsoft.Extensions.DependencyInjection;
+using Talesmith.Avalonia.Overlays;
+using Talesmith.Plugins;
+using Talesmith.Systems;
+
+namespace Spinners;
+
+public sealed class SpinnerHudPlugin : IPlugin
+{
+    public void Configure(IPluginBuilder builder)
+    {
+        builder.Services.AddSingleton<SpinnerHud>();
+        builder.Services.AddSingleton<IGameOverlay, SpinnerHudOverlay>();
+        builder.Services.AddSystem<SpinnerHudSystem>();
+    }
+}
+```
+
+## Threads
+
+The game can run on its own simulation thread, as play mode in the editor and exported games do, while overlays live on the UI thread. So overlays never touch game state, and game code never touches a control:
+
+- **Game to UI.** Game code publishes immutable snapshots, usually records, through a `ViewState<T>`. Its `Changed` event is raised on the UI thread with the newest snapshot, at most once per UI update however often the game publishes, so publishing every frame is cheap. Snapshots equal to the current one are not published at all.
+- **UI to game.** The overlay sends commands with `game.Post(…)`, which runs them on the game thread at the start of the next frame, or `await game.InvokeAsync(…)` when it needs a result.
+
+```csharp title="SpinnerHud.cs"
+using Talesmith.Runtime.Hosting;
+using Talesmith.Systems;
+
+namespace Spinners;
+
+public sealed record SpinnerHudView(int Spinners, bool Frozen);
+
+/// <summary>What the HUD shows; game code publishes it, the overlay reads it.</summary>
+public sealed class SpinnerHud(IGameUi ui)
+{
+    public ViewState<SpinnerHudView> View { get; } = new(ui, new SpinnerHudView(0, false));
+}
+
+[UpdateIn(SystemPhase.LateUpdate)]
+public sealed class SpinnerHudSystem(SpinnerHud hud, Game game) : ISystem
+{
+    public void Update(in SystemContext context) =>
+        hud.View.Publish(new SpinnerHudView(context.World.Query<Spinner>().Count, game.IsPaused));
+}
+```
+
+```csharp title="SpinnerHudOverlay.cs"
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Microsoft.Extensions.DependencyInjection;
+using Talesmith.Avalonia.Overlays;
+using Talesmith.Runtime.Hosting;
+
+namespace Spinners;
+
+/// <summary>A counter in the top-left corner with a button that pauses the game.</summary>
+public sealed class SpinnerHudOverlay : IGameOverlay
+{
+    public int Order => 5;
+
+    public Control Create(IServiceProvider services)
+    {
+        var hud = services.GetRequiredService<SpinnerHud>();
+        var game = services.GetRequiredService<Game>();
+        var count = new TextBlock { Foreground = Brushes.White, FontSize = 16, VerticalAlignment = VerticalAlignment.Center };
+        var pause = new Button { Content = "Pause", Focusable = false };
+        pause.Click += (_, _) => game.Post(() => game.IsPaused = !game.IsPaused);
+
+        void Show(SpinnerHudView view)
+        {
+            count.Text = $"{view.Spinners} spinners";
+            pause.Content = view.Frozen ? "Resume" : "Pause";
+        }
+
+        hud.View.Changed += Show;
+        Show(hud.View.Value);
+        return new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 12,
+            Margin = new Thickness(16),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+            Children = { count, pause }
+        };
+    }
+}
+```
+
+`IGameUi` is the service that posts work to the UI thread; `ViewState` uses it. Game code that wants something done on the UI thread, such as opening a menu, calls `ui.Post(…)`. Without a UI, as in tests, `IGameUi` runs actions at once on the calling thread, so the same code works headless.
+
+:::warning[Name clash with Avalonia]
+`Avalonia.Controls` has a `Spinner` class. In a file that uses both, name the component explicitly, for example with `using Spinner = Spinners.Spinner;`.
+:::
+
+## Input and focus
+
+The game keeps receiving keyboard and mouse input while overlays are shown, unless a control in an overlay takes keyboard focus. Then key presses go to that control instead.
+
+- Make controls the player only looks at ignore the pointer with `IsHitTestVisible = false`, as the dialogue box does, so clicks reach the game.
+- Make buttons that should not keep the focus `Focusable = false`, as the HUD's pause button above, so the game's keys keep working after a click.
+- A menu that should take over input, such as a pause menu, can take focus on purpose and pause the game with `game.Post(() => game.IsPaused = true)`.
+- Overlays cover only the view, so a click on the bars around a `fit` view reaches the game, which takes the keyboard focus. A menu that takes over input can handle `PointerPressed` on the `GameHost` in the tunnel phase while it is open, as the samples' pause menu does, so such clicks neither reach the game nor take the focus.
+
+## Example: the dialogue overlay
+
+The cutscene sample shows dialogue at the bottom of the screen. `DialogueState` lives on the game thread and publishes a `DialogueView` snapshot through a `ViewState`; cutscenes await it, and the input system advances it. The overlay only draws the newest snapshot:
+
+```csharp title="samples/Talesmith.Samples.Cutscenes/DialogueOverlay.cs (abridged)"
+public sealed class DialogueOverlay : IGameOverlay
+{
+    public int Order => 10;
+
+    public Control Create(IServiceProvider services)
+    {
+        var dialogue = services.GetRequiredService<DialogueState>();
+        var speaker = new TextBlock { FontSize = 15, FontWeight = FontWeight.Bold, Foreground = Accent };
+        var text = new TextBlock { FontSize = 18, Foreground = Brushes.White, TextWrapping = TextWrapping.Wrap };
+        var options = new StackPanel { Spacing = 4, Margin = new Thickness(0, 12, 0, 0) };
+        var hint = new TextBlock { FontSize = 12, Foreground = Muted, HorizontalAlignment = HorizontalAlignment.Right };
+        var box = new Border
+        {
+            VerticalAlignment = VerticalAlignment.Bottom,
+            IsHitTestVisible = false,
+            Opacity = 0,
+            Transitions = [new DoubleTransition { Property = Visual.OpacityProperty, Duration = TimeSpan.FromMilliseconds(180) }],
+            Child = new StackPanel { Children = { speaker, text, options, hint } }
+        };
+
+        void Refresh(DialogueView view)
+        {
+            box.Opacity = view.IsOpen ? 1 : 0;
+            speaker.Text = view.Speaker;
+            text.Text = view.VisibleText;
+            // one row per option, the selected one highlighted
+        }
+
+        dialogue.View.Changed += Refresh;
+        Refresh(dialogue.View.Value);
+        return box;
+    }
+}
+```
+
+The box fades in and out with an opacity transition instead of being added and removed, and it never takes input: the player continues with the **Interact** action, which the game's `DialogueInputSystem` reads. [Example: the cutscene plugin](../cutscenes-example.mdx#dialogueinputsystem-and-dialogueoverlay) walks through the whole flow.
+
+<Screenshot name="plugins/cutscene-dialogue" />
+
+## Related
+
+- [Game UI in scripting](/scripting/concepts/game-ui)
+- [Services](./services.mdx)
+- [Example: the cutscene plugin](../cutscenes-example.mdx)

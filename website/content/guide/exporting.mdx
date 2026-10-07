@@ -1,0 +1,128 @@
+---
+title: "Exporting a game"
+description: "Build a standalone game for Windows or Linux from the editor, choose a profile and read the build report."
+---
+
+A build turns a project into a folder players can run without Talesmith or .NET installed: the game's executable, named after the game, next to a `game` folder with the packed content, the configuration, the compiled scripts and the plugins. This page covers the Build dialog, platforms and profiles, what a build does, the output folder for each platform, the build report, and the player that runs exported games.
+
+## Build a game
+
+<Steps>
+
+1. Choose **File › Build settings…**, or click the package button in the app bar. The Build dialog opens.
+2. Under **Platform**, choose **Windows** or **Linux**. The platform the editor runs on is marked **This PC**.
+3. Under **Profile**, choose **Development**, **Release** or **Distribution**.
+4. Check the output folder, the version and the scenes.
+5. Click **Build**, or **Build and Run** to start the game when it is built for this computer.
+
+</Steps>
+
+<Screenshot name="guide/first-game-build" caption="The Build dialog, ready to build a release for Linux, the platform marked This PC." />
+
+The settings are saved in `build.json` in the project folder, so they can go into version control with the game. After the first time, **File › Build** (<Keys>Ctrl+Shift+B</Keys>) builds with the saved settings without opening the dialog, and **File › Build and Run** (<Keys>Ctrl+Alt+B</Keys>) builds and starts the game.
+
+## Build settings
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| **Output** | `builds` | The folder builds go into, relative to the project unless you give a full path |
+| **Version** | 1.0.0 | Shown in the executable's details and used in archive names |
+| **Icon** | None | A square PNG from the project, ideally 512 pixels. It becomes the executable's icon on Windows and an icon file next to the game on Linux. |
+| **Compress content** | on | Packs content smaller. PNG and Ogg files are already compressed and stay as they are. |
+
+### Scenes in build
+
+The start scene from [Project Settings › Game](./workflow/project-settings.mdx) always ships, marked **Start scene**. Add the scenes your game loads by name, such as levels: **Add open scene** adds the scene in the editor, **Add scene** picks one. Drag scenes to reorder them, and untick one to leave it out without forgetting it. Scenes that other content refers to are found on their own.
+
+### Always include
+
+Builds ship what the scenes need, and the assets scripts and plugins name by path in a string, such as `"audio/jump.wav"`. Content the game finds some other way needs to be listed here: **Add folder** ships a whole folder, and **Add label…** ships every asset with a label, such as `music`. See [Importing assets](./assets/importing.mdx#the-asset-inspector) for labels.
+
+## Profiles
+
+| Profile | Scripts | Engine | Logging | Developer keys | Archive |
+| --- | --- | --- | --- | --- | --- |
+| **Development** | Debug, with symbols | Not precompiled; a console window on Windows | Debug | F3, F4, F9 and F12 | No |
+| **Release** | Optimized | Precompiled, so it starts faster; no console window | Warnings | No | No |
+| **Distribution** | Optimized | As Release | Warnings | No | A `.zip`, or `.tar.gz` for Linux |
+
+Use **Development** to test a build with the developer keys and full logging, **Release** to play the game as players will, and **Distribution** to share it.
+
+## What a build does
+
+<Screenshot name="guide/build-progress" caption="A build in progress, preparing the Windows player." />
+
+1. **Checks the project.** The start scene and the build's scenes must exist. Plugins that cannot load are reported and left out. A missing loading screen image is a warning; the game then shows its title.
+2. **Compiles the scripts.** A compile error fails the build, with its file and line.
+3. **Collects content.** Starting from the start scene, the build's scenes, the loading screen image and the always-include list, it follows every reference: scenes to prefabs, prefabs to textures, materials to shaders. Localization tables always ship. Strings in scripts and plugins that are an asset's path ship that asset, and strings that are a folder path ending in `/` ship the folder. A reference to an asset that does not exist is an error.
+4. **Packs the content** into one file, `game/content.tspack`, compressing what is not compressed already.
+5. **Prepares the player**, the program that runs the game. The first build for a platform and profile publishes it, which takes a minute or two; later builds copy it in seconds.
+6. **Assembles the build**: the player renamed after the game, the content and the platform's own files.
+7. **Finishes.** The new build replaces the previous one only when every step succeeded, and distribution builds are packed into an archive.
+
+Never shipped: `.meta` files, script sources, the editor's `.talesmith` folder, hidden files, and assets nothing refers to.
+
+The build runs in the background. Click **Hide** to keep working; the status bar shows *Building 60%* and then *Built in 48 s* or *Build failed*, and clicking it shows the report. **Show details** in the log adds the full output of the tools the build runs. **Cancel build** stops it, leaving the previous build in place.
+
+## The build report
+
+When the build finishes, the dialog shows a report.
+
+<Screenshot name="guide/build-report" caption="The report of a release build of Hex Quest for Linux." />
+
+| Part | Shows |
+| --- | --- |
+| Header | The game, the platform, the profile, how long it took and when |
+| **Total size** and **Content** | The size of the whole build, and how many assets shipped |
+| Size by category | How much the engine, maps, textures, sounds and the rest take, with a bar |
+| **Largest assets** | The biggest shipped assets, with their kind and size |
+| **Steps** | How long each step took |
+| Problems | Errors and warnings; click one to open the file it is about. They also go to the console. |
+| Output | The build's folder |
+
+**Open folder** opens the build in your file manager, **Run** starts it, and **Settings** goes back to the build settings. The report is also saved next to the build as `<name>-<platform>.report.json`, for failed builds too.
+
+## The output folder
+
+Each platform's build goes into its own folder in the output folder, named after the game's title and the platform:
+
+| Platform | Folder | Start the game with |
+| --- | --- | --- |
+| Windows | `Coin Run-win-x64` | `Coin Run.exe`, which shows the game's title, version and icon in its details |
+| Linux | `Coin Run-linux-x64` | `Coin Run`, with `Coin Run.png` as an icon for a desktop entry |
+
+Next to the executable are `launcher.json`, which tells the player where the game is, the native libraries for graphics and sound, the `licenses` folder with the licenses of Talesmith and those libraries, and the `game` folder. Copy the whole folder to share the game; the licenses must go along with it. Distribution builds also write an archive next to the folder, such as `Coin Run-1.0.0-linux-x64.tar.gz`, which keeps the executable permission so the game starts right after unpacking.
+
+## The player
+
+Exported games run in the Talesmith player, published for the platform with .NET inside it, so players need no .NET installed. The player opens the game's window at once on its [loading screen](./workflow/project-settings.mdx#loading-screen), starts the game behind it and fades to the start scene once it is on screen. When the game cannot start, such as with a `game.json` that is not valid, the window says why and offers **Close**. Builds never trim .NET, because scripts and plugins may use any part of it; a game is about 150 MB on Windows and 190 MB on Linux, where the player also carries ICU, or about 65 MB and 85 MB as an archive.
+
+Linux games need neither fontconfig nor ICU. The player's Skia library finds fonts in `/usr/share/fonts` itself, [game UI](/scripting/concepts/game-ui) text uses the Inter font the player carries unless a control names another, and the player carries the ICU library that .NET reads culture data from.
+
+Publishing a player needs the .NET 10 SDK and the engine's sources, which a source checkout of Talesmith has. The player's .NET runtime comes from Microsoft's packages on NuGet rather than from the SDK's own files, so a game exported with any SDK, Nix's included, runs on every Linux distribution. Without the SDK, the build stops and says what to install. Players are cached per platform, profile and engine version in your user cache folder (`~/.cache/Talesmith/players` on Linux), so only the first build of each kind waits for publishing.
+
+Exported games save their screenshots and profiler reports in the user's local data folder, under the game's title.
+
+## Build from the command line
+
+`talesmith --export` builds a project without opening the editor, for example on a build server:
+
+```bash
+talesmith --export ~/Games/CoinRun --target linux-x64 --output ~/Builds
+```
+
+| Option | Without it | Values |
+| --- | --- | --- |
+| `--target` | The target in the project's build settings | `win-x64` or `linux-x64` |
+| `--profile` | The profile in the project's build settings | `development`, `release` or `distribution` |
+| `--output` | The output folder in the project's build settings | Any folder; the build goes into a subfolder named after the game and target |
+| `--content-only` | A full build | Writes only the game folder, without the player, as tests do |
+
+The command prints the build log, writes warnings and errors to the error output, and exits with 0 when the build succeeds, 1 when it fails and 2 when the arguments are wrong. From a source checkout, run it with `dotnet run --project src/Talesmith.App -- --export` followed by the project folder and options. On Windows, `talesmith.exe` is a windowed application, so the terminal does not wait for it; run it through `dotnet run` there.
+
+The `Talesmith.Build` library runs builds from your own code too. See [Launcher and content packs](/developers/file-formats/builds) in the developer section.
+
+## Related
+
+- [Project settings](./workflow/project-settings.mdx), for the title, start scene and window size
+- [Performance](./performance.mdx)

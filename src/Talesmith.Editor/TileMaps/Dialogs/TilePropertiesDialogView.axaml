@@ -1,0 +1,145 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.TileMaps.Dialogs"
+             xmlns:panel="using:Talesmith.Editor.TileMaps.Panel"
+             xmlns:controls="using:Talesmith.Editor.TileMaps.Controls"
+             x:Class="Talesmith.Editor.TileMaps.Dialogs.TilePropertiesDialogView"
+             x:DataType="vm:TilePropertiesDialogViewModel">
+  <UserControl.DataTemplates>
+    <DataTemplate x:DataType="vm:TileOption">
+      <Panel>
+        <Border Background="{Binding Brush}" CornerRadius="4" IsVisible="{Binding !HasImage}" />
+        <Image Source="{Binding Image}" IsVisible="{Binding HasImage}" Stretch="Uniform" />
+      </Panel>
+    </DataTemplate>
+  </UserControl.DataTemplates>
+
+  <ui:Dialog Header="Tile properties" Description="{Binding Title}" Width="880">
+    <Grid ColumnDefinitions="260,20,*">
+      <!-- Identity -->
+      <ScrollViewer MaxHeight="520">
+        <StackPanel Spacing="14">
+          <Border Background="{DynamicResource SurfaceSunkenBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                  CornerRadius="{DynamicResource CornerRadiusLarge}" Height="160" ClipToBounds="True">
+            <Panel>
+              <Border Background="{Binding PreviewFill}" CornerRadius="10" Width="96" Height="96" IsVisible="{Binding PreviewImage, Converter={x:Static ObjectConverters.IsNull}}" />
+              <Image Source="{Binding PreviewImage}" Stretch="Uniform" Margin="16" RenderOptions.BitmapInterpolationMode="MediumQuality" />
+              <TextBlock Classes="caption mono muted" Text="{Binding SizeText}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="8,6" />
+            </Panel>
+          </Border>
+          <StackPanel Spacing="6">
+            <TextBlock Classes="section" Text="Name" />
+            <TextBox Text="{Binding Name}" PlaceholderText="{Binding Tile.Name}" />
+          </StackPanel>
+          <StackPanel Spacing="6">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="section" Text="Color" VerticalAlignment="Center" />
+              <CheckBox Grid.Column="1" IsChecked="{Binding HasColor}" Content="Use a color" />
+            </Grid>
+            <ui:ColorPickerButton Color="{Binding Color}" IsEnabled="{Binding HasColor}" HorizontalAlignment="Stretch" />
+            <TextBlock Classes="caption muted" TextWrapping="Wrap" Text="Color tiles are drawn in this color; image tiles fall back to it when their artwork is missing." />
+          </StackPanel>
+          <panel:PropertyListView DataContext="{Binding Properties}" />
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Animation and collision -->
+      <DockPanel Grid.Column="2" MaxHeight="520">
+        <ui:SegmentedControl DockPanel.Dock="Top" SelectedIndex="{Binding SectionIndex}" HorizontalAlignment="Left" Margin="0,0,0,12">
+          <ui:SegmentedControlItem>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Play}" Size="13" />
+              <TextBlock Text="Animation" />
+            </StackPanel>
+          </ui:SegmentedControlItem>
+          <ui:SegmentedControlItem>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Shield}" Size="13" />
+              <TextBlock Text="Collision" />
+            </StackPanel>
+          </ui:SegmentedControlItem>
+        </ui:SegmentedControl>
+
+        <Panel>
+          <!-- Animation -->
+          <Grid RowDefinitions="*,12,Auto" IsVisible="{Binding SectionIndex, Converter={x:Static vm:DialogConverters.IsZero}}">
+            <Border Classes="card" Padding="10">
+              <Panel>
+                <ScrollViewer>
+                  <ItemsControl ItemsSource="{Binding Frames}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate><StackPanel Spacing="4" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:AnimationFrameViewModel">
+                        <Border Background="{DynamicResource SurfaceSunkenBrush}" CornerRadius="{DynamicResource CornerRadiusMedium}" Padding="6,4">
+                          <Grid ColumnDefinitions="Auto,10,*,Auto,8,Auto">
+                            <ContentControl Content="{Binding Tile}" Width="28" Height="28" />
+                            <TextBlock Grid.Column="2" Text="{Binding Tile.Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            <ui:NumberField Grid.Column="3" Value="{Binding Duration}" Minimum="1" Maximum="60000" Step="10" IsInteger="True" Suffix="ms" Width="100" />
+                            <Button Grid.Column="5" Classes="icon small" Command="{Binding RemoveCommand}" ToolTip.Tip="Remove frame">
+                              <ui:SymbolIcon Data="{x:Static ui:Icons.X}" Size="12" />
+                            </Button>
+                          </Grid>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </ScrollViewer>
+                <StackPanel Spacing="6" VerticalAlignment="Center" HorizontalAlignment="Center" IsVisible="{Binding !HasFrames}">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Play}" Size="24" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center" />
+                  <TextBlock Classes="muted" Text="Not animated" HorizontalAlignment="Center" />
+                  <TextBlock Classes="caption muted" Text="Click tiles below to add frames; the preview plays them." HorizontalAlignment="Center" />
+                </StackPanel>
+              </Panel>
+            </Border>
+            <Border Grid.Row="2" Background="{DynamicResource SurfaceSunkenBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                    CornerRadius="{DynamicResource CornerRadiusMedium}">
+              <ScrollViewer MaxHeight="132" Padding="6">
+                <ItemsControl ItemsSource="{Binding Tiles}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><WrapPanel ItemSpacing="4" LineSpacing="4" /></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:TileOption">
+                      <Button Classes="subtle" Width="40" Height="40" Padding="4" ToolTip.Tip="{Binding Name}"
+                              HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                              Command="{Binding $parent[UserControl].((vm:TilePropertiesDialogViewModel)DataContext).AddFrameCommand}" CommandParameter="{Binding}">
+                        <ContentControl Content="{Binding}" />
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </Border>
+          </Grid>
+
+          <!-- Collision -->
+          <Grid RowDefinitions="*,10,Auto" IsVisible="{Binding SectionIndex, Converter={x:Static vm:DialogConverters.IsOne}}">
+            <Border Background="{DynamicResource SurfaceSunkenBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                    CornerRadius="{DynamicResource CornerRadiusLarge}" MinHeight="320" ClipToBounds="True">
+              <controls:CollisionShapeEditor Shapes="{Binding Collision}" Layout="{Binding Layout}" Image="{Binding Tile.Image}" ImageSize="{Binding ImageSize}"
+                                             Fill="{Binding Tile.Brush}" Margin="8" />
+            </Border>
+            <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+              <TextBlock Classes="caption muted" TextWrapping="Wrap" VerticalAlignment="Center"
+                         Text="Click to add vertices, double-click or Enter to finish a shape, drag to move, right-click to remove. Ctrl snaps to corners. Without shapes the whole cell is solid on collision layers." />
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
+                <Button Classes="small" Command="{Binding FillCellCommand}" Content="Whole cell" />
+                <Button Classes="small subtle" Command="{Binding ClearCollisionCommand}" Content="Clear" />
+              </StackPanel>
+            </Grid>
+          </Grid>
+        </Panel>
+      </DockPanel>
+    </Grid>
+
+    <ui:Dialog.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="Cancel" MinWidth="84" IsCancel="True" Command="{Binding CancelCommand}" />
+        <Button Classes="accent" Content="Save tile" MinWidth="96" IsDefault="True" Command="{Binding SaveCommand}" />
+      </StackPanel>
+    </ui:Dialog.Footer>
+  </ui:Dialog>
+</UserControl>

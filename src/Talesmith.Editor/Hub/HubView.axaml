@@ -1,0 +1,325 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Hub"
+             xmlns:loading="using:Talesmith.Avalonia.Loading"
+             x:Class="Talesmith.Editor.Hub.HubView"
+             x:DataType="vm:HubViewModel">
+  <UserControl.Styles>
+    <Style Selector="Button.nav">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="Padding" Value="12,8" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    </Style>
+    <Style Selector="Button.nav.active">
+      <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="Button.card">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Width" Value="236" />
+      <Setter Property="Margin" Value="0,0,16,16" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Stretch" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="RenderTransform" Value="translateY(0px)" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" />
+          <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="Button.card:pointerover">
+      <Setter Property="RenderTransform" Value="translateY(-2px)" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}" />
+    </Style>
+    <Style Selector="Button.card.selected">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+    <Style Selector="Button.card.missing">
+      <Setter Property="Opacity" Value="0.55" />
+    </Style>
+    <Style Selector="Button.card Button.remove">
+      <Setter Property="Opacity" Value="0" />
+    </Style>
+    <Style Selector="Button.card:pointerover Button.remove">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="TextBlock.page-title">
+      <Setter Property="FontSize" Value="24" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Border.badge-backdrop">
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="CornerRadius" Value="7" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+      <Setter Property="VerticalAlignment" Value="Top" />
+      <Setter Property="Margin" Value="10" />
+    </Style>
+    <Style Selector="Border.tag">
+      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="Padding" Value="6,2" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceSunkenBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Panel>
+    <Grid ColumnDefinitions="240,*">
+      <!-- Sidebar -->
+      <Border Classes="panel" BorderThickness="0,0,1,0">
+        <DockPanel Margin="16,20,16,16">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="10" Margin="6,0,0,28">
+            <Border Width="34" Height="34" CornerRadius="9">
+              <Border.Background>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                  <GradientStop Offset="0" Color="#8B8EFA" />
+                  <GradientStop Offset="1" Color="#5B4FE0" />
+                </LinearGradientBrush>
+              </Border.Background>
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Hammer}" Size="19" StrokeThickness="2.2" Foreground="White" />
+            </Border>
+            <StackPanel VerticalAlignment="Center" Spacing="1">
+              <TextBlock Text="Talesmith" FontSize="17" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding Version}" Classes="caption muted" />
+            </StackPanel>
+          </StackPanel>
+
+          <StackPanel DockPanel.Dock="Bottom" Spacing="4">
+            <Button Classes="subtle nav" Command="{Binding OpenFolderCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.FolderOpen}" Size="16" />
+                <TextBlock Text="Open project folder…" />
+              </StackPanel>
+            </Button>
+            <Button Classes="subtle nav" Command="{Binding ToggleThemeCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <ui:SymbolIcon Data="{Binding ThemeIcon}" Size="16" />
+                <TextBlock Text="Switch theme" />
+              </StackPanel>
+            </Button>
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <Button Classes="subtle nav" Classes.active="{Binding IsProjectsPage}" Command="{Binding ShowProjectsCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Layers}" Size="16" />
+                <TextBlock Text="Projects" FontWeight="Medium" />
+              </StackPanel>
+            </Button>
+            <Button Classes="subtle nav" Classes.active="{Binding IsNewProjectPage}" Command="{Binding ShowNewProjectCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.FilePlus}" Size="16" />
+                <TextBlock Text="New project" FontWeight="Medium" />
+              </StackPanel>
+            </Button>
+          </StackPanel>
+        </DockPanel>
+      </Border>
+
+      <!-- Projects page -->
+      <DockPanel Grid.Column="1" IsVisible="{Binding IsProjectsPage}" Margin="36,28,20,0">
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto,Auto" RowDefinitions="Auto,Auto" Margin="0,0,16,22">
+          <TextBlock Classes="page-title" Text="Projects" VerticalAlignment="Center" />
+          <TextBlock Grid.Row="1" Grid.ColumnSpan="4" Classes="muted" Margin="0,4,0,0" Text="Pick up where you left off, explore a sample, or start something new." TextWrapping="Wrap" />
+          <ui:SearchBox Grid.Column="1" Text="{Binding Search}" PlaceholderText="Search projects" Width="220" VerticalAlignment="Center" Margin="0,0,10,0" />
+          <Button Grid.Column="2" Command="{Binding OpenFolderCommand}" VerticalAlignment="Center" Margin="0,0,8,0">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.FolderOpen}" Size="15" />
+              <TextBlock Text="Open" />
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="3" Classes="accent" Command="{Binding ShowNewProjectCommand}" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Plus}" Size="15" />
+              <TextBlock Text="New project" />
+            </StackPanel>
+          </Button>
+        </Grid>
+
+        <ScrollViewer Padding="0,0,16,16">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="section" Text="Recent" />
+            <ItemsControl ItemsSource="{Binding RecentProjects}" IsVisible="{Binding HasRecentProjects}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ProjectCardViewModel">
+                  <Button Classes="card" Classes.missing="{Binding IsMissing}" Command="{Binding OpenCommand}" CommandParameter="{Binding}" ToolTip.Tip="{Binding Path}">
+                    <StackPanel>
+                      <Panel Height="128" ClipToBounds="True">
+                        <Border CornerRadius="11,11,0,0" Background="{Binding Artwork}" ClipToBounds="True">
+                          <Panel>
+                            <TextBlock Text="{Binding Initials}" FontSize="34" FontWeight="Bold" Foreground="#E6FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       IsVisible="{Binding !HasThumbnail}" />
+                            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" IsVisible="{Binding HasThumbnail}" />
+                          </Panel>
+                        </Border>
+                        <Button Classes="icon small remove" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8"
+                                Command="{Binding RemoveCommand}" CommandParameter="{Binding}" IsVisible="{Binding CanRemove}" ToolTip.Tip="Remove from the list"
+                                Background="{DynamicResource SurfaceRaisedBrush}">
+                          <ui:SymbolIcon Data="{x:Static ui:Icons.X}" Size="12" />
+                        </Button>
+                        <Border Classes="badge-backdrop" IsVisible="{Binding IsMissing}">
+                          <ui:Badge Classes="warning" Content="Missing" />
+                        </Border>
+                      </Panel>
+                      <StackPanel Margin="14,10,14,12" Spacing="3">
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding DisplayPath}" Classes="caption muted" TextTrimming="PathSegmentEllipsis" />
+                        <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,4,0,0">
+                          <ui:SymbolIcon Data="{x:Static ui:Icons.Activity}" Size="11" Foreground="{DynamicResource TextMutedBrush}" />
+                          <TextBlock Text="{Binding LastOpenedText}" Classes="caption muted" />
+                        </StackPanel>
+                      </StackPanel>
+                    </StackPanel>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Border Classes="card" IsVisible="{Binding !HasRecentProjects}" Margin="0,0,16,16" Padding="24">
+              <ui:EmptyState Icon="{x:Static ui:Icons.Layers}" Title="No recent projects" Hint="Projects you open appear here. Start one from a template or open a sample."
+                             ActionText="New project" ActionCommand="{Binding ShowNewProjectCommand}" />
+            </Border>
+
+            <TextBlock Classes="section" Text="Samples" IsVisible="{Binding HasSamples}" Margin="0,8,0,0" />
+            <ItemsControl ItemsSource="{Binding Samples}" IsVisible="{Binding HasSamples}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ProjectCardViewModel">
+                  <Button Classes="card" Command="{Binding OpenCommand}" CommandParameter="{Binding}" ToolTip.Tip="{Binding Path}">
+                    <StackPanel>
+                      <Panel Height="128" ClipToBounds="True">
+                        <Border CornerRadius="11,11,0,0" Background="{Binding Artwork}" ClipToBounds="True">
+                          <Panel>
+                            <TextBlock Text="{Binding Initials}" FontSize="34" FontWeight="Bold" Foreground="#E6FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       IsVisible="{Binding !HasThumbnail}" />
+                            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" IsVisible="{Binding HasThumbnail}" />
+                          </Panel>
+                        </Border>
+                        <Border Classes="badge-backdrop">
+                          <ui:Badge Classes="accent" Content="Sample" />
+                        </Border>
+                      </Panel>
+                      <StackPanel Margin="14,10,14,12" Spacing="3">
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding DisplayPath}" Classes="caption muted" TextTrimming="PathSegmentEllipsis" />
+                      </StackPanel>
+                    </StackPanel>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </ScrollViewer>
+      </DockPanel>
+
+      <!-- New project page -->
+      <DockPanel Grid.Column="1" IsVisible="{Binding IsNewProjectPage}" Margin="36,28,36,24">
+        <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,22">
+          <TextBlock Classes="page-title" Text="New project" />
+          <TextBlock Classes="muted" Text="Choose a template. Every project gets a starter scene, input bindings and the standard folders." TextWrapping="Wrap" />
+        </StackPanel>
+
+        <Border DockPanel.Dock="Bottom" Classes="card" Padding="20,16">
+          <Grid ColumnDefinitions="*,16,*,Auto" RowDefinitions="Auto,Auto,Auto">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="caption muted" Text="Project name" />
+              <TextBox Text="{Binding ProjectName}" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Spacing="6">
+              <TextBlock Classes="caption muted" Text="Location" />
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBox Text="{Binding Location}" />
+                <Button Grid.Column="1" Margin="6,0,0,0" Command="{Binding BrowseLocationCommand}" ToolTip.Tip="Choose a folder">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.FolderOpen}" Size="15" />
+                </Button>
+              </Grid>
+            </StackPanel>
+            <Button Grid.Column="3" Grid.RowSpan="2" Classes="accent" Margin="20,0,0,0" VerticalAlignment="Bottom" MinWidth="140" Command="{Binding CreateCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Sparkles}" Size="15" />
+                <TextBlock Text="Create project" />
+              </StackPanel>
+            </Button>
+            <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="6" Margin="0,10,0,0">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Folder}" Size="12" Foreground="{DynamicResource TextMutedBrush}" />
+              <TextBlock Classes="caption muted mono" Text="{Binding ProjectPath}" TextTrimming="PathSegmentEllipsis" />
+            </StackPanel>
+            <TextBlock Grid.Row="2" Grid.ColumnSpan="3" Classes="caption" Foreground="{DynamicResource WarningBrush}" Text="{Binding ValidationError}"
+                       TextWrapping="Wrap" IsVisible="{Binding HasValidationError}" Margin="0,4,0,0" />
+          </Grid>
+        </Border>
+
+        <ScrollViewer>
+          <ItemsControl ItemsSource="{Binding Templates}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <UniformGrid Columns="3" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:TemplateCardViewModel">
+                <Button Classes="card" Classes.selected="{Binding IsSelected}" Width="NaN" HorizontalAlignment="Stretch" VerticalAlignment="Top"
+                        Command="{Binding $parent[ItemsControl].((vm:HubViewModel)DataContext).SelectTemplateCommand}" CommandParameter="{Binding}">
+                  <StackPanel>
+                    <Border Height="132" CornerRadius="11,11,0,0" Background="{Binding Artwork}">
+                      <Panel>
+                        <ui:SymbolIcon Data="{Binding Icon}" Size="52" StrokeThickness="1.6" Foreground="#F2FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Border Width="22" Height="22" CornerRadius="11" Background="White" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10"
+                                IsVisible="{Binding IsSelected}">
+                          <ui:SymbolIcon Data="{x:Static ui:Icons.Check}" Size="13" StrokeThickness="2.6" Foreground="{DynamicResource AccentBrush}" />
+                        </Border>
+                      </Panel>
+                    </Border>
+                    <StackPanel Margin="16,12,16,14" Spacing="6">
+                      <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14" TextWrapping="Wrap" />
+                      <TextBlock Text="{Binding Description}" Classes="caption muted" TextWrapping="Wrap" MinHeight="32" />
+                      <ItemsControl ItemsSource="{Binding Tags}" Margin="0,2,0,0">
+                        <ItemsControl.ItemsPanel>
+                          <ItemsPanelTemplate>
+                            <WrapPanel ItemSpacing="5" LineSpacing="5" />
+                          </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="x:String">
+                            <Border Classes="tag">
+                              <TextBlock Text="{Binding}" FontSize="10" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </StackPanel>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </DockPanel>
+    </Grid>
+
+    <!-- Busy overlay -->
+    <Panel IsVisible="{Binding IsBusy}" Background="{DynamicResource ScrimBrush}">
+      <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24,18">
+        <StackPanel Orientation="Horizontal" Spacing="14">
+          <loading:LoadingBar Width="90" Height="4" VerticalAlignment="Center" IsVisible="{Binding IsBusy}" Foreground="{DynamicResource AccentBrush}"
+                              Background="{DynamicResource BorderSubtleBrush}" />
+          <TextBlock Text="{Binding BusyText}" FontWeight="Medium" VerticalAlignment="Center" />
+        </StackPanel>
+      </Border>
+    </Panel>
+  </Panel>
+</UserControl>

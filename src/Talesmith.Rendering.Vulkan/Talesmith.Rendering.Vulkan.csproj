@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Vulkan rendering backend: instanced sprite batching, cached meshes, custom SPIR-V shaders and offscreen rendering with pipelined readback.</Description>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Talesmith.Rendering\Talesmith.Rendering.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Vortice.Vulkan" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Shaders\*.spv" LogicalName="Talesmith.Rendering.Vulkan.Shaders.%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

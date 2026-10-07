@@ -1,0 +1,86 @@
+---
+title: Introduction to Talesmith
+sidebar_label: Introduction
+description: Talesmith is a 2D game engine and editor for .NET 10. Build scenes from tile maps, sprites, lights and particles, write gameplay in C#, and export standalone games.
+slug: /
+---
+
+Talesmith is a 2D game engine and editor for .NET 10. You build scenes in the editor from tile maps, sprites, lights, particles and prefabs, write gameplay as C# scripts, play the game inside the editor, and export it as a standalone game for Windows or Linux. Maps use the format of the Hexy map editor, hexagonal or rectangular, and can be as large as a game needs.
+
+<Screenshot
+  name="home/editor"
+  caption="The editor in its Tile Mapping layout, painting a hex island."
+  priority
+/>
+
+The editor runs on Windows and Linux. Games render with Vulkan, or with Skia on machines without a Vulkan device, and are hosted in Avalonia, so game menus and HUDs are ordinary Avalonia controls.
+
+## How this documentation is organized
+
+<CardGrid columns={2}>
+  <Card title="Guide" icon="book" to="/guide/getting-started/installation">
+    Using the editor: projects, scenes, assets, tile maps, effects, play mode and exporting. You are reading it.
+  </Card>
+  <Card title="Scripting" icon="code" to="/scripting">
+    Writing gameplay in C#: scripts, the engine's concepts and recipes for common mechanics.
+  </Card>
+  <Card title="Plugins" icon="plug" to="/plugins">
+    Extending the engine and the editor with plugins, from a first plugin to custom panels and tools.
+  </Card>
+  <Card title="Developers" icon="terminal" to="/developers">
+    How Talesmith itself is built, how to build and test it, and the formats of its files.
+  </Card>
+</CardGrid>
+
+## What you can do
+
+### Build scenes in the editor
+
+A scene is a tree of entities, each with components such as a sprite, a camera, a collider or a light. You arrange them in the [scene viewport](./scenes/viewport.mdx) with move, rotate and scale handles, organize them in the [hierarchy](./scenes/hierarchy.mdx) and change their values in the [inspector](./scenes/inspector.mdx). Groups you use often become [prefabs](./scenes/prefabs.mdx) you can place many times.
+
+### Paint tile maps of any size
+
+Paint hexagonal or rectangular maps with brushes, shapes, fills, selections and [terrains that tile themselves](./tile-maps/terrains.mdx). Layers have roles, so a collision layer becomes solid ground for physics and casts shadows. Maps load chunk by chunk as the camera reaches them, so a map of millions of cells stays fast. See [Maps and grids](./tile-maps/maps-and-grids.mdx).
+
+### Write gameplay in C#
+
+Scripts are C# classes you attach to entities. The editor compiles them when you save, shows their fields in the inspector, reports errors in the console with the file and line, and reloads them while the game is running. See [Your first script](/scripting/scripts/first-script).
+
+### Light the scene and add effects
+
+Point, spot and directional [lights](./effects/lighting.mdx) cast soft shadows from shadow casters and tile maps. [Particle effects](./effects/particles.mdx) such as fire, smoke and sparks are built from modules in the particle editor, with a live preview, and saved as presets.
+
+### Play without leaving the editor
+
+Press <Keys>Ctrl+P</Keys> to play the open scene in the Game panel. The game runs on its own thread, so editing never changes its timing. Pause, step a frame, inspect live values and stop to return to editing. See [Play mode](./play-and-test/play-mode.mdx).
+
+### Export a standalone game
+
+One command builds a self-contained game: only the assets it uses, packed and compressed, with scripts compiled and the player published for the target platform. A report shows what shipped and why. See [Exporting a game](./exporting.mdx).
+
+### Extend everything with plugins
+
+Engine features, game code and editor tools can all ship as plugins, loaded in isolation and switched on and off per project. See the [Plugins](/plugins) section.
+
+## Where to next
+
+<CardGrid>
+  <Card title="Installation" icon="download" to="/guide/getting-started/installation">
+    Build Talesmith from source and start the editor.
+  </Card>
+  <Card title="The interface" icon="compass" to="/guide/getting-started/interface">
+    A tour of the app bar, panels, viewport and status bar.
+  </Card>
+  <Card title="Your first game" icon="rocket" to="/guide/getting-started/first-game">
+    From a new project to an exported platformer.
+  </Card>
+  <Card title="Tile maps" icon="map" to="/guide/tile-maps/maps-and-grids">
+    Hex and rectangular maps, layers, tilesets and terrains.
+  </Card>
+  <Card title="Performance" icon="gauge" to="/guide/performance">
+    Measured numbers and the tools to measure your own game.
+  </Card>
+  <Card title="Keyboard shortcuts" icon="keyboard" to="/guide/reference/keyboard-shortcuts">
+    Every shortcut in one place.
+  </Card>
+</CardGrid>

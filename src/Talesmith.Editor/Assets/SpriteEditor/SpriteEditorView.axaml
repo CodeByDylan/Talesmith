@@ -1,0 +1,346 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Assets.SpriteEditor"
+             xmlns:controls="using:Talesmith.Editor.Assets.Controls"
+             x:Class="Talesmith.Editor.Assets.SpriteEditor.SpriteEditorView"
+             x:DataType="vm:SpriteEditorViewModel"
+             Focusable="True">
+  <UserControl.Styles>
+    <Style Selector="Border.side">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+    </Style>
+    <Style Selector="StackPanel.section">
+      <Setter Property="Margin" Value="14,12,14,12" />
+      <Setter Property="Spacing" Value="8" />
+    </Style>
+    <Style Selector="TextBlock.heading">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Grid.field">
+      <Setter Property="ColumnSpacing" Value="8" />
+    </Style>
+    <Style Selector="Grid.field > TextBlock">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    </Style>
+    <Style Selector="Button.pivot">
+      <Setter Property="Width" Value="22" />
+      <Setter Property="Height" Value="22" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="1" />
+    </Style>
+    <Style Selector="ListBox#SliceList ListBoxItem">
+      <Setter Property="Padding" Value="8,0" />
+      <Setter Property="MinHeight" Value="24" />
+    </Style>
+    <Style Selector="Border.frame">
+      <Setter Property="Width" Value="64" />
+      <Setter Property="Height" Value="76" />
+      <Setter Property="Margin" Value="0,0,6,0" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceSunkenBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Border.frame.current">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="Border.frame.drop-before">
+      <Setter Property="BorderThickness" Value="3,1,1,1" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="Border.frame.missing">
+      <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Panel>
+    <Grid x:Name="Body" ColumnDefinitions="270,Auto,*,Auto,260" IsVisible="{Binding HasTexture}">
+      <!-- Slicing -->
+      <Border Classes="side">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+          <StackPanel>
+            <StackPanel Classes="section">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Grid}" Size="14" Foreground="{DynamicResource AccentBrush}" />
+                <TextBlock Classes="heading" Text="Grid" />
+              </StackPanel>
+              <ui:SegmentedControl ItemsSource="{Binding GridModes}" SelectedIndex="{Binding GridModeIndex}" HorizontalAlignment="Left" />
+              <Grid Classes="field" ColumnDefinitions="64,*,*" IsVisible="{Binding UsesCellSize}">
+                <TextBlock Text="Cell" />
+                <ui:NumberField Grid.Column="1" Label="W" Value="{Binding CellWidth}" Minimum="1" Maximum="8192" IsInteger="True" />
+                <ui:NumberField Grid.Column="2" Label="H" Value="{Binding CellHeight}" Minimum="1" Maximum="8192" IsInteger="True" />
+              </Grid>
+              <Grid Classes="field" ColumnDefinitions="64,*,*" IsVisible="{Binding UsesCellCount}">
+                <TextBlock Text="Count" />
+                <ui:NumberField Grid.Column="1" Label="C" Value="{Binding Columns}" Minimum="1" Maximum="1024" IsInteger="True" />
+                <ui:NumberField Grid.Column="2" Label="R" Value="{Binding Rows}" Minimum="1" Maximum="1024" IsInteger="True" />
+              </Grid>
+              <Grid Classes="field" ColumnDefinitions="64,*,*">
+                <TextBlock Text="Offset" />
+                <ui:NumberField Grid.Column="1" Label="X" Value="{Binding OffsetX}" Minimum="0" Maximum="8192" IsInteger="True" />
+                <ui:NumberField Grid.Column="2" Label="Y" Value="{Binding OffsetY}" Minimum="0" Maximum="8192" IsInteger="True" />
+              </Grid>
+              <Grid Classes="field" ColumnDefinitions="64,*,*">
+                <TextBlock Text="Padding" />
+                <ui:NumberField Grid.Column="1" Label="X" Value="{Binding PaddingX}" Minimum="0" Maximum="1024" IsInteger="True" />
+                <ui:NumberField Grid.Column="2" Label="Y" Value="{Binding PaddingY}" Minimum="0" Maximum="1024" IsInteger="True" />
+              </Grid>
+              <CheckBox IsChecked="{Binding SkipEmpty}" Content="Skip empty cells" />
+              <CheckBox IsChecked="{Binding ShowGridPreview}" Content="Preview the grid" />
+              <Button Classes="accent" Command="{Binding SliceGridCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="7">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Grid}" Size="13" />
+                  <TextBlock Text="Slice by grid" />
+                </StackPanel>
+              </Button>
+            </StackPanel>
+            <Border Classes="divider-h" />
+
+            <StackPanel Classes="section">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Wand}" Size="14" Foreground="{DynamicResource AccentBrush}" />
+                <TextBlock Classes="heading" Text="Automatic" />
+              </StackPanel>
+              <TextBlock Text="Finds each group of touching opaque pixels." Classes="caption muted" TextWrapping="Wrap" />
+              <Grid Classes="field" ColumnDefinitions="96,*">
+                <TextBlock Text="Alpha above" />
+                <ui:NumberField Grid.Column="1" Value="{Binding AlphaThreshold}" Minimum="0" Maximum="254" IsInteger="True" />
+              </Grid>
+              <Grid Classes="field" ColumnDefinitions="96,*">
+                <TextBlock Text="Minimum size" />
+                <ui:NumberField Grid.Column="1" Value="{Binding MinimumSize}" Minimum="1" Maximum="4096" IsInteger="True" Suffix="px" />
+              </Grid>
+              <Grid Classes="field" ColumnDefinitions="96,*">
+                <TextBlock Text="Merge within" />
+                <ui:NumberField Grid.Column="1" Value="{Binding MergeDistance}" Minimum="0" Maximum="256" IsInteger="True" Suffix="px" />
+              </Grid>
+              <Button Command="{Binding SliceByTransparencyCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="7">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Wand}" Size="13" />
+                  <TextBlock Text="Slice by transparency" />
+                </StackPanel>
+              </Button>
+            </StackPanel>
+            <Border Classes="divider-h" />
+
+            <StackPanel Classes="section">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Tag}" Size="14" Foreground="{DynamicResource AccentBrush}" />
+                <TextBlock Classes="heading" Text="New sprites" />
+              </StackPanel>
+              <Grid Classes="field" ColumnDefinitions="64,*">
+                <TextBlock Text="Prefix" />
+                <TextBox Grid.Column="1" Text="{Binding NamePrefix}" Classes="mono" FontSize="12" />
+              </Grid>
+              <Grid Classes="field" ColumnDefinitions="64,*">
+                <TextBlock Text="Pivot" />
+                <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:PivotPreset.All}" SelectedItem="{Binding NewPivot}" HorizontalAlignment="Stretch" />
+              </Grid>
+              <TextBlock Text="Drag on the image to draw a sprite." Classes="caption muted" TextWrapping="Wrap" />
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+      <GridSplitter Grid.Column="1" Width="1" ResizeDirection="Columns" Background="{DynamicResource BorderSubtleBrush}" />
+
+      <!-- Canvas and animations -->
+      <Grid Grid.Column="2" RowDefinitions="Auto,*,Auto,190">
+        <Border Classes="toolbar" Height="38" Padding="12,0" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource BorderSubtleBrush}">
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Image}" Size="14" Foreground="#3B82F6" />
+              <TextBlock Text="{Binding Title}" FontWeight="SemiBold" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding ImageText}" Classes="caption muted mono" VerticalAlignment="Center" />
+              <Border Width="1" Height="14" Background="{DynamicResource BorderSubtleBrush}" />
+              <TextBlock Text="{Binding SummaryText}" Classes="caption" VerticalAlignment="Center" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+              <Button Classes="icon small" Command="{Binding SelectAllCommand}" ToolTip.Tip="Select all sprites (Ctrl+A)">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.SquareDashed}" Size="14" />
+              </Button>
+              <Button Classes="icon small" Command="{Binding RenumberCommand}" ToolTip.Tip="Rename the sprites in order with the prefix">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.ListTree}" Size="14" />
+              </Button>
+              <Button Classes="icon small" Command="{Binding DeleteSelectedCommand}" ToolTip.Tip="Delete the selected sprites (Delete)">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Trash}" Size="14" />
+              </Button>
+              <Button Classes="icon small" Command="{Binding ClearSlicesCommand}" ToolTip.Tip="Remove every sprite">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Eraser}" Size="14" />
+              </Button>
+            </StackPanel>
+          </Grid>
+        </Border>
+        <Panel Grid.Row="1" Background="{DynamicResource SurfaceSunkenBrush}">
+          <vm:SpriteCanvas Name="Canvas" Source="{Binding Source}" Editor="{Binding}" Accent="{DynamicResource AccentBrush}" />
+          <controls:CanvasZoomBar Target="{Binding #Canvas}" Margin="12" />
+        </Panel>
+        <Border Grid.Row="2" Classes="divider-h" />
+
+        <!-- Animations -->
+        <Grid Grid.Row="3" ColumnDefinitions="190,Auto,*,Auto,200">
+          <DockPanel Margin="10,8,8,8">
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="2,0,0,6">
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Activity}" Size="14" Foreground="{DynamicResource AccentBrush}" />
+                <TextBlock Classes="heading" Text="Animations" />
+              </StackPanel>
+              <Button Grid.Column="1" Classes="icon small" Command="{Binding NewAnimationCommand}" ToolTip.Tip="New animation from the selected sprites">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Plus}" Size="13" />
+              </Button>
+              <Button Grid.Column="2" Classes="icon small" Command="{Binding DeleteAnimationCommand}" IsEnabled="{Binding HasAnimation}" ToolTip.Tip="Delete the animation">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Trash}" Size="13" />
+              </Button>
+            </Grid>
+            <ListBox ItemsSource="{Binding Animations}" SelectedItem="{Binding SelectedAnimation}" Background="Transparent">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:AnimationItem">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding FrameText}" Classes="caption muted" VerticalAlignment="Center" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+          <Border Grid.Column="1" Width="1" Background="{DynamicResource BorderSubtleBrush}" />
+
+          <DockPanel Grid.Column="2" Margin="10,8">
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8" IsVisible="{Binding HasAnimation}">
+              <TextBox Text="{Binding AnimationName}" FontSize="12" Width="180" HorizontalAlignment="Left" />
+              <Button Grid.Column="1" Classes="small" Command="{Binding AddSelectedFramesCommand}" ToolTip.Tip="Append the selected sprites as frames">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Plus}" Size="12" />
+                  <TextBlock Text="Add selected" FontSize="12" />
+                </StackPanel>
+              </Button>
+            </Grid>
+            <Panel>
+              <ScrollViewer Name="FrameScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                <ItemsControl Name="FrameStrip" ItemsSource="{Binding Frames}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:FrameItem">
+                      <Border Classes="frame" Classes.missing="{Binding IsMissing}" ToolTip.Tip="{Binding Name}">
+                        <Grid RowDefinitions="*,Auto">
+                          <Image Source="{Binding Image}" Margin="6" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="None" />
+                          <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="5,0,2,2">
+                            <TextBlock Text="{Binding Number}" Classes="caption mono" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
+                            <Button Grid.Column="1" Classes="icon small" Width="16" Height="16" MinHeight="0" Padding="0" ToolTip.Tip="Remove the frame"
+                                    Command="{Binding $parent[UserControl].((vm:SpriteEditorViewModel)DataContext).RemoveFrameCommand}" CommandParameter="{Binding}">
+                              <ui:SymbolIcon Data="{x:Static ui:Icons.X}" Size="10" />
+                            </Button>
+                          </Grid>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+              <TextBlock Text="Select sprites and press + to make an animation; drag frames to reorder them." Classes="caption muted" TextWrapping="Wrap"
+                         VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="300"
+                         IsVisible="{Binding !HasFrames}" IsHitTestVisible="False" />
+            </Panel>
+          </DockPanel>
+          <Border Grid.Column="3" Width="1" Background="{DynamicResource BorderSubtleBrush}" />
+
+          <Grid Grid.Column="4" RowDefinitions="*,Auto" Margin="10,8">
+            <Border CornerRadius="8" Background="{DynamicResource SurfaceSunkenBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" ClipToBounds="True">
+              <Image Source="{Binding PreviewFrame}" Margin="10" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="None" />
+            </Border>
+            <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6" Margin="0,8,0,0">
+              <Button Classes="icon" Command="{Binding TogglePlayCommand}" ToolTip.Tip="Play or stop the animation">
+                <Panel>
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Play}" Size="14" IsVisible="{Binding !IsPlaying}" />
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Pause}" Size="14" IsVisible="{Binding IsPlaying}" />
+                </Panel>
+              </Button>
+              <ui:NumberField Grid.Column="1" Value="{Binding FramesPerSecond}" Minimum="0.5" Maximum="120" Step="1" Suffix="fps" />
+              <ToggleButton Grid.Column="2" Classes="icon" IsChecked="{Binding AnimationLoop}" ToolTip.Tip="Loop">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Refresh}" Size="14" />
+              </ToggleButton>
+            </Grid>
+          </Grid>
+        </Grid>
+      </Grid>
+      <GridSplitter Grid.Column="3" Width="1" ResizeDirection="Columns" Background="{DynamicResource BorderSubtleBrush}" />
+
+      <!-- Selected sprite and the sprite list -->
+      <Border Grid.Column="4" Classes="side">
+        <DockPanel>
+          <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,1,0,0" Padding="12,10">
+            <StackPanel Spacing="8">
+              <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsDirty}">
+                <Border Width="7" Height="7" CornerRadius="4" Background="{DynamicResource WarningBrush}" VerticalAlignment="Center" />
+                <TextBlock Text="Unapplied changes" Classes="caption" VerticalAlignment="Center" />
+              </StackPanel>
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <Button Content="Revert" Command="{Binding RevertCommand}" IsEnabled="{Binding IsDirty}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                <Button Grid.Column="1" Classes="accent" Content="Apply" Command="{Binding ApplyCommand}" IsEnabled="{Binding IsDirty}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+              </Grid>
+            </StackPanel>
+          </Border>
+          <StackPanel DockPanel.Dock="Top" Classes="section" IsVisible="{Binding HasPrimary}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Crosshair}" Size="14" Foreground="{DynamicResource AccentBrush}" />
+              <TextBlock Classes="heading" Text="Sprite" />
+            </StackPanel>
+            <Grid Classes="field" ColumnDefinitions="52,*">
+              <TextBlock Text="Name" />
+              <TextBox Grid.Column="1" Text="{Binding SliceName}" Classes="mono" FontSize="12" />
+            </Grid>
+            <Grid Classes="field" ColumnDefinitions="52,*,*">
+              <TextBlock Text="Position" />
+              <ui:NumberField Grid.Column="1" Label="X" Value="{Binding SliceX}" Minimum="0" Maximum="16384" IsInteger="True" />
+              <ui:NumberField Grid.Column="2" Label="Y" Value="{Binding SliceY}" Minimum="0" Maximum="16384" IsInteger="True" />
+            </Grid>
+            <Grid Classes="field" ColumnDefinitions="52,*,*">
+              <TextBlock Text="Size" />
+              <ui:NumberField Grid.Column="1" Label="W" Value="{Binding SliceWidth}" Minimum="1" Maximum="16384" IsInteger="True" />
+              <ui:NumberField Grid.Column="2" Label="H" Value="{Binding SliceHeight}" Minimum="1" Maximum="16384" IsInteger="True" />
+            </Grid>
+            <Grid Classes="field" ColumnDefinitions="52,*,*">
+              <TextBlock Text="Pivot" />
+              <ui:NumberField Grid.Column="1" Label="X" Value="{Binding PivotX}" Minimum="0" Maximum="1" Step="0.05" FormatString="0.###" />
+              <ui:NumberField Grid.Column="2" Label="Y" Value="{Binding PivotY}" Minimum="0" Maximum="1" Step="0.05" FormatString="0.###" />
+            </Grid>
+            <Grid Classes="field" ColumnDefinitions="52,Auto,*">
+              <TextBlock Text="Preset" VerticalAlignment="Top" Margin="0,4,0,0" />
+              <UniformGrid Name="PivotGrid" Grid.Column="1" Columns="3" Rows="3" />
+              <TextBlock Grid.Column="2" Text="Sets the pivot of every selected sprite." Classes="caption muted" TextWrapping="Wrap" Margin="6,0,0,0" />
+            </Grid>
+          </StackPanel>
+          <Border DockPanel.Dock="Top" Classes="divider-h" IsVisible="{Binding HasPrimary}" />
+          <DockPanel Margin="8,8,8,4">
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="6,0,0,6">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Layers}" Size="14" Foreground="{DynamicResource AccentBrush}" />
+              <TextBlock Classes="heading" Text="Sprites" />
+            </StackPanel>
+            <ListBox Name="SliceList" ItemsSource="{Binding Slices}" SelectionMode="Multiple" Background="Transparent">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:SliceItem">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="{Binding Name}" Classes="mono" FontSize="11.5" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding SizeText}" Classes="caption muted mono" VerticalAlignment="Center" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+        </DockPanel>
+      </Border>
+    </Grid>
+    <ui:EmptyState IsVisible="{Binding !HasTexture}" Icon="{x:Static ui:Icons.Cut}" Title="No texture open"
+                   Hint="Select a texture in the Assets panel and choose Open sprite editor in its inspector." />
+  </Panel>
+</UserControl>

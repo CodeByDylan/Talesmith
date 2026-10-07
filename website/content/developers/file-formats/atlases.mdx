@@ -1,0 +1,53 @@
+---
+title: "Sprite atlases"
+sidebar_label: ".tatlas"
+description: "The structure of .tatlas files and what the atlas importer produces from them."
+---
+
+A sprite atlas (`.tatlas`) lists textures and folders to pack into one image, so sprites from many files draw in one batch. The file holds only the list and the packing options; the atlas importer (`src/Talesmith.Assets/Atlases`) packs the image when the atlas is loaded. This page describes the fields and the packing output.
+
+## Example
+
+The samples do not use atlases. This example matches `SpriteAtlasDefinition`:
+
+```json title="ui.tatlas"
+{
+  "version": 1,
+  "sources": [ "9a2c4e0b7d1f4a3c8e6b5d4c3b2a1f0e", "sprites/ui" ],
+  "padding": 2,
+  "trim": true,
+  "powerOfTwo": false,
+  "maxSize": 4096
+}
+```
+
+## Fields
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `version` | integer | 1 | The format version. A newer version fails to load. |
+| `sources` | array of strings | `[]` | What to pack. Each entry is the guid of a texture or folder, or a path relative to the `.tatlas` file. A folder contributes every texture inside it, including subfolders, in ordinal path order. Textures listed twice are packed once. |
+| `padding` | integer | 2 | Empty pixels between sprites and around the border, which keeps filtering from bleeding neighbors in. |
+| `trim` | boolean | true | Removes fully transparent borders from each sprite, adjusting the pivot so the sprite stays anchored where it was. |
+| `powerOfTwo` | boolean | false | Makes the atlas width and height powers of two. |
+| `maxSize` | integer | 4096 | The largest width or height the atlas may have. |
+
+The atlas's `.meta` file uses the `atlas` importer with texture settings. Of those, the ones for the whole image apply: `filter`, `wrap`, `mipmaps`, `premultipliedAlpha` and `compression`; see [Texture settings](./meta-files.mdx#texture-settings).
+
+## Packing output
+
+The importer produces one texture asset with named sprites and animations, used exactly like a sprite sheet:
+
+- **Sprite names.** A texture without sprites becomes one sprite named after its file without the extension, such as `coin` for `coin.png`. A texture cut into sprites contributes each sprite under its own name, such as `hero-0` to `hero-9`.
+- **Duplicate names.** When two sources have a sprite of the same name, the first is kept and the other is left out with a warning.
+- **Animations.** The source textures' animations are copied when all their frames are in the atlas. An animation name defined by two textures keeps the first.
+- **Identical images.** Sprites with identical pixels are stored once and share a region.
+- **Placement.** A MaxRects packer places sprites with the best short side fit and no rotation, trying sizes from the total area up to `maxSize` and keeping the smallest atlas that fits.
+- **Errors.** A sprite larger than `maxSize`, or a set of sprites that does not fit, fails the import with a message that names the size. A source that matches no texture is logged as a warning.
+
+The atlas is packed in memory on import; nothing is written to disk. Changing a source texture reloads the atlas in the editor and in games started from it.
+
+## Related
+
+- [Sprite atlases](/guide/assets/atlases) in the guide shows how to make an atlas in the editor.
+- [Meta files](./meta-files.mdx) describes how textures are cut into sprites.

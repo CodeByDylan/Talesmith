@@ -1,0 +1,69 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Talesmith.Core/Talesmith.Core.csproj" />
+    <Project Path="src/Talesmith.Grids/Talesmith.Grids.csproj" />
+    <Project Path="src/Talesmith.Input/Talesmith.Input.csproj" />
+    <Project Path="src/Talesmith.Assets/Talesmith.Assets.csproj" />
+    <Project Path="src/Talesmith.Assets.Hexy/Talesmith.Assets.Hexy.csproj" />
+    <Project Path="src/Talesmith.Rendering/Talesmith.Rendering.csproj" />
+    <Project Path="src/Talesmith.Rendering.Skia/Talesmith.Rendering.Skia.csproj" />
+    <Project Path="src/Talesmith.Rendering.Vulkan/Talesmith.Rendering.Vulkan.csproj" />
+    <Project Path="src/Talesmith.Audio/Talesmith.Audio.csproj" />
+    <Project Path="src/Talesmith.Audio.OpenAL/Talesmith.Audio.OpenAL.csproj" />
+    <Project Path="src/Talesmith.Plugins/Talesmith.Plugins.csproj" />
+    <Project Path="src/Talesmith.Runtime/Talesmith.Runtime.csproj" />
+    <Project Path="src/Talesmith.Physics/Talesmith.Physics.csproj" />
+    <Project Path="src/Talesmith.VFX/Talesmith.VFX.csproj" />
+    <Project Path="src/Talesmith.Lighting/Talesmith.Lighting.csproj" />
+    <Project Path="src/Talesmith.Scripting/Talesmith.Scripting.csproj" />
+    <Project Path="src/Talesmith.Scripting.Compiler/Talesmith.Scripting.Compiler.csproj" />
+    <Project Path="src/Talesmith.Build/Talesmith.Build.csproj" />
+    <Project Path="src/Talesmith.Avalonia/Talesmith.Avalonia.csproj" />
+    <Project Path="src/Talesmith.Player/Talesmith.Player.csproj" />
+    <Project Path="src/Talesmith.UI/Talesmith.UI.csproj" />
+    <Project Path="src/Talesmith.Editor/Talesmith.Editor.csproj" />
+    <Project Path="src/Talesmith.App/Talesmith.App.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/Talesmith.Samples.HexQuest/Talesmith.Samples.HexQuest.csproj" />
+    <Project Path="samples/Talesmith.Samples.Cutscenes/Talesmith.Samples.Cutscenes.csproj" />
+    <Project Path="samples/Talesmith.Samples.IsleHopper/Talesmith.Samples.IsleHopper.csproj" />
+    <Project Path="samples/Talesmith.Samples.LanternGrove/Talesmith.Samples.LanternGrove.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Talesmith.Core.Tests/Talesmith.Core.Tests.csproj" />
+    <Project Path="tests/Talesmith.Grids.Tests/Talesmith.Grids.Tests.csproj" />
+    <Project Path="tests/Talesmith.Input.Tests/Talesmith.Input.Tests.csproj" />
+    <Project Path="tests/Talesmith.Assets.Tests/Talesmith.Assets.Tests.csproj" />
+    <Project Path="tests/Talesmith.Assets.Hexy.Tests/Talesmith.Assets.Hexy.Tests.csproj" />
+    <Project Path="tests/Talesmith.Rendering.Tests/Talesmith.Rendering.Tests.csproj" />
+    <Project Path="tests/Talesmith.Audio.Tests/Talesmith.Audio.Tests.csproj" />
+    <Project Path="tests/Talesmith.Plugins.Tests/Talesmith.Plugins.Tests.csproj" />
+    <Project Path="tests/Talesmith.Runtime.Tests/Talesmith.Runtime.Tests.csproj" />
+    <Project Path="tests/Talesmith.Physics.Tests/Talesmith.Physics.Tests.csproj" />
+    <Project Path="tests/Talesmith.VFX.Tests/Talesmith.VFX.Tests.csproj" />
+    <Project Path="tests/Talesmith.Lighting.Tests/Talesmith.Lighting.Tests.csproj" />
+    <Project Path="tests/Talesmith.Scripting.Tests/Talesmith.Scripting.Tests.csproj" />
+    <Project Path="tests/Talesmith.Scripting.Compiler.Tests/Talesmith.Scripting.Compiler.Tests.csproj" />
+    <Project Path="tests/Talesmith.Build.Tests/Talesmith.Build.Tests.csproj" />
+    <Project Path="tests/Talesmith.Avalonia.Tests/Talesmith.Avalonia.Tests.csproj" />
+    <Project Path="tests/Talesmith.UI.Tests/Talesmith.UI.Tests.csproj" />
+    <Project Path="tests/Talesmith.Editor.Tests/Talesmith.Editor.Tests.csproj" />
+    <Project Path="tests/Talesmith.Samples.IsleHopper.Tests/Talesmith.Samples.IsleHopper.Tests.csproj" />
+    <Project Path="tests/Talesmith.EndToEnd.Tests/Talesmith.EndToEnd.Tests.csproj" />
+  </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/Talesmith.Benchmarks/Talesmith.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Talesmith.ShaderCompiler/Talesmith.ShaderCompiler.csproj" />
+    <Project Path="tools/Talesmith.Screenshots/Talesmith.Screenshots.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+    <File Path=".editorconfig" />
+    <File Path="README.md" />
+  </Folder>
+</Solution>

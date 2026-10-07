@@ -1,0 +1,247 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Plugins"
+             x:Class="Talesmith.Editor.Plugins.PluginsView"
+             x:DataType="vm:PluginsPanel">
+  <UserControl.Styles>
+    <Style Selector="Border.plugin">
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusLarge}" />
+      <Setter Property="Padding" Value="14,12" />
+      <Setter Property="Margin" Value="0,0,0,10" />
+    </Style>
+    <Style Selector="Border.plugin.failed">
+      <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
+    </Style>
+    <Style Selector="Border.icon-tile">
+      <Setter Property="Width" Value="40" />
+      <Setter Property="Height" Value="40" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+      <Setter Property="Margin" Value="0,10,0,5" />
+    </Style>
+    <Style Selector="ui|Badge.chip">
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="Margin" Value="0,0,5,5" />
+      <Setter Property="Cursor" Value="Help" />
+    </Style>
+    <Style Selector="Border.banner">
+      <Setter Property="Background" Value="{DynamicResource SurfaceSunkenBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource WarningBrush}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="Padding" Value="12,8" />
+    </Style>
+    <Style Selector="Button.link">
+      <Setter Property="Padding" Value="6,2" />
+      <Setter Property="MinHeight" Value="0" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="2" Margin="10,8,8,6">
+      <ui:SearchBox Text="{Binding Filter}" PlaceholderText="Filter plugins" Margin="0,0,6,0" />
+      <Button Grid.Column="1" Classes="icon small" Command="{Binding NewPluginCommand}" ToolTip.Tip="New plugin project…">
+        <ui:SymbolIcon Data="{x:Static ui:Icons.Plus}" Size="14" />
+      </Button>
+      <Button Grid.Column="2" Classes="icon small" Command="{Binding RescanCommand}" ToolTip.Tip="Rescan the plugins folder">
+        <ui:SymbolIcon Data="{x:Static ui:Icons.Refresh}" Size="14" />
+      </Button>
+      <Button Grid.Column="3" Classes="icon small" Command="{Binding OpenPluginsFolderCommand}" ToolTip.Tip="Open the plugins folder">
+        <ui:SymbolIcon Data="{x:Static ui:Icons.FolderOpen}" Size="14" />
+      </Button>
+    </Grid>
+
+    <Border DockPanel.Dock="Top" Classes="banner" IsVisible="{Binding RestartRequired}">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+        <ui:SymbolIcon Data="{x:Static ui:Icons.AlertTriangle}" Size="15" Foreground="{DynamicResource WarningBrush}" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
+          <TextBlock Text="Restart required" FontWeight="SemiBold" />
+          <TextBlock Classes="caption muted" Text="Plugin changes apply when the project reloads." TextWrapping="Wrap" />
+        </StackPanel>
+        <Button Grid.Column="2" Classes="accent small" Content="Reload now" Command="{Binding ReloadProjectCommand}" VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+
+    <TextBlock DockPanel.Dock="Top" Classes="caption muted" Text="{Binding Summary}" Margin="12,4,12,8" />
+
+    <Panel>
+      <ui:EmptyState IsVisible="{Binding IsEmpty}" Icon="{x:Static ui:Icons.Plug}" Title="No plugins installed"
+                     Hint="Put plugins in the game's plugins folder, or create one with the + button." />
+      <ScrollViewer IsVisible="{Binding !IsEmpty}">
+        <ItemsControl ItemsSource="{Binding Plugins}" Margin="10,0,10,6">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:PluginCardViewModel">
+              <Border Classes="plugin" Classes.failed="{Binding HasErrors}">
+                <StackPanel>
+                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                    <Panel VerticalAlignment="Top">
+                      <Border Classes="icon-tile" Background="{Binding MonogramBrush}" IsVisible="{Binding !HasIcon}">
+                        <TextBlock Text="{Binding Monogram}" Foreground="White" FontWeight="Bold" FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                      </Border>
+                      <Border Classes="icon-tile" IsVisible="{Binding HasIcon}">
+                        <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                      </Border>
+                    </Panel>
+                    <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                      <WrapPanel>
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
+                        <ui:Badge Content="{Binding StateText}" VerticalAlignment="Center" Classes.success="{Binding IsHealthy}" Classes.danger="{Binding HasErrors}"
+                                  Classes.warning="{Binding IsSkipped}" />
+                      </WrapPanel>
+                      <TextBlock Classes="caption muted" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <ToggleSwitch Grid.Column="2" IsChecked="{Binding IsEnabled}" IsEnabled="{Binding CanToggle}" OnContent="" OffContent=""
+                                  VerticalAlignment="Top" ToolTip.Tip="Switch the plugin on or off for this game" />
+                  </Grid>
+
+                  <TextBlock Text="{Binding Description}" Classes="secondary" TextWrapping="Wrap" Margin="0,10,0,0" />
+
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,8,0,0" IsVisible="{Binding HasReason}">
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.AlertCircle}" Size="13" Foreground="{DynamicResource DangerBrush}" VerticalAlignment="Top" Margin="0,2,0,0" />
+                    <TextBlock Grid.Column="1" Text="{Binding Reason}" Classes="caption" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}" />
+                  </Grid>
+                  <ItemsControl ItemsSource="{Binding EditorErrors}" IsVisible="{Binding HasEditorErrors}" Margin="0,6,0,0">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="x:String">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,2">
+                          <ui:SymbolIcon Data="{x:Static ui:Icons.AlertCircle}" Size="13" Foreground="{DynamicResource DangerBrush}" VerticalAlignment="Top" Margin="0,2,0,0" />
+                          <TextBlock Grid.Column="1" Text="{Binding}" Classes="caption" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}" />
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <ItemsControl ItemsSource="{Binding Warnings}" IsVisible="{Binding HasWarnings}" Margin="0,6,0,0">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="x:String">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,2">
+                          <ui:SymbolIcon Data="{x:Static ui:Icons.AlertTriangle}" Size="13" Foreground="{DynamicResource WarningBrush}" VerticalAlignment="Top" Margin="0,2,0,0" />
+                          <TextBlock Grid.Column="1" Text="{Binding}" Classes="caption secondary" TextWrapping="Wrap" />
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,8,0,0" IsVisible="{Binding ChangePending}">
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.Refresh}" Size="13" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding PendingText}" Classes="caption" Foreground="{DynamicResource AccentBrush}" />
+                  </Grid>
+
+                  <StackPanel IsVisible="{Binding HasPermissions}">
+                    <TextBlock Classes="label" Text="PERMISSIONS" />
+                    <ItemsControl ItemsSource="{Binding Permissions}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <WrapPanel />
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:PluginPermissionChip">
+                          <ui:Badge Classes="chip" Classes.accent="{Binding !IsUndeclared}" Classes.danger="{Binding IsUndeclared}" ToolTip.Tip="{Binding ToolTip}">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                              <ui:SymbolIcon Data="{x:Static ui:Icons.Shield}" Size="11" IsVisible="{Binding !IsUndeclared}" />
+                              <ui:SymbolIcon Data="{x:Static ui:Icons.AlertTriangle}" Size="11" IsVisible="{Binding IsUndeclared}" />
+                              <TextBlock Text="{Binding Title}" />
+                            </StackPanel>
+                          </ui:Badge>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+
+                  <Button Classes="subtle small link" HorizontalAlignment="Left" Margin="-6,6,0,0" Command="{Binding ToggleExpandedCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                      <TextBlock Text="Details" Classes="caption" />
+                      <ui:SymbolIcon Data="{x:Static ui:Icons.ChevronDown}" Size="12" IsVisible="{Binding !IsExpanded}" />
+                      <ui:SymbolIcon Data="{x:Static ui:Icons.ChevronUp}" Size="12" IsVisible="{Binding IsExpanded}" />
+                    </StackPanel>
+                  </Button>
+
+                  <StackPanel IsVisible="{Binding IsExpanded}">
+                    <StackPanel IsVisible="{Binding HasExtensions}">
+                      <TextBlock Classes="label" Text="EXTENDS" />
+                      <ItemsControl ItemsSource="{Binding Extensions}">
+                        <ItemsControl.ItemsPanel>
+                          <ItemsPanelTemplate>
+                            <WrapPanel />
+                          </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="x:String">
+                            <ui:Badge Classes="chip" Content="{Binding}" Cursor="Arrow" />
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+
+                    <StackPanel IsVisible="{Binding HasDependencies}">
+                      <TextBlock Classes="label" Text="DEPENDENCIES" />
+                      <ItemsControl ItemsSource="{Binding Dependencies}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="vm:PluginDependencyRow">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,2">
+                              <ui:SymbolIcon Data="{x:Static ui:Icons.CheckCircle}" Size="13" Foreground="{DynamicResource SuccessBrush}" IsVisible="{Binding IsMet}" />
+                              <ui:SymbolIcon Data="{x:Static ui:Icons.AlertCircle}" Size="13" Foreground="{DynamicResource DangerBrush}" IsVisible="{Binding !IsMet}" />
+                              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="{Binding Id}" Classes="mono caption" />
+                                <TextBlock Text="{Binding Requirement}" Classes="caption muted" />
+                              </StackPanel>
+                              <TextBlock Grid.Column="2" Text="{Binding Status}" Classes="caption secondary" />
+                            </Grid>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+
+                    <StackPanel IsVisible="{Binding HasSettings}">
+                      <TextBlock Classes="label" Text="SETTINGS" />
+                      <Border Background="{DynamicResource SurfaceSunkenBrush}" CornerRadius="{DynamicResource CornerRadiusMedium}" Padding="10,6">
+                        <ItemsControl ItemsSource="{Binding Settings}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:PluginSettingRow">
+                              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Margin="0,2">
+                                <TextBlock Text="{Binding Key}" Classes="caption secondary" />
+                                <TextBlock Grid.Column="1" Text="{Binding Value}" Classes="caption mono" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" />
+                              </Grid>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </Border>
+                    </StackPanel>
+
+                    <StackPanel IsVisible="{Binding HasErrorDetails}">
+                      <TextBlock Classes="label" Text="ERROR" />
+                      <SelectableTextBlock Text="{Binding ErrorDetails}" FontFamily="{DynamicResource MonoFontFamily}" FontSize="11" TextWrapping="Wrap" MaxHeight="160" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="4" Margin="-6,8,0,0">
+                      <Button Classes="subtle small link" Command="{Binding OpenFolderCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                          <ui:SymbolIcon Data="{x:Static ui:Icons.FolderOpen}" Size="12" />
+                          <TextBlock Text="Open folder" Classes="caption" />
+                        </StackPanel>
+                      </Button>
+                      <Button Classes="subtle small link" Command="{Binding OpenHomepageCommand}" IsVisible="{Binding HasHomepage}">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                          <ui:SymbolIcon Data="{x:Static ui:Icons.Link}" Size="12" />
+                          <TextBlock Text="Homepage" Classes="caption" />
+                        </StackPanel>
+                      </Button>
+                      <TextBlock Text="{Binding License}" Classes="caption muted" VerticalAlignment="Center" Margin="6,0,0,0" />
+                    </StackPanel>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Panel>
+  </DockPanel>
+</UserControl>

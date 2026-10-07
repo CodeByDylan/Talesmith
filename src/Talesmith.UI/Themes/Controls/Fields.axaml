@@ -1,0 +1,37 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="https://talesmith.dev/ui">
+  <ControlTheme x:Key="{x:Type ui:ColorPickerButton}" TargetType="ui:ColorPickerButton">
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Button Name="PART_Button" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="4,3,8,3"
+                MinHeight="{TemplateBinding MinHeight}" ToolTip.Tip="Choose a color">
+          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+            <ui:ColorSwatch Width="20" Height="20" CornerRadius="{DynamicResource CornerRadiusSmall}"
+                            Color="{Binding Color, RelativeSource={RelativeSource TemplatedParent}}" />
+            <TextBlock Grid.Column="1" Classes="mono" FontSize="12" VerticalAlignment="Center"
+                       Text="{Binding Hex, RelativeSource={RelativeSource TemplatedParent}}" />
+            <ui:SymbolIcon Grid.Column="2" Data="{x:Static ui:Icons.ChevronDown}" Size="13" Foreground="{DynamicResource TextMutedBrush}" />
+          </Grid>
+        </Button>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type ui:PathField}" TargetType="ui:PathField">
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+          <TextBox Classes="mono" FontSize="12" MinHeight="{TemplateBinding MinHeight}"
+                   Text="{Binding Path, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                   PlaceholderText="{TemplateBinding PlaceholderText}" />
+          <Button Name="PART_Browse" Grid.Column="1" Classes="icon" ToolTip.Tip="Browse…">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.FolderOpen}" />
+          </Button>
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+</ResourceDictionary>

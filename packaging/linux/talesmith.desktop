@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Talesmith
+GenericName=Game engine
+Comment=Make 2D games with tile maps, sprites, lights and C# scripts
+Exec=talesmith %f
+Icon=talesmith
+Terminal=false
+Categories=Development;IDE;
+Keywords=game;engine;editor;2D;tile map;

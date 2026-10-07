@@ -1,0 +1,38 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Assets.Creation"
+             x:Class="Talesmith.Editor.Assets.Creation.CreateTileMapView"
+             x:DataType="vm:CreateTileMapViewModel">
+  <ui:Dialog Header="New tile map" Description="An empty .hexy map with one Ground layer. Add tilesets and paint in the Tile Map panel." Width="480">
+    <Grid ColumnDefinitions="*,150" ColumnSpacing="16">
+      <StackPanel Spacing="14">
+        <StackPanel Spacing="6">
+          <TextBlock Classes="caption muted" Text="Name" />
+          <TextBox Name="Input" Text="{Binding Name}" />
+        </StackPanel>
+        <StackPanel Spacing="6">
+          <TextBlock Classes="caption muted" Text="Grid" />
+          <ui:SegmentedControl ItemsSource="{Binding Grids}" SelectedIndex="{Binding GridIndex}" HorizontalAlignment="Left" />
+        </StackPanel>
+        <StackPanel Spacing="6">
+          <TextBlock Classes="caption muted" Text="Cell size" />
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+            <ui:NumberField Label="W" Value="{Binding CellWidth}" Minimum="1" Maximum="4096" IsInteger="True" Suffix="px" />
+            <ui:NumberField Grid.Column="1" Label="H" Value="{Binding CellHeight}" Minimum="1" Maximum="4096" IsInteger="True" Suffix="px" />
+          </Grid>
+          <TextBlock Text="{Binding CellHint}" Classes="caption muted" TextWrapping="Wrap" />
+        </StackPanel>
+      </StackPanel>
+      <Border Grid.Column="1" Classes="card" Padding="8">
+        <vm:GridShapePreview Kind="{Binding Kind}" CellWidth="{Binding CellWidth}" CellHeight="{Binding CellHeight}" Stroke="#84CC16" />
+      </Border>
+    </Grid>
+    <ui:Dialog.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="Cancel" MinWidth="84" IsCancel="True" Command="{Binding CancelCommand}" />
+        <Button Classes="accent" Content="Create" MinWidth="84" IsDefault="True" Command="{Binding ConfirmCommand}" />
+      </StackPanel>
+    </ui:Dialog.Footer>
+  </ui:Dialog>
+</UserControl>

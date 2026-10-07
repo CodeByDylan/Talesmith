@@ -1,0 +1,51 @@
+---
+title: "Developer guide"
+sidebar_label: "Overview"
+description: "For people working on Talesmith itself: architecture, repository layout, building, testing, tools, conventions and file formats."
+slug: /
+---
+
+This section is for contributors and anyone curious about how Talesmith is built. It explains the runtime and editor architecture, how the repository is organized, how to build and test it, the tools that keep the documentation and performance honest, and the formats of every file the engine reads.
+
+You do not need any of this to make games. If you want to use the editor, start with the [Guide](/guide); to write gameplay, the [Scripting](/scripting) section; to extend the engine or editor without changing it, [Plugins](/plugins).
+
+## Pages
+
+<CardGrid columns={2}>
+  <Card title="Runtime architecture" icon="layers" to="/developers/architecture">
+    The game and its services, a frame, threads, the ECS, events, scenes, assets and presentation.
+  </Card>
+  <Card title="Editor architecture" icon="grid" to="/developers/editor-architecture">
+    Per-project services, the edit world, play mode, editing services and extension points.
+  </Card>
+  <Card title="Repository layout" icon="box" to="/developers/project-layout">
+    Every project, what it may reference, and where new code goes.
+  </Card>
+  <Card title="Building and testing" icon="hammer" to="/developers/building">
+    Building from source, the test runner, slow tests and the shader compiler.
+  </Card>
+  <Card title="Tools" icon="gauge" to="/developers/tools">
+    The screenshot tool, the editor stress benchmark, the smoke test and the benchmarks.
+  </Card>
+  <Card title="The editor UI toolkit" icon="palette" to="/developers/ui-toolkit">
+    Theme, controls, icons, property grids and docking.
+  </Card>
+  <Card title="Contributing" icon="code" to="/developers/contributing">
+    Code style, comments, tests, commits and documentation.
+  </Card>
+  <Card title="File formats" icon="file" to="/developers/file-formats">
+    Scenes, prefabs, meta files, presets, maps, configuration and builds.
+  </Card>
+</CardGrid>
+
+## Where to start
+
+| You want to | Read |
+| --- | --- |
+| Fix a bug in the engine | [Building and testing](./building.mdx) to get a working build and run the tests, then [Runtime architecture](./architecture.mdx) for the frame and threads. Add a test in the library's test project that fails before your fix. |
+| Fix a bug in the editor | [Editor architecture](./editor-architecture.mdx) for the folder that owns the feature, and the [smoke test](./tools.mdx#the-editor-smoke-test) to check the real window. |
+| Add an editor feature | [Editor architecture](./editor-architecture.mdx#extending-the-editor): register it the way a plugin would, and build its UI from [the toolkit](./ui-toolkit.mdx). |
+| Add a component or system to the engine | [Repository layout](./project-layout.mdx#where-new-code-goes) for which module it belongs in, and [Scenes and prefabs](./file-formats/scenes-and-prefabs.mdx) for how its data is saved. |
+| Add a file format | [File formats](./file-formats/index.mdx) for the shared rules (JSON, guids, unknown fields kept), then register an importer, an asset kind and a dependency extractor. |
+| Make something faster | [Performance](/guide/performance) to measure the game, [Tools](./tools.mdx) for the stress benchmark and micro-benchmarks. |
+| Update this site | [Contributing](./contributing.mdx#documentation) and `website/README.md`. |

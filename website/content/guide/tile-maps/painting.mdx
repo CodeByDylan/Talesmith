@@ -1,0 +1,167 @@
+---
+title: "Painting tools"
+description: "Paint maps with the brush, random brush, eraser, fill, shapes, picker, stamps, terrain and collision tools, and select, copy and move tiles."
+---
+
+The tile tools appear in the viewport's tool rail while you edit a map. They paint on the layer selected in the Tile Map panel, preview what they will paint with the real tiles before you click, and turn each stroke or shape into one undo step. This page covers every tool, its shortcut and options, and the keys and modifiers they share.
+
+<Screenshot name="guide/tilemap-stroke" caption="The Rectangle tool previewing a block of sand tiles, next to a hexagonal selection." priority />
+
+## The tools
+
+<ShortcutTable group="tools-tile-map" />
+
+The keys only pick tile tools while a map is being edited. Some keys are shared with the transform tools, such as <Keys>E</Keys> for both Rotate and Eraser and <Keys>R</Keys> for Scale and Rectangle: a key picks the tool of the group you are working in. Each tool's options appear in the tool options bar, and the status bar shows a hint of what its buttons and modifiers do.
+
+## Keys that work in every tool
+
+| Key | Action |
+| --- | --- |
+| <Keys>Alt</Keys>+click | Pick the tile under the pointer into the brush, with its rotation and flip, without painting |
+| Right-drag | Erase instead of paint, in the Brush, Random Brush, Terrain, Collision and shape tools |
+| <Keys>Shift</Keys>+click | Draw a straight line from where the last stroke ended, in the Brush, Random Brush, Eraser, Terrain and Collision tools |
+| <Keys>Z</Keys>, <Keys>Shift+Z</Keys> | Rotate the brush one step clockwise or counter-clockwise: 60° on hex maps, 90° on rectangular maps |
+| <Keys>X</Keys>, <Keys>Y</Keys> | Flip the brush horizontally or vertically |
+| <Keys>Ctrl+C</Keys>, <Keys>Ctrl+X</Keys> | Copy or cut the selected tiles |
+| <Keys>Ctrl+V</Keys> | Paste: switches to the Stamp tool with the copied tiles |
+| <Keys>Delete</Keys> | Clear the selected tiles |
+| <Keys>Escape</Keys> | Clear the selection |
+
+While you drag, the tools fill in every cell between two pointer positions, so fast strokes leave no gaps. Panning with the middle or right mouse button and <Keys>Space</Keys>, and zooming with the wheel, work in every tool.
+
+## Tile grid
+
+While a tile tool is active, the grid in the Scene panel outlines the edited map's cells in their own shape, hexagons on hex maps and rectangles of the cell size on rectangular maps, in place of the square grid. It fades out as you zoom out, once cells are too small to outline. The grid toggle in the tool options bar and in the Scene panel's header shows a hexagon while it controls the tile grid, and <Keys>Ctrl+G</Keys> shows or hides it. The tile grid is shown or hidden on its own: hiding it while you paint leaves the square grid as it was for the other tools. **Edit › Settings… › Viewport › Show tile grid** sets the same.
+
+## Brush
+
+Press <Keys>B</Keys>, or click a tile in the palette.
+
+<Steps>
+
+1. Select a tile layer in the Tile Map panel.
+2. Click a tile in the palette. It shows in the tool options bar with its name.
+3. Drag across the map to paint.
+
+</Steps>
+
+| Option | What it does |
+| --- | --- |
+| Tile | The tile to paint, with a preview |
+| **Size** | The brush size, from 1 to 16 with the slider or up to 64 in the field. Size 1 paints one cell; each step adds a ring of cells around it. |
+| Shape | **Every cell within the size in grid steps**, a hexagon on hex maps, or **Round**, a circle |
+| Orientation | Rotate and flip buttons. The chip after them reads the current orientation, such as *60° · flipped*; click it to reset. |
+
+With the grid-steps shape on a hex map, size 1 paints 1 cell, size 2 paints 7, size 3 paints 19 and size 4 paints 37.
+
+Right-drag erases with the same size, so you do not have to switch to the Eraser for a quick correction.
+
+## Random Brush
+
+Press <Keys>N</Keys>, or <Keys>Ctrl</Keys>+click several tiles in the palette. Each painted cell gets one of the brush's tiles, picked by weight: give three grass tiles weights 4, 2 and 1 for a natural mix with the first tile most common.
+
+The tool options bar lists the brush's **Tiles**, each with a **Weight** from 0 to 1000 and a button to remove it. <Keys>Ctrl</Keys>+click tiles in the palette to add or remove them.
+
+The pick looks random but depends on the cell, so painting over the same area again gives the same tiles. Press <Keys>R</Keys> (**Reshuffle**) for a different arrangement. Size and orientation work as for the Brush.
+
+## Eraser
+
+Press <Keys>E</Keys>. The Eraser clears every cell under its footprint, so lower layers show through. It has only the **Size** option. <Keys>Shift</Keys>+click erases a line.
+
+## Fill
+
+Press <Keys>G</Keys>, then click a cell. The Fill tool replaces the region of matching tiles around it with the brush's tile, or with its random mix.
+
+| Option | Choices |
+| --- | --- |
+| **Fill** | **Contiguous** fills the connected region. **Global** replaces every matching tile of the layer. |
+| **Match** | **Tile**: the same tile in the same orientation. **Any orientation**: the same tile turned any way. **Terrain**: any tile of the same terrain. |
+| **Limit** | The most cells one fill collects, 1,000,000 by default. A fill that would go further stops with *Fill area too large*. |
+
+With a selection, the fill stays inside it, which is the quickest way to fill an odd-shaped area. Right-click fills with empty cells, clearing the region. The empty space around a map has no edge, so to fill empty cells, select the area first: a global fill of empty cells without a selection stops with *Cannot fill every empty cell*.
+
+## Shapes: Rectangle, Line and Circle
+
+Drag to draw the shape; it previews with the real tiles until you release. Right-drag erases the shape instead.
+
+| Tool | Key | Notes |
+| --- | --- | --- |
+| **Rectangle** | <Keys>R</Keys> | <Keys>Shift</Keys> keeps it square. On hex maps it is aligned to the screen, not to the hex axes. |
+| **Line** | <Keys>L</Keys> | As thick as the brush **Size** |
+| **Circle** | <Keys>C</Keys> | Drag from the center. **Circle** draws a round circle; **Hexagon** (or **Square** on rectangular maps) draws every cell within a number of grid steps. |
+
+The **Filled** toggle in the tool options bar draws filled shapes or outlines. Each shape is one undo step, such as *Draw rectangle of 30 tiles*, and the status bar counts the cells while you drag.
+
+## Tile Picker
+
+Press <Keys>I</Keys>, then click a cell. The picker copies its tile, with its rotation and flip, into the brush and returns to the tool you used before. If the selected layer is empty at that cell, it picks from the topmost visible tile layer that has a tile there. In the other tile tools <Keys>Alt</Keys>+click does the same without switching tools.
+
+## Select Tiles
+
+Press <Keys>M</Keys>, then drag to select cells.
+
+<Screenshot name="guide/tilemap-select" caption="Thirty hexes selected; the buttons in the tool options bar copy, cut, fill, clear and select all." />
+
+| Option | What it does |
+| --- | --- |
+| **Rectangle** | Drag a rectangle |
+| **Lasso** | Draw around the cells |
+| **Same tile** | Click a cell to select the connected cells with its tile, using the Fill tool's **Match** and **Limit** |
+| Copy, Cut | <Keys>Ctrl+C</Keys> and <Keys>Ctrl+X</Keys> |
+| **Fill with the brush** | Paints every selected cell with the brush |
+| **Clear** | Empties the selected cells (<Keys>Delete</Keys>) |
+| **All**, **None** | Selects every tile of the layer (<Keys>Ctrl+A</Keys>), or nothing (<Keys>Escape</Keys>) |
+
+Hold <Keys>Shift</Keys> to add to the selection, <Keys>Ctrl</Keys> to subtract from it, and both to keep only the overlap. Drag inside the selection to move its tiles; a click without dragging clears the selection. The tool options bar counts the selected cells.
+
+The selection also limits the Fill tool, so you can select an area once and fill it with different tiles.
+
+## Stamp
+
+The Stamp tool (<Keys>S</Keys>) places a pattern of tiles: the tiles you copied with <Keys>Ctrl+C</Keys>, or a rectangle you dragged over the palette.
+
+<Steps>
+
+1. Select tiles with **Select Tiles** and press <Keys>Ctrl+C</Keys>. The editor confirms *Copied 30 tiles: Paste with Ctrl+V*.
+2. Press <Keys>Ctrl+V</Keys>. The Stamp tool becomes active and the pattern follows the pointer.
+3. Click to place it. Drag to place it repeatedly along the way.
+4. Press <Keys>Escape</Keys> to return to the previous tool.
+
+</Steps>
+
+<Keys>Z</Keys> and <Keys>Shift+Z</Keys> rotate the stamp and <Keys>X</Keys> and <Keys>Y</Keys> flip it; every tile turns with it, so the placed area looks like the original, turned. Empty cells in the pattern do not erase what is underneath. The tool options bar shows how many tiles the stamp places.
+
+## Terrain
+
+Press <Keys>T</Keys>, or click a terrain on the **Terrains** tab of the Tile Map panel. The Terrain tool paints the terrain's base tile and then picks the right tile for every painted cell and its neighbors, so coasts, forest edges and paths join up as you paint. Right-drag erases terrain and updates the transitions around it. **Size** works as for the Brush. See [Terrains and auto-tiling](./terrains.mdx).
+
+## Collision
+
+Press <Keys>K</Keys>, then paint the cells that should be solid.
+
+<Screenshot name="guide/tilemap-collision" caption="Marking cells solid with the Collision tool. The tool added the Collision layer on its first stroke." />
+
+The Collision tool paints on the selected collision layer, or the topmost one. When the map has none, the first stroke adds a layer called *Collision* at 55% opacity, with a color tileset holding one red *Solid* tile, and paints on it; the setup and the stroke are one undo step. Right-drag clears collision. **Size** works as for the Brush.
+
+Use it for maps whose artwork is not on a collision layer of its own, such as a hex map where mountains and water should block the player. To shape the collision of individual tiles, edit their collision shapes in the [tile properties](./tilesets.mdx#collision-shapes). See [Collision and map objects](./collision-and-objects.mdx).
+
+## Objects
+
+Press <Keys>O</Keys> to place and edit points, areas and tile images on an object layer. See [Collision and map objects](./collision-and-objects.mdx#object-layers).
+
+## Undo
+
+Every stroke, from pressing the button to releasing it, is one undo step named after what it did, such as *Paint 42 tiles*, *Erase 7 tiles* or *Fill 300 tiles*. Edits change the map in place, so on large maps only the chunks you touch redraw. Undo and redo with <Keys>Ctrl+Z</Keys> and <Keys>Ctrl+Shift+Z</Keys>, or jump through the steps in the [History panel](../workflow/history.mdx).
+
+## Tips
+
+- Lock the layers you are not working on. The tools refuse to paint on a locked or hidden layer and tell you why.
+- Block out a map with a large brush and a random mix, then refine with size 1.
+- Copy a finished feature, such as a house with its garden, and stamp it elsewhere rotated or flipped for variety.
+- After picking a tile with <Keys>Alt</Keys>+click, the brush also has its orientation. Click the orientation chip to reset it.
+
+## Related
+
+- [Tilesets](./tilesets.mdx)
+- [Terrains and auto-tiling](./terrains.mdx)
+- [Keyboard shortcuts](../reference/keyboard-shortcuts.mdx)

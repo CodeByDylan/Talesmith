@@ -1,0 +1,138 @@
+---
+title: "Screenshots, smoke tests and benchmarks"
+description: "The tools that render the documentation screenshots, drive the editor in a real window and measure performance."
+---
+
+The repository has a few tools that keep the documentation and the performance numbers honest: `tools/Talesmith.Screenshots` renders every editor screenshot on this site and runs the editor stress benchmark, `tools/smoke/editor-smoke.sh` drives the real editor in an X11 window, `benchmarks/Talesmith.Benchmarks` holds the micro-benchmarks and the scale scenes, and the player has a headless benchmark mode. This page explains each one and how to read its output.
+
+## Talesmith.Screenshots
+
+The tool hosts the editor and the toolkit in headless Avalonia, renders each scene in the dark and light themes and saves the images. It never opens a window.
+
+```bash
+dotnet run -c Release --project tools/Talesmith.Screenshots                     # every scene, as PNG, into artifacts/screenshots
+dotnet run -c Release --project tools/Talesmith.Screenshots -- --list           # list the scenes
+dotnet run -c Release --project tools/Talesmith.Screenshots -- dock toolkit     # only scenes whose name contains a filter
+dotnet run -c Release --project tools/Talesmith.Screenshots -- --output /tmp/shots --scale 1
+```
+
+| Option | Effect |
+| --- | --- |
+| `<filter> …` | Renders only scenes whose name contains one of the filters, ignoring case. With `--docs`, filters match docs names such as `guide/project-hub`. |
+| `--list` | Lists the scene names. |
+| `--output <folder>`, `-o` | Where PNG files go; `artifacts/screenshots` by default. |
+| `--scale <n>` | Pixels per logical unit, as on a high-DPI display; 2 by default, so images are twice their logical size. Layout is the same at every scale, so lists and popups show as they do in the editor. |
+| `--docs <folder>` | Renders the documentation screenshots as WebP into `<folder>/screenshots/<section>/` and updates each section's `manifest.json`. `npm run screenshots` passes `static/img`. |
+| `--docs-list` | Lists every documentation screenshot with its section. |
+| `--shortcuts <file>` | Writes the editor's registered commands and shortcuts as JSON. `npm run shortcuts` uses it for this site's shortcut tables. |
+| `--perf [columns rows entities]` | Runs the [editor stress benchmark](#the-editor-stress-benchmark). |
+
+### Scenes
+
+A scene derives from `ScreenshotScene` (`Capture/ScreenshotScene.cs`): `Name`, `Size` (1280 × 800 by default), `Build` to create the content, `Prepare` to get it into the right state (open a flyout, start a drag, select an entity), `Region` to crop to one control and `Release` to free what `Build` created, such as an open editor. One process renders every screenshot, so a scene that keeps its editor alive adds to the memory of the whole run. `EditorWindowScene` starts from the full editor with a project open. Every editor starts from the default layout with every section of the Inspector expanded, whatever a screenshot before it changed.
+
+`EditorFixture` creates template projects in a temporary folder and opens them in a headless editor. The samples are copied there too (`EditorFixture.IsleHopper`, `EditorFixture.HexQuest`), so opening them never writes `.meta` files or anything else into `samples/`. Scenes for this site are listed per section in `Docs/GuideShots.cs`, `ScriptingShots.cs`, `PluginsShots.cs`, `DevelopersShots.cs` and `HomeShots.cs`, each entry a name, a scene and default alt text.
+
+### Adding a documentation screenshot
+
+<Steps>
+
+1. Write a scene in `tools/Talesmith.Screenshots/Scenes/`, in a file for your section such as `Scenes/GuideDocsScenes.cs`, or reuse an existing one. The scenes there show every pattern: opening panels, selecting entities, showing dialogs, playing and cropping.
+2. Register it with one line in your section's list in `tools/Talesmith.Screenshots/Docs/`:
+
+   ```csharp
+   new("project-hub", new HubScene(), "The project hub listing recent projects with thumbnails of their scenes"),
+   ```
+
+   The name is kebab case and unique in the section, and pages refer to it with the section in front, such as `guide/project-hub`. The alt text describes what the image shows and is the default for every page that shows it.
+3. Render it from `website/`: `npm run screenshots -- guide/project-hub`. One editor screenshot takes about ten seconds in both themes, after a first run that builds the tool in about a minute. `npm run screenshots -- guide/` renders a whole section, and all of them take about half an hour. The slowest shot is `guide/build-report`, which runs a real Linux export: two minutes on four cores.
+4. Use it in a page: `<Screenshot name="guide/project-hub" />`.
+
+</Steps>
+
+The tool writes `static/img/screenshots/<section>/<name>.light.webp` and `.dark.webp` at twice their display size, and adds each image's size and alt text to the section's `manifest.json` as soon as the image is saved, so an interrupted run loses nothing. A run keeps the entries of screenshots it did not render, drops entries whose images are gone, deletes the images of screenshots that are no longer listed and prints the listed screenshots that have no images yet, so never put hand-made images in `static/img/screenshots`. Rendering `home/editor` also renders `static/img/social-card.png`. `website/STYLE.md` has the rules for what a screenshot should show.
+
+## The editor stress benchmark
+
+`--perf` generates a project with a hex map of `columns × rows` cells and `entities` entities (sprites, lights and particle emitters in groups of 100), opens it in a headless editor with a 1600 × 1000 window and measures how long each interaction keeps the UI thread busy:
+
+```bash
+dotnet run -c Release --project tools/Talesmith.Screenshots -- --perf 2000 1000 5000 > perf.log 2>&1
+TALESMITH_PERF_ONLY=select dotnet run -c Release --project tools/Talesmith.Screenshots -- --perf 2000 1000 5000 > perf.log 2>&1
+```
+
+`TALESMITH_PERF_ONLY` runs only the named sections (`idle`, `select`, `reveal`, `scroll`, `pan`, `paint`), each five times as often, which helps when you work on one interaction. The project is generated in a temporary folder and deleted afterwards.
+
+### Reading the output
+
+Each line is one interaction, with the median, 95th percentile and maximum in milliseconds and, at the end, how often it ran:
+
+| Column | Meaning |
+| --- | --- |
+| UI thread | From the input until its work ran, the window was laid out and a frame was drawn. |
+| Before the frame | The part spent in the interaction's own handlers and layout. This is what your change usually affects. |
+| Game tick | The edit game's frames that ran during the interaction. |
+| Scene render | Drawing the edit game's frame, reported separately and not counted, because in the real editor it runs on the render thread. |
+
+Headless Avalonia renders the window in software and copies each frame into a newly allocated framebuffer, so every frame has a fixed cost that a window drawn on the GPU does not have: about 9 ms to redraw a status text, 15 ms for the viewport and 25 ms for every control. The *idle* rows measure that cost. Panning, zooming and painting spend less than 1 ms before the frame, so almost all of their total is this fixed cost. Compare *before the frame* across runs, not totals against a real window. The [Performance](/guide/performance#the-editor) page has numbers measured in a real window.
+
+## The editor smoke test
+
+`tools/smoke/editor-smoke.sh` starts the real editor in an X11 window under Xvfb, drives it with `xdotool` and saves a screenshot after each step: it creates a project from a template, selects an entity in the hierarchy, moves it with the Move tool, undoes, plays and stops, searches the command palette and closes the editor. It fails when the editor exits early, does not close, or its log shows a crash.
+
+```bash
+nix shell nixpkgs#xvfb-run nixpkgs#xdotool nixpkgs#imagemagick --command tools/smoke/editor-smoke.sh
+tools/smoke/editor-smoke.sh artifacts/smoke hex-adventure
+```
+
+| Argument | Default |
+| --- | --- |
+| Output folder | `artifacts/smoke` |
+| Template | `platformer`; also `empty` or `hex-adventure` |
+
+It needs `dotnet`, `xvfb-run`, `xdotool` and ImageMagick's `import`, builds `src/Talesmith.App` in Debug when needed, and runs with a temporary `HOME`, so your editor settings are not touched. Positions in the script assume the default layout at 1600 × 1000; if you change the default layout, update `hero_row` and `viewport` in the script. Look at the screenshots, not only the exit code: a panel that renders wrong does not fail the test.
+
+## Micro-benchmarks
+
+`benchmarks/Talesmith.Benchmarks` is a BenchmarkDotNet project for measuring single pieces in isolation:
+
+```bash
+dotnet run -c Release --project benchmarks/Talesmith.Benchmarks -- --list flat
+dotnet run -c Release --project benchmarks/Talesmith.Benchmarks -- --filter '*ParticleBenchmarks*'
+dotnet run -c Release --project benchmarks/Talesmith.Benchmarks -- --filter '*PhysicsStep*' --job short
+```
+
+| Class | Parameters | Measures |
+| --- | --- | --- |
+| `ParticleBenchmarks` | 10,000 or 100,000 particles; `Simple` or `Full` modules | `Simulate`: one step; `BuildSprites`: writing the particles' sprite instances |
+| `PhysicsStepBenchmarks` | 1,000 or 4,000 bodies; `Pile`, `Swarm` or `Tiles`; dynamic tree or spatial hash broadphase | `FixedStep`: one physics step |
+| `PhysicsQueryBenchmarks` | Dynamic tree or spatial hash | `ClosestRays`, `AllRays` and `CircleOverlaps` |
+
+`--job short` gives rough numbers in a few minutes; drop it for publishable ones. Results and logs go to `BenchmarkDotNet.Artifacts` in the current folder, or the folder passed with `--artifacts`. The [Performance](/guide/performance#physics-and-particles-in-isolation) page lists recent results.
+
+## The scale scenes
+
+The same project writes two game folders that put everything under load at once:
+
+```bash
+dotnet run -c Release --project benchmarks/Talesmith.Benchmarks -- scale-scene artifacts/scale
+dotnet run -c Release --project src/Talesmith.Player -- artifacts/scale/scale --benchmark --frames 600 --renderer vulkan
+dotnet run -c Release --project src/Talesmith.Player -- artifacts/scale/scale-flyover --benchmark --frames 600 --renderer vulkan
+```
+
+- **scale**: 10,000 sprites (half sorted by Y, on four layers), ten particle emitters holding about 47,500 particles, and 32 flickering lights that all cast shadows, over a 1500 × 1400 hex map (2.1 million cells) whose collision layer casts shadows too. Everything is on screen at once.
+- **scale-flyover**: the same content, but the camera follows a body that crosses the map at 670 units per second, so chunks keep streaming in, decoding and building meshes, and the sprites and emitters come into view and leave it again.
+
+Both folders are ordinary games, so you can also open them in the player with a window or in the editor.
+
+## The player's benchmark mode
+
+`--benchmark` runs a game without a window for a fixed number of frames, advancing exactly 1/60 of a second per frame, so two runs can be compared frame by frame. It waits for the start scene, runs warm-up frames, measures, prints a table and saves a JSON or CSV report. The options and how to read the report are on the [Performance](/guide/performance#headless-benchmarks) page.
+
+Use it to check a change: run the same game with the same `--size`, `--renderer` and `--frames` before and after, and compare the game and render work and the markers of the systems you touched. The report keeps the last 600 frames, whatever `--frames` is.
+
+## Related
+
+- [Building and testing](./building.mdx)
+- [Performance](/guide/performance)
+- `website/README.md` and `website/STYLE.md` in the repository

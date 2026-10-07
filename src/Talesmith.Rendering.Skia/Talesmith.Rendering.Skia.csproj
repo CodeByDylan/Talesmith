@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Skia rendering backend: draws render frames onto any Skia canvas, CPU or GPU, with SkSL materials and post effects.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="SkiaSharp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Talesmith.Core\Talesmith.Core.csproj" />
+    <ProjectReference Include="..\Talesmith.Rendering\Talesmith.Rendering.csproj" />
+  </ItemGroup>
+</Project>

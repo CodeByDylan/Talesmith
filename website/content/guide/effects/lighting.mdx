@@ -1,0 +1,139 @@
+---
+title: "Lighting"
+description: "Light a scene with point, spot and directional lights, shadows, cookies and glowing sprites."
+---
+
+Talesmith lights 2D scenes with point, spot and directional lights that cast soft shadows from shadow casters and tile maps. A scene's ambient light sets how dark it is before any light shines; lights add to it, and glowing sprites stay bright in the dark. This page covers the Lighting panel, ambient light and presets, lights and their settings, shadows and light layers, glowing sprites, cookies and flicker, and the quality settings.
+
+<Screenshot name="guide/lighting-night" caption="Lantern Grove at night with Preview on. The campfire's light shows its radius and inner radius as gizmos." priority />
+
+## Light a scene
+
+<Steps>
+
+1. Darken the scene: open the **Lighting** panel and click a preset such as **Dusk** or **Night**.
+2. Add a light: **GameObject › 2D Object › Light › Point Light**, or right-click an entity in the hierarchy and choose **2D Object › Light** to add the light as its child.
+3. Set the light's **Color**, **Intensity** and **Radius** in the Inspector, or drag the radius handle in the viewport.
+4. Turn on **Preview** (<Keys>Ctrl+Alt+P</Keys>) to see flicker and pulse animations move.
+
+</Steps>
+
+A scene's ambient light starts as white at full intensity. Until you darken it, lights have little to show: a scene without lights or glowing sprites renders exactly as without lighting, and the renderer skips lighting altogether.
+
+## The Lighting panel
+
+The **Lighting** panel (**Window › Panels › Lighting**, or the **Effects** layout) shows the scene's lighting at a glance. The Inspector edits each light in detail.
+
+<Screenshot name="guide/lighting-panel" caption="A night scene with five lights, three shadow casters and a glowing window." />
+
+| Section | What it shows |
+| --- | --- |
+| **Ambient light** | The scene's ambient **Color** and **Intensity**: the light everywhere before lights add to it |
+| **Presets** | Ready-made looks, and **Save current as preset…** |
+| **Quality** | How much lighting costs. See [Quality](#quality). |
+| **Lights** | Every light of the scene |
+| **Light layers** | Which shadow caster layers block each shadow-casting light |
+| **Shadow casters** | Every Shadow Caster 2D, with its shape, layer and switch |
+| **Glowing sprites** | Every Emissive sprite, with its color, intensity and switch |
+
+**Lighting off** in the panel's header shows the viewport without lighting while you arrange things in a dark scene. It changes nothing in the scene and is not saved.
+
+### Presets
+
+| Preset | Ambient color | Intensity |
+| --- | --- | --- |
+| **Day** | white | 1 |
+| **Golden hour** | warm orange | 0.85 |
+| **Overcast** | grey blue | 0.75 |
+| **Dusk** | violet | 0.5 |
+| **Night** | dark blue | 0.28 |
+| **Dungeon** | near black | 0.12 |
+
+Clicking a preset sets the ambient light, as one undo step. **Save current as preset…** saves the ambient light, quality and lit layers as a `.tlighting` file in `assets/lighting/`; your presets appear after the built-in ones.
+
+### The light list
+
+Each light shows its name, type, radius and blend mode, with its color, intensity, shadows and an on/off switch you can change right there. Filter the list by name or by type with **All**, point, spot and directional buttons. Click a light's name to select it and frame it in the viewport.
+
+**S** solos a light: the viewport shows that light alone, so you can see exactly what it lights. Click **Clear solo** in the header to see every light again. Soloing only affects the editor's view.
+
+## Lights
+
+A light is a **Light 2D** component. The entity's position is the light's center; spot and directional lights point along the entity's rotation.
+
+| Type | Shines |
+| --- | --- |
+| **Point** | In every direction from a point: torches, lamps, fireflies |
+| **Spot** | In a cone: street lamps, flashlights, stage lights |
+| **Directional** | Everywhere, from one direction, like the sun or the moon |
+
+| Field | Default | What it does |
+| --- | --- | --- |
+| **Blend** | Additive | **Additive** adds light. **Mix** replaces the light underneath with its color, faded by its falloff. **Multiply** darkens or tints, for fog of war or colored filters. |
+| **Color** | white | |
+| **Intensity** | 1 | From 0 to 8. Light can brighten colors up to twice. |
+| **Radius** | 256 | How far the light reaches, in world units. Directional lights reach everywhere. |
+| **Inner Radius** | 0 | The part of the radius at full strength, from 0 to 1 |
+| **Falloff** | 1.6 | How quickly the light fades toward its radius: 1 is linear, higher concentrates it near the center |
+| **Spot Angle** | 60° | The full width of a spot light's cone |
+| **Spot Inner Angle** | 30° | The part of the cone at full strength |
+| **Cookie** | none | An image the light shines through, stretched across its radius and turned with it: window frames, leaves, a stained glass pattern |
+
+Selected lights show their radius, inner radius and cone as [gizmos](../scenes/viewport.mdx#gizmos) whose handles you can drag.
+
+### Flicker and pulse
+
+Under **Animation**, choose **Flicker** for fire and failing lamps, or **Pulse** for a slow, even throb, such as a magic crystal. **Animation Speed** sets how fast it changes (cycles per second for Pulse) and **Animation Amount** how much of the intensity it takes away at its lowest, 0.3 by default. Animations play in Preview and in the game.
+
+## Shadows
+
+Tick **Casts Shadows** on a light to have it throw shadows from:
+
+- Entities with a **Shadow Caster 2D**: a box, circle or polygon, placed relative to the entity. Add one to walls, trees, crates and characters.
+- The collision layers of tile maps: the opaque pixels of every solid cell's tile, or the collision shapes of its tile. See [Collision and map objects](../tile-maps/collision-and-objects.mdx#shadows).
+
+| Light field | Default | What it does |
+| --- | --- | --- |
+| **Shadow Strength** | 1 | How dark the shadow is |
+| **Shadow Softness** | 0.4 | How soft the edge is. The soft edge widens with the distance behind the caster, as real shadows do. |
+| **Shadow Length** | 0 | For directional lights, how far shadows reach; 0 is unlimited |
+| **Shadow Layers** | Everything | Which caster layers block this light |
+
+Shadows fall on what lies behind casters. A shadow caster stays lit, even in another caster's shadow, so a stack of crates or a row of platforms is lit evenly by the lights around it. Casters that touch block light as one shape. Tick **Self Shadows** on a caster to darken the caster itself too; other casters' shadows then darken it as well.
+
+### Light layers
+
+Every shadow caster is on a layer, 0 to 31. Each shadow-casting light chooses which layers block it, so a torch carried by the player can ignore the player's own caster while the moon still casts the player's shadow. The **Light layers** grid in the Lighting panel shows one row per shadow-casting light and one column per layer in use; click a cell to change whether that layer blocks that light. Tile map shadows are on the layer set by **Tile layer** in the panel's **Quality** section, 0 by default.
+
+## Glowing sprites
+
+Add an **Emissive** component to an entity with a sprite to keep the sprite bright in the dark: lit windows, lava, glowing eyes, a lantern's paper. Its **Color** tints the glow and its **Intensity** sets how bright: 1 shows the sprite at full brightness in complete darkness, 2 brightens it up to twice. Pair it with a light to make the sprite light its surroundings too.
+
+## Quality
+
+The **Quality** section of the Lighting panel sets how much lighting may cost, per scene:
+
+| Quality | Light map | Lights | Shadowed lights | Shadow detail | Shadow edge | Shadow casters |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Low** | ¼ of the screen | 16 | 4 | 256 | hard | 64 |
+| **Medium** (default) | ½ | 32 | 8 | 512 | soft | 256 |
+| **High** | full | 64 | 16 | 1024 | softer | 1024 |
+
+**Custom** sets each limit yourself: **Light map** (its size relative to the screen), **Lights**, **Shadowed** lights, **Shadow map** (directions per light), **Samples** (1 gives hard shadows) and **Casters**. When a scene has more lights than the limit, the least important ones are left out each frame: dim, small and far from the center of the screen first.
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| **Lit below** | Overlay (500) | Render layers below this one are lit; it and the layers above, such as overlays and debug views, stay as drawn |
+| **Tile shadows** | on | Whether tile map collision layers cast shadows |
+| **Tile layer** | 0 | The shadow caster layer tile map shadows are on |
+
+These settings and the ambient light are saved in the scene. Each render layer also has a **Lit** switch in the [scene settings](../scenes/scenes.mdx#scene-settings).
+
+### Performance
+
+Lights are culled against the camera and capped by the quality, so a scene can contain many more lights than are drawn at once. Shadow-casting lights cost the most: keep **Casts Shadows** for the lights where it shows. The Lighting panel's header counts the scene's lights and how many cast shadows. In a running game, the performance overlay (<Keys>F3</Keys>) and profiler reports (<Keys>F9</Keys>) show what lighting costs per frame. See [Performance](../performance.mdx).
+
+## Related
+
+- [Particles](./particles.mdx)
+- [Lighting](/scripting/concepts/lighting) in the scripting section, for changing lights from code.

@@ -1,0 +1,161 @@
+---
+title: "Game UI"
+description: "Build menus, HUDs and dialogs with ordinary Avalonia controls drawn above the game, and pass data safely between the game thread and the UI thread."
+---
+
+Games are hosted in Avalonia, so menus, HUDs and dialog boxes are ordinary Avalonia controls stacked above the game view. They run on the UI thread while the game runs on its own thread, so UI and game code exchange data through snapshots and posted commands instead of touching each other's objects. This page covers overlays, where UI code can live, passing data between the threads, focus and input, and the pause menu the samples share.
+
+## Overlays
+
+An overlay is a class implementing `IGameOverlay` (in `Talesmith.Avalonia.Overlays`). Its `Create(services)` method returns the control to show; the host calls it once on the UI thread when the game view appears, and stacks overlays by their `Order`, lower below higher. The control covers the game view, so lay it out with alignment and margins as in any Avalonia window.
+
+```csharp title="MyGamePlugin/ScoreOverlay.cs"
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Microsoft.Extensions.DependencyInjection;
+using Talesmith.Avalonia.Overlays;
+using Talesmith.Runtime.Hosting;
+
+namespace MyGame;
+
+/// <summary>Shows the score and lives in the top-left corner, with a pause button.</summary>
+public sealed class ScoreOverlay : IGameOverlay
+{
+    public Control Create(IServiceProvider services)
+    {
+        var hud = services.GetRequiredService<ScoreHud>();
+        var game = services.GetRequiredService<Game>();
+        var text = new TextBlock { FontSize = 18, Foreground = Brushes.White };
+        var pause = new Button { Content = "Pause", Margin = new Thickness(0, 8, 0, 0) };
+        pause.Click += (_, _) => game.Post(() => game.IsPaused = !game.IsPaused);
+
+        void Show(ScoreView view) => text.Text = $"{view.Score} points, {view.Lives} lives";
+        hud.View.Changed += Show;
+        Show(hud.View.Value);
+        return new StackPanel
+        {
+            Margin = new Thickness(16),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+            Children = { text, pause }
+        };
+    }
+}
+```
+
+Overlays cover the game's view, not the whole window, and the host scales them with the game, so a HUD keeps its place and size relative to the game at any window size. By default they lay out in view units: in a 640 × 360 view the overlay above is laid out in a 640 × 360 area and drawn twice as large in a 1280 × 720 window, three times in 1920 × 1080. Text and vector shapes stay sharp, because the scale is applied when drawing, and buttons respond at any scale. With a `fit` view, overlays never cover the bars. The performance overlay and the developer tools are not scaled.
+
+A plugin registers it with `services.AddSingleton<IGameOverlay, ScoreOverlay>()`. Writing and registering overlays in detail is covered in [Overlays](/plugins/runtime/overlays), and the [UI overlay recipe](../recipes/ui-overlay.mdx) builds a complete HUD.
+
+### Overlay size
+
+UI is usually designed at a common resolution such as 1280 × 720, while a pixel-art game may have a 640 × 360 design size, which would make that UI twice too large. Give the `view` section of `game.json` an overlay size, the size the overlays are designed for:
+
+```json title="assets/config/game.json"
+"view": { "width": 640, "height": 360, "scaleMode": "fit", "integerScale": true, "overlayWidth": 1280, "overlayHeight": 720 }
+```
+
+Overlays then lay out in a 1280 × 720 area that covers the 640 × 360 view, drawn at 1× in a 1280 × 720 window and 1.5× in 1920 × 1080. In `expand` and `crop` modes the area grows or shrinks along the same axis as the view: with the settings above and `expand`, a window that shows 640 × 400 units of the world gives overlays 1280 × 800. The `none` scale mode ignores the overlay size. In the editor it is the **Overlay size** setting in the **View** section of **Project Settings**, and the platformer template uses 1280 × 720. Isle Hopper's HUD and the samples' pause menu are designed this way.
+
+An overlay that wants to adapt can read `OverlaySize`, its layout area in overlay units, and `OverlayScale`, logical pixels per overlay unit, from the `GameOverlayLayer` it sits in.
+
+## UI from scripts and from plugins
+
+Scripts compile against the engine's assemblies but not against Avalonia, so a script cannot create controls or implement `IGameOverlay`. That leaves three ways to put information on screen:
+
+| Approach | Lives in | Good for |
+| --- | --- | --- |
+| An Avalonia overlay | A plugin | Menus, settings screens, dialogs, text-heavy HUDs, anything with buttons, layout or text input |
+| Drawing in a `PreRender` system | The scripts folder or a plugin | Small HUDs drawn with sprites and shapes, health bars over characters, markers in the world |
+| Sprites and text entities in the world | The scene | Signs, damage numbers, things that belong to the world rather than the screen |
+
+The two combine well. The plugin owns the overlay and a small service holding the HUD's state; scripts get that service with `GetService<T>()` and publish to it, because plugin assemblies are among the references scripts compile against. Lantern Grove has no plugin, so its lantern counter is a `PreRender` system in its scripts folder that draws icons in screen space; see [Rendering, cameras and materials](./rendering.mdx).
+
+## Passing data between the threads
+
+Overlays live on the UI thread and the game on its own simulation thread. Neither may touch the other's objects: a control changed from the game thread throws or corrupts layout, and the world changed from the UI thread races with the frame being simulated. Two primitives handle every case.
+
+**Game to UI: `ViewState<T>`.** Game code publishes immutable snapshots, usually records. The UI subscribes to `Changed`, which runs on the UI thread with the newest snapshot, at most once per UI update however often the game publishes. Publishing a value equal to the current one does nothing, so publishing every frame is cheap.
+
+```csharp title="MyGamePlugin/ScoreHud.cs"
+using Talesmith.Runtime.Hosting;
+
+namespace MyGame;
+
+/// <summary>What the HUD shows; immutable so the UI thread can read it while the game publishes the next one.</summary>
+public sealed record ScoreView(int Score, int Lives);
+
+/// <summary>The HUD's state: scripts and systems publish on the game thread, the overlay reads on the UI thread.</summary>
+public sealed class ScoreHud(IGameUi ui)
+{
+    public ViewState<ScoreView> View { get; } = new(ui, new ScoreView(0, 3));
+
+    public void Show(int score, int lives) => View.Publish(new ScoreView(score, lives));
+}
+```
+
+Register it as a singleton, `services.AddSingleton<ScoreHud>()`, so the overlay and every scene share one. A script in the game then publishes to it:
+
+```csharp title="assets/scripts/ScoreKeeper.cs"
+namespace MyGame;
+
+public readonly record struct CoinCollected(int Value);
+
+/// <summary>Counts the score and hands it to the HUD, which a plugin shows as an overlay.</summary>
+public sealed class ScoreKeeper : Script
+{
+    public int Lives = 3;
+
+    private ScoreHud? _hud;
+    private int _score;
+
+    protected override void OnStart()
+    {
+        _hud = GetService<ScoreHud>();
+        _hud.Show(_score, Lives);
+        Events.Subscribe((ref CoinCollected coin) =>
+        {
+            _score += coin.Value;
+            _hud?.Show(_score, Lives);
+        });
+    }
+}
+```
+
+**UI to game: `Game.Post` and `Game.InvokeAsync`.** A button handler posts a command, which runs at the start of the next frame on the game thread. When the UI needs an answer, `await game.InvokeAsync(() => …)` runs the function on the game thread and returns its result to the UI.
+
+For one-off actions in the other direction, such as opening a menu when the player presses Escape, game code calls `IGameUi.Post(action)`. Without a UI, as in headless runs and tests, `IGameUi` runs the action immediately, so game code never has to check whether a UI exists.
+
+| Direction | Use | Never |
+| --- | --- | --- |
+| Game to UI | `ViewState<T>.Publish`, `IGameUi.Post` | Set a control's property from a script or system |
+| UI to game | `Game.Post`, `Game.InvokeAsync`, `IEventBus.Enqueue` | Change components, the world or game services from a click handler |
+
+## Focus and input
+
+The game receives keyboard input only while the game view has keyboard focus. When an overlay control takes focus, a text box or a focused button, the game stops receiving keys and `Input.IsEnabled` turns false, so typing a name does not move the player. Give focus back to the game when the menu closes; the samples' menu does it with `this.FindAncestorOfType<GameHost>()?.View.Focus()` (`GameHost` is in `Talesmith.Avalonia.Hosting`).
+
+Pointer input works per control. A control that is hit-test visible takes the clicks over it; set `IsHitTestVisible = false` on HUD panels that only show information, so clicks pass through to the game. The Isle Hopper HUD does that for its whole panel.
+
+Fonts are Avalonia's: overlays use the fonts Avalonia can find, or fonts you embed in the plugin as Avalonia resources. Controls that set no font use Inter, in the editor and in exported Linux games. Those games find fonts without fontconfig, only in `/usr/share/fonts`, so names such as `monospace` and fonts installed for one user are not found; embed the fonts your UI depends on.
+
+## Example: the samples' pause menu
+
+The sample games share a pause menu with settings, in `samples/Shared`. It shows how the pieces fit:
+
+1. `GameMenuSystem` runs in `PreUpdate` on the game thread and calls `menu.RequestOpen()` when the **Menu** action is pressed.
+2. `RequestOpen` hands the work to the UI thread with `IGameUi.Post`.
+3. `GameMenu`, the menu's model, belongs to the UI thread. Opening it posts `game.IsPaused = true` to the game with `Game.Post`, remembering whether the game was already paused, and closing it restores that.
+4. Volume sliders apply through `Game.Post` to the audio service's buses; VSync and the frame-rate limit go to `FramePacing`, which is thread-safe.
+5. The player's choices are saved as JSON in their application data when the menu closes and when the player quits from it, and loaded when the game starts. **Quit** calls `GameLifetime.Quit()`.
+
+A plugin adds it with one call, `services.AddGameMenu()`, which registers the menu, its overlay, a frame-rate counter overlay and the system.
+
+## Related
+
+- [Overlays in plugins](/plugins/runtime/overlays)
+- [A simple UI overlay](../recipes/ui-overlay.mdx)
+- [The game loop and threads](./game-loop.mdx)
+- [Your first plugin](/plugins/first-plugin)

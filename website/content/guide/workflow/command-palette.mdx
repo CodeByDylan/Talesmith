@@ -1,0 +1,51 @@
+---
+title: "The command palette"
+description: "Find and run any command, entity or asset by typing its name."
+---
+
+The command palette finds any command, entity or asset by name from one box, so you can work without hunting through menus. Press <Keys>Ctrl+K</Keys>, type a few letters and press <Keys>Enter</Keys>. This page covers what the palette searches, how it matches and ranks, the prefixes for entities and assets, and how plugins add their own results.
+
+<Screenshot name="guide/command-palette" caption="Typing co finds commands, entities such as the coins, and assets." priority />
+
+## Open the palette
+
+Press <Keys>Ctrl+K</Keys>, click **Commands** in the app bar, or choose **Edit › Command palette…**. Two more shortcuts open it ready to search one kind of result:
+
+| Shortcut | Command | Opens with |
+| --- | --- | --- |
+| <Keys>Ctrl+Shift+K</Keys> | **Assets › Go to entity…** | `@`, for entities |
+| <Keys>Ctrl+Shift+F</Keys> | **Assets › Find asset…** | `#`, for assets |
+
+## What it finds
+
+| Type | Finds | Choosing one |
+| --- | --- | --- |
+| Nothing first | Every command, and the best few entities and assets | |
+| A command's name | Commands, with their shortcut and category | Runs the command |
+| `@` and a name | Entities of the open scene, with their parents | Selects the entity and frames it |
+| `#` and a name | Assets, with their folder | Opens a scene; selects any other asset in the Assets panel and shows it in the Inspector |
+
+Every command of the editor is there, including those without a shortcut or a menu item, and those plugins add. Commands that do not apply right now, such as **Stop** while not playing, are listed but greyed out. With an empty box, the commands you ran recently come first.
+
+## Matching and ranking
+
+The palette matches letters in order, not only whole words: `tg` finds **Toggle grid**, `nscn` finds **New scene** and `@crb` finds the crabs. Matches at the start of a name or of a word, letters that follow each other, and shorter names rank higher, and so do the items you picked recently, so the palette learns what you use.
+
+## Keyboard
+
+| Key | Action |
+| --- | --- |
+| <Keys>Up</Keys>, <Keys>Down</Keys> | Move through the results; the list wraps around |
+| <Keys>Enter</Keys> | Run or open the highlighted result |
+| <Keys>Escape</Keys> | Close the palette |
+
+Double-clicking a result runs it too.
+
+## Results from plugins
+
+Plugins can add results of their own under their own prefix, such as dialogue lines or quests, next to entities and assets. See [Command palette](/plugins/editor/command-palette) in the plugins section.
+
+## Related
+
+- [Keyboard shortcuts](../reference/keyboard-shortcuts.mdx)
+- [Editor settings](./settings.mdx), to change any command's shortcut

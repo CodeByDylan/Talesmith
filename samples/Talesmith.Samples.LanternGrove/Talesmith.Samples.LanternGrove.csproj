@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Compiles the Lantern Grove sample's scripts (samples/LanternGrove/assets/scripts) into assets/scripts/bin/Game.Scripts.dll, the
+    assembly an exported game loads, so the player can run the sample straight from the repository. The editor and Talesmith.Build
+    compile the same files themselves; this project only exists so `dotnet build Talesmith.slnx` leaves the sample ready to play.
+  -->
+  <PropertyGroup>
+    <Description>Builds the scripts of the Lantern Grove sample into its game folder.</Description>
+    <AssemblyName>Game.Scripts</AssemblyName>
+    <RootNamespace>LanternGrove</RootNamespace>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <DefineConstants>$(DefineConstants);TALESMITH</DefineConstants>
+    <ScriptsFolder>$(MSBuildThisFileDirectory)..\LanternGrove\assets\scripts\</ScriptsFolder>
+    <OutDir>$(ScriptsFolder)bin\</OutDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(ScriptsFolder)**\*.cs" Exclude="$(ScriptsFolder)bin\**;$(ScriptsFolder)obj\**;$(ScriptsFolder)**\.*\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="System" />
+    <Using Include="System.Collections.Generic" />
+    <Using Include="System.Linq" />
+    <Using Include="System.Numerics" />
+    <Using Include="System.Threading.Tasks" />
+    <Using Include="Talesmith.Assets" />
+    <Using Include="Talesmith.Assets.Textures" />
+    <Using Include="Talesmith.Audio" />
+    <Using Include="Talesmith.Authoring" />
+    <Using Include="Talesmith.Ecs" />
+    <Using Include="Talesmith.Input" />
+    <Using Include="Talesmith.Mathematics" />
+    <Using Include="Talesmith.Physics" />
+    <Using Include="Talesmith.Runtime.Components" />
+    <Using Include="Talesmith.Scripting" />
+    <Using Include="Talesmith.Systems" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Talesmith.Scripting\Talesmith.Scripting.csproj" Private="false" ExcludeAssets="runtime" />
+    <ProjectReference Include="..\..\src\Talesmith.Physics\Talesmith.Physics.csproj" Private="false" ExcludeAssets="runtime" />
+    <ProjectReference Include="..\..\src\Talesmith.Lighting\Talesmith.Lighting.csproj" Private="false" ExcludeAssets="runtime" />
+    <ProjectReference Include="..\..\src\Talesmith.VFX\Talesmith.VFX.csproj" Private="false" ExcludeAssets="runtime" />
+  </ItemGroup>
+  <!-- The player provides the engine, so only Game.Scripts.dll and its symbols go into the game folder. -->
+  <Target Name="LeaveEngineOutOfGameFolder" AfterTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)" />
+    </ItemGroup>
+  </Target>
+</Project>

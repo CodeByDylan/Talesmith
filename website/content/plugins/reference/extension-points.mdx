@@ -1,0 +1,69 @@
+---
+title: "Extension points"
+description: "Every way a plugin can extend the engine and the editor, with the call that registers it."
+---
+
+Every extension point a plugin can use, with the type to implement, the call that registers it, where it runs and the permission it needs. Runtime extension points are registered in `IPlugin.Configure` on `builder.Services`; editor extension points in `IEditorPlugin.ConfigureServices`. All registration calls are extension methods on `IServiceCollection`.
+
+## Runtime
+
+These run in every game built from the plugin: the editor's edit game behind the scene viewport, play mode, the player and exported games.
+
+| To add | Implement | Register | Runs | Permission | Page |
+| --- | --- | --- | --- | --- | --- |
+| A system | `ISystem`, optionally `ISystemLifecycle` | `AddSystem<T>()`, `AddSystem<T>(phase, order)`, `AddSystem(descriptor)` | Game thread, one instance per scene, in play mode unless `[ExecuteIn]` says otherwise | `runtimeScene` | [Systems and components](../runtime/systems-and-components.mdx) |
+| A component | a struct or class, usually with `[Component]` | `AddComponent<T>()` | Scenes, prefabs, the inspector's **Add component** | none | [Systems and components](../runtime/systems-and-components.mdx#components) |
+| A custom component definition | `IComponentDefinition` | `AddSingleton<IComponentDefinition, T>()` | Wherever the component is saved, loaded or inspected | none | [Systems and components](../runtime/systems-and-components.mdx#custom-definitions) |
+| A script type | a class deriving from `Script` | `AddScript<T>()` | Like the game's own scripts | none | [Systems and components](../runtime/systems-and-components.mdx#scripts-from-a-plugin) |
+| A scene built in code | a class deriving from `Scene` | `AddScene<T>("name")` | Loaded by name through `ISceneManager` | `runtimeScene` | [Scenes and scene listeners](../runtime/scenes.mdx) |
+| Code that runs when scenes start and stop | `ISceneListener` | `AddSceneListener<T>()` | Game thread, one instance per scene | `runtimeScene` | [Scenes and scene listeners](../runtime/scenes.mdx#scene-listeners) |
+| State for one scene | any class | `AddScoped<T>()` | One instance per scene | none | [Scenes and scene listeners](../runtime/scenes.mdx#state-for-one-scene) |
+| Shared state or a service | any class | `AddSingleton<T>()` and the other `Add…` calls | One instance per game | none | [Services](../runtime/services.mdx) |
+| A replacement for an engine service | the service's interface | `AddSingleton<TService, T>()`, or `Replace` for services registered before plugins | Instead of the engine's | none | [Services](../runtime/services.mdx#replace-an-engine-service) |
+| An asset type | `IAssetImporter`, usually `AssetImporter<T>` or `AssetImporter<T, TSettings>` | `AddSingleton<IAssetImporter, T>()` | Background threads, when an asset is loaded | none | [Importers and value converters](../runtime/importers.mdx) |
+| An asset kind for the editor | an `AssetKind` | `AddAssetKind(kind, ".ext")` | The Assets panel's icons and filters, inspectors | none | [Importers and value converters](../runtime/importers.mdx#asset-kinds) |
+| Asset dependencies | `IAssetDependencyExtractor` | `AddSingleton<IAssetDependencyExtractor, T>()` | The editor's asset database, on background threads | none | [Importers and value converters](../runtime/importers.mdx#dependencies-between-assets) |
+| Saving a field type | `ValueConverter<T>` | `AddValueConverter<T>()` | Scenes, prefabs, the inspector | none | [Importers and value converters](../runtime/importers.mdx#value-converters) |
+| Saving a family of field types | `IValueConverterFactory` | `AddValueConverterFactory<T>()` | Scenes, prefabs, the inspector | none | [Importers and value converters](../runtime/importers.mdx#converter-factories) |
+| A particle module | `IParticleModule` | `AddParticleModule<T>("type.name", "Display name")` | Game thread, every simulation step; the particle editor's **Add module** | none | [Particle modules](../runtime/particle-modules.mdx) |
+| Particle collision with world geometry | `IParticleCollisionProvider` | `AddSingleton<IParticleCollisionProvider, T>()` or `AddScoped` | Game thread, for emitters with world collision on | none | [Particle modules](../runtime/particle-modules.mdx#collision-providers) |
+| UI above the game | `IGameOverlay` | `AddSingleton<IGameOverlay, T>()` | UI thread, once when the game view is shown | none | [Game overlays](../runtime/overlays.mdx) |
+
+## Editor
+
+These run only in the editor, from the plugin's `editorAssembly`, on the UI thread unless noted. The plugin declares the `editorUi` permission. The editor calls each of them through a guard: one that throws is reported and skipped, and the project keeps working; see [Errors in editor code](../debugging.mdx#errors-in-editor-code).
+
+| To add | Implement | Register | Page |
+| --- | --- | --- | --- |
+| A dock panel, or a replacement for a built-in one | `IEditorPanel` | `AddEditorPanel<T>(new EditorPanelInfo(id, title, icon, location))` | [Panels](../editor/panels.mdx) |
+| Commands, menu entries, app bar buttons, shortcuts | `IEditorCommandContributor` | `AddEditorCommands<T>()` | [Commands, menus and the toolbar](../editor/commands.mdx) |
+| A status bar item | | `StatusBarViewModel.AddItem(id, order)` from an editor service | [Commands, menus and the toolbar](../editor/commands.mdx#status-bar-items) |
+| A scene viewport tool | `IViewportTool` | `AddViewportTool<T>()` | [Viewport tools](../editor/viewport-tools.mdx) |
+| Gizmos and drag handles for a component | `IGizmoProvider` | `AddGizmoProvider<T>()` | [Gizmo providers](../editor/gizmos.mdx) |
+| An inspector editor for a field type | `IPropertyEditorProvider` | `AddPropertyEditor<T>()` | [Inspector property editors](../editor/property-editors.mdx) |
+| An inspector for a kind of asset | `IAssetInspector` | `AddAssetInspector<T>()` | [Asset inspectors, handlers and thumbnails](../editor/assets.mdx#asset-inspectors) |
+| What double-clicking an asset does | `IAssetOpenHandler` | `AddAssetOpenHandler<T>()` | [Asset inspectors, handlers and thumbnails](../editor/assets.mdx#open-handlers) |
+| Thumbnails for a kind of asset (thread pool) | `IThumbnailRenderer` | `AddThumbnailRenderer<T>()` | [Asset inspectors, handlers and thumbnails](../editor/assets.mdx#thumbnails) |
+| An entry of the Assets panel's **Create** menu | `IAssetFactory` | `AddAssetFactory<T>()` | [Asset inspectors, handlers and thumbnails](../editor/assets.mdx#create-menu-entries) |
+| An asset kind known only to the editor | an `AssetKind` | `AddAssetKind(kind, ".ext")` | [Asset inspectors, handlers and thumbnails](../editor/assets.mdx#asset-kinds) |
+| Command palette results | `ICommandPaletteProvider` | `AddCommandPaletteProvider<T>()` | [Command palette providers](../editor/command-palette.mdx) |
+| Icons for entities in the viewport and hierarchy | `IEntityIconProvider` | `AddEntityIconProvider<T>()` | [Entity icons](../editor/entity-icons.mdx) |
+| A check before play mode, or additions to play sessions | `IPlaySessionContributor` | `AddSingleton<IPlaySessionContributor, T>()` | [Editor plugins](../editor/index.mdx#play-session-contributors) |
+| A check before the project or editor closes | `ICloseGuard` | `AddSingleton<ICloseGuard, T>()` | [Editor plugins](../editor/index.mdx#close-guards) |
+| An editor service of your own | any class | any `Add…` call | [Editor plugins](../editor/index.mdx) |
+
+## Plugin infrastructure
+
+| To | Use |
+| --- | --- |
+| Know the plugin's id, version, folder, permissions and assets folder | `builder.Plugin` (`PluginInfo`) |
+| Read and save settings | `builder.Settings`, or `[FromKeyedServices("plugin.id")] IPluginSettings` in services |
+| Check what loaded | the `PluginLoadReport` service |
+| Check a permission for a plugin | the `IPluginPermissions` service |
+| React to plugins loading and unloading in a game | `PluginLoaded` and `PluginUnloaded` events on the game's `IEventBus` |
+| Host plugins in your own tool | `PluginLoader.Load`, or `PluginManager` to reload them |
+
+## Related
+
+- [plugin.json](./plugin-json.mdx)
+- [Plugins overview](../index.mdx)

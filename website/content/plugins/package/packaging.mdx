@@ -1,0 +1,90 @@
+---
+title: "Packaging and distribution"
+description: "Ship a plugin to other projects and people: folder layout, versions and what to include."
+---
+
+A finished plugin is a folder that works when it is copied into any game's `assets/plugins`. This page covers what that folder contains, shipping the plugin's NuGet dependencies with it, versioning, files the plugin ships for itself, sharing the plugin, and what an exported game includes.
+
+## The plugin folder
+
+```text
+spinners/
+  plugin.json                  the manifest
+  Spinners.dll                 the runtime assembly named by "assembly"
+  Spinners.deps.json           how to find its dependencies
+  Spinners.pdb                 symbols, for line numbers in errors and for debuggers
+  Humanizer.dll                a private NuGet dependency
+  Spinners.Editor.dll          the editor assembly named by "editorAssembly"
+  Spinners.Editor.deps.json
+  Spinners.Editor.pdb
+  icon.png                     shown on the plugin's card
+  assets/                      files the plugin reads itself
+```
+
+Only `plugin.json` and the runtime assembly are required. Keep the `.deps.json` files: the engine uses them to find the plugin's dependencies, including native libraries in `runtimes/<platform>/native`. Do not put engine assemblies (`Talesmith.*.dll`) or Avalonia, SkiaSharp or `Microsoft.Extensions` assemblies in the folder; the engine always uses its own, so copies only waste space.
+
+## Private dependencies
+
+The install step that the editor's **New plugin project…** button writes, and that [The project file](./project-file.mdx#copying-into-a-game) shows, copies the plugin's NuGet packages with it. It copies the build's `ReferenceCopyLocalPaths`, everything the build puts in its output for the plugin's packages, each in its subfolder, such as `runtimes/linux-x64/native`. It leaves out the assemblies the host shares with every plugin (`Talesmith.*`, `Microsoft.Extensions.*`, Avalonia, SkiaSharp, CommunityToolkit and `System.*`) and the engine's native libraries (HarfBuzzSharp and Silk.NET), and engine references marked `Private="false"` are not in that list at all. Nothing needs to be added to the project for a package.
+
+A plugin whose project was written before that step, or by hand without it, fails as soon as it touches the package:
+
+```text
+failed    acme.weather 1.0.0: Weather.WeatherPlugin.Configure threw FileNotFoundException: Could not load file or assembly 'Humanizer, Version=2.14.0.0, Culture=neutral, PublicKeyToken=979442b78dfc278e'. The system cannot find the file specified.
+```
+
+Replace its `InstallPlugin` target with the one in [The project file](./project-file.mdx#a-complete-project-file).
+
+Each plugin loads in its own load context and resolves its packages from its own folder, so two plugins can ship different versions of the same package without conflict. The editor assembly's packages are resolved through `Spinners.Editor.deps.json` in the same way.
+
+The editor reads the plugin's assemblies into memory once, when the project opens, so it does not lock them (native libraries are still loaded from their files), and it [notices a rebuilt assembly](../debugging.mdx#reload-after-a-rebuild) but not a changed private dependency. After updating only a package, close and reopen the project.
+
+## Versioning
+
+Raise `version` in `plugin.json` with every release, following semantic versioning, because other plugins choose your releases with [version ranges](./dependencies.mdx#version-ranges):
+
+| Change | Raise |
+| --- | --- |
+| A fix that changes no public type or saved data | patch: 1.2.3 to 1.2.4 |
+| New components, services or fields; nothing removed | minor: 1.2.3 to 1.3.0 |
+| Removed or renamed types, services, ids or saved fields | major: 1.2.3 to 2.0.0 |
+
+Saved data counts as public. Scenes save components under their full type name (`Spinners.Spinner`) and fields under their camelCase names (`speed`), particle modules under the type name you registered, and settings under their keys. Renaming any of them leaves existing scenes with an unknown component or a value that falls back to its default.
+
+Set `contractVersion` to the engine's contract version you built against, and `minEngineVersion` when you use an API added in a later engine release. A plugin built for a different contract version is skipped, so publish a new build when the engine's contract version changes.
+
+## Assets shipped with a plugin
+
+`assets` in `plugin.json` names a folder in the plugin's folder. The plugin finds its full path in `builder.Plugin.AssetsDirectory` (null when it ships none), and `builder.Plugin.Directory` is the plugin's folder:
+
+```csharp
+var forecasts = builder.Plugin.AssetsDirectory is { } folder ? Path.Combine(folder, "forecasts.json") : null;
+```
+
+The game's asset manager does not load files from a plugin's assets folder, so the plugin reads them itself, which needs the `fileSystem` [permission](./permissions.mdx). Use `Directory`, not `Assembly.Location`: the editor loads plugins into memory (`PluginLoadOptions.LoadInMemory`), which gives their assemblies no location.
+
+For textures, sounds or prefabs that scenes should use, ship them as files for the game's own `assets` folder and tell users where to put them, or have an [editor plugin](../editor/assets.mdx) create them.
+
+## Share a plugin
+
+- **As an archive.** Build in Release (`dotnet build -c Release`), zip the plugin's folder and publish it. Users unzip it into `assets/plugins` and reload the project. Name the archive with the id and version, such as `coral-cove.spinners-1.2.0.zip`.
+- **As source.** Share the project, and users build it into their game as in [Your first plugin](../first-plugin.mdx). Point `TalesmithDir`, or the `ProjectReference` paths, at their engine.
+
+A plugin built for one platform runs on Windows and Linux, unless it ships native libraries for only one of them.
+
+## Plugins in exported games
+
+When you [export a game](/guide/exporting), the build:
+
+1. Scans the plugins and logs **Shipping the plugin Spinners 1.2.0** for each one that is switched on and can load, and a warning **The plugin X does not ship: …** for each that failed or was skipped. Switched-off plugins are left out.
+2. Includes the assets the plugin's code names by path, such as `"audio/ambient.wav"`, the same way it does for scripts. A literal ending in a slash, such as the start of `$"cutscenes/{name}.cutscene"`, includes the whole folder. Paths built any other way need the build settings' always-include list.
+3. Compiles the game's scripts against the shipped plugins.
+4. Copies each shipped plugin's folder into the game's plugins folder, except the editor assembly and its `.deps.json` and `.pdb`, XML documentation files, and symbol files unless the build profile includes debug symbols. `config/plugins.json` is copied with the rest of `config`.
+
+The exported game loads its plugins like the player does, from its own folder, and writes each plugin's state to its log.
+
+## Related
+
+- [The project file](./project-file.mdx)
+- [The manifest](./manifest.mdx)
+- [Installing and managing plugins](../installing.mdx)

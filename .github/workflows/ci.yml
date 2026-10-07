@@ -1,0 +1,115 @@
+# Builds the solution and runs every test except the slow ones on Linux and Windows, on each pull request and each push to main.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-and-test:
+    name: Build and test on ${{ matrix.system }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - system: Linux
+            os: linux
+            runner: ubuntu-24.04
+            timeout: 45
+            test-options: ""
+          # These runners have three or four cores, so the test projects run one at a time: in parallel, the editor tests starve the
+          # frame timing tests. They have no Vulkan driver either, so the Vulkan tests skip themselves.
+          - system: Windows
+            os: windows
+            runner: windows-2025
+            timeout: 60
+            test-options: --max-parallel-test-modules 1
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Set up .NET from global.json
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore the NuGet cache
+        id: nuget-cache
+        if: runner.os == 'Linux'
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      # Hard links need the packages on the build's drive, and on Windows runners the user profile is on another one.
+      - name: Keep the NuGet packages on the build's drive
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Add-Content $env:GITHUB_ENV "NUGET_PACKAGES=$env:GITHUB_WORKSPACE\..\nuget-packages"
+
+      # Lavapipe renders Vulkan on the CPU, so the rendering and lighting tests cover the Vulkan renderer as well as Skia.
+      - name: Install the Vulkan software driver
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends libvulkan1 mesa-vulkan-drivers
+
+      # Hard links instead of copies keep the build output small: each test project would otherwise carry its own ~550 MB of native
+      # libraries for every platform, about 12 GB in all, more than a hosted runner has free.
+      - name: Build
+        run: >-
+          dotnet build Talesmith.slnx -warnaserror
+          -p:CreateHardLinksForCopyLocalIfPossible=true
+          -p:CreateHardLinksForCopyFilesToOutputDirectoryIfPossible=true
+          -p:CreateHardLinksForCopyAdditionalFilesIfPossible=true
+
+      # Only main saves the cache, so pull requests that change packages do not crowd it out.
+      - name: Save the NuGet cache
+        if: runner.os == 'Linux' && github.ref == 'refs/heads/main' && steps.nuget-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ steps.nuget-cache.outputs.cache-primary-key }}
+
+      - name: Test
+        run: >-
+          dotnet test --solution Talesmith.slnx --no-build --results-directory TestResults ${{ matrix.test-options }} --
+          --filter-not-trait "Category=Slow" --report-xunit-trx --hangdump --hangdump-timeout 10m --hangdump-type Mini
+
+      - name: Summarize the tests
+        if: ${{ !cancelled() }}
+        run: dotnet run .github/scripts/TestSummary.cs -- TestResults
+
+      - name: Upload the test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: TestResults
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload the render captures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: render-captures-${{ matrix.os }}
+          path: tests/*/bin/Debug/net10.0/captures
+          retention-days: 14
+          if-no-files-found: ignore

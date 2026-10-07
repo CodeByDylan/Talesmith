@@ -1,0 +1,52 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="https://talesmith.dev/ui">
+  <ControlTheme x:Key="{x:Type ui:ColorPicker}" TargetType="ui:ColorPicker">
+    <Setter Property="Width" Value="252" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <StackPanel Spacing="12">
+          <ui:ColorSpectrum Name="PART_Spectrum" Height="156" />
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+            <StackPanel Spacing="8" VerticalAlignment="Center">
+              <ui:ColorChannelSlider Name="PART_Hue" Channel="Hue" />
+              <ui:ColorChannelSlider Name="PART_Alpha" Channel="Alpha" IsVisible="{TemplateBinding IsAlphaEnabled}" />
+            </StackPanel>
+            <Border Grid.Column="1" Width="40" Height="40" CornerRadius="{DynamicResource CornerRadiusMedium}" ClipToBounds="True"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+              <Grid RowDefinitions="*,*">
+                <ui:ColorSwatch Color="{Binding Color, RelativeSource={RelativeSource TemplatedParent}}" CornerRadius="0" ToolTip.Tip="New" />
+                <Button Name="PART_Original" Grid.Row="1" Padding="0" MinHeight="0" BorderThickness="0" Background="Transparent" CornerRadius="0"
+                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ToolTip.Tip="Original; click to restore" Focusable="False">
+                  <ui:ColorSwatch Color="{Binding OriginalColor, RelativeSource={RelativeSource TemplatedParent}}" CornerRadius="0" />
+                </Button>
+              </Grid>
+            </Border>
+          </Grid>
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+            <TextBlock Text="Hex" Classes="caption muted" VerticalAlignment="Center" Width="28" />
+            <TextBox Name="PART_Hex" Grid.Column="1" Classes="mono" MaxLength="9" MinHeight="28" />
+          </Grid>
+          <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="4">
+            <StackPanel Spacing="2">
+              <NumericUpDown Name="PART_Red" Minimum="0" Maximum="255" Increment="1" FormatString="0" ShowButtonSpinner="False" MinHeight="28" HorizontalContentAlignment="Center" />
+              <TextBlock Text="R" Classes="caption muted" HorizontalAlignment="Center" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="2">
+              <NumericUpDown Name="PART_Green" Minimum="0" Maximum="255" Increment="1" FormatString="0" ShowButtonSpinner="False" MinHeight="28" HorizontalContentAlignment="Center" />
+              <TextBlock Text="G" Classes="caption muted" HorizontalAlignment="Center" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Spacing="2">
+              <NumericUpDown Name="PART_Blue" Minimum="0" Maximum="255" Increment="1" FormatString="0" ShowButtonSpinner="False" MinHeight="28" HorizontalContentAlignment="Center" />
+              <TextBlock Text="B" Classes="caption muted" HorizontalAlignment="Center" />
+            </StackPanel>
+            <StackPanel Grid.Column="3" Spacing="2" IsVisible="{TemplateBinding IsAlphaEnabled}">
+              <NumericUpDown Name="PART_AlphaValue" Minimum="0" Maximum="255" Increment="1" FormatString="0" ShowButtonSpinner="False" MinHeight="28" HorizontalContentAlignment="Center" />
+              <TextBlock Text="A" Classes="caption muted" HorizontalAlignment="Center" />
+            </StackPanel>
+          </Grid>
+        </StackPanel>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+</ResourceDictionary>

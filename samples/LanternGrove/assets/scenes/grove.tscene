@@ -1,0 +1,809 @@
+{
+  "version": 1,
+  "id": "0a82c7e43abd07d964eab07f404fe145",
+  "environment": {
+    "clearColor": "#0B1030",
+    "ambientLight": "#3A4A8C",
+    "ambientIntensity": 0.42,
+    "gravity": [0, 980],
+    "renderLayers": [
+      {
+        "name": "Background",
+        "layer": 0,
+        "lit": true
+      },
+      {
+        "name": "Terrain",
+        "layer": 100,
+        "lit": true
+      },
+      {
+        "name": "Decals",
+        "layer": 200,
+        "lit": true
+      },
+      {
+        "name": "Entities",
+        "layer": 300,
+        "lit": true
+      },
+      {
+        "name": "Effects",
+        "layer": 400,
+        "lit": true
+      },
+      {
+        "name": "Overlay",
+        "layer": 500,
+        "lit": false
+      }
+    ],
+    "lighting": {
+      "quality": "high",
+      "customQuality": null,
+      "litLayerLimit": 450,
+      "tileMapShadows": true,
+      "tileMapShadowLayer": 0
+    }
+  },
+  "entities": [
+    {
+      "id": "e4d082dc51aae5abb347ccb2921b3389",
+      "name": "Player",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [256, 672]
+          }
+        },
+        {
+          "type": "Sprite",
+          "data": {
+            "texture": "d7fd74e2279440d2af1c6b47254f1130",
+            "sprite": "hero-0",
+            "layer": 310
+          }
+        },
+        {
+          "type": "SpriteAnimator",
+          "data": {
+            "texture": "d7fd74e2279440d2af1c6b47254f1130",
+            "animation": "idle"
+          }
+        },
+        {
+          "type": "Collider2D",
+          "data": {
+            "shape": "box",
+            "size": [30, 62],
+            "offset": [0, -31],
+            "friction": 0
+          }
+        },
+        {
+          "type": "CharacterController2D",
+          "data": {
+            "stepOffset": 8,
+            "groundSnapDistance": 6,
+            "interpolate": true
+          }
+        },
+        {
+          "type": "Light2D",
+          "data": {
+            "color": "#A8BEFF",
+            "intensity": 0.7,
+            "radius": 190,
+            "falloff": 2.2
+          }
+        },
+        {
+          "type": "ScriptComponent",
+          "data": {
+            "scripts": [
+              {
+                "type": "LanternGrove.PlayerController",
+                "enabled": true,
+                "fields": {
+                  "runSpeed": 320,
+                  "jumpSpeed": 860,
+                  "gravity": 2300,
+                  "dashSpeed": 820,
+                  "fallLimit": 832
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "dac10e04b952ae6eb6fa055c844b8177",
+      "name": "Camera Focus",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [256, 580]
+          }
+        },
+        {
+          "type": "ScriptComponent",
+          "data": {
+            "scripts": [
+              {
+                "type": "LanternGrove.CameraRig",
+                "enabled": true,
+                "fields": {
+                  "player": "e4d082dc51aae5abb347ccb2921b3389",
+                  "lookAhead": 60,
+                  "above": 55
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "0ead067ff9297bdd8ff5d404286086c5",
+      "name": "Main Camera",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [640, 580]
+          }
+        },
+        {
+          "type": "Camera",
+          "data": {
+            "zoom": 1,
+            "pixelSnap": true,
+            "target": "dac10e04b952ae6eb6fa055c844b8177",
+            "followSharpness": 5,
+            "bounds": [-32, -32, 5120, 1024]
+          }
+        },
+        {
+          "type": "AudioListener",
+          "data": {}
+        }
+      ]
+    },
+    {
+      "id": "b10b99fbe7e57331ba65c660d7f93359",
+      "name": "Sky",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [640, 380],
+            "scale": [1.25, 1.25]
+          }
+        },
+        {
+          "type": "Sprite",
+          "data": {
+            "texture": "5a779a27939e46089faa99fa7c6e78bb",
+            "layer": 0
+          }
+        },
+        {
+          "type": "LanternGrove.Parallax",
+          "data": {
+            "factor": [1, 1]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c1a36e9097aaf425b363528dfe56de13",
+      "name": "Moon",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [1010, 380]
+          }
+        },
+        {
+          "type": "Sprite",
+          "data": {
+            "texture": "62995197691345489a6413d5278a5092",
+            "layer": 5
+          }
+        },
+        {
+          "type": "Emissive",
+          "data": {
+            "color": "#DDE6FF",
+            "intensity": 1
+          }
+        },
+        {
+          "type": "LanternGrove.Parallax",
+          "data": {
+            "factor": [0.97, 0.97]
+          }
+        }
+      ]
+    },
+    {
+      "id": "3949148d4893067e8d607695b755551b",
+      "name": "Far Hills",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [928, 900],
+            "scale": [1.5, 1.5]
+          }
+        },
+        {
+          "type": "Sprite",
+          "data": {
+            "texture": "2baf3fdca371429fb0ea99e971ad5050",
+            "layer": 10,
+            "origin": [0.5, 1]
+          }
+        },
+        {
+          "type": "LanternGrove.Parallax",
+          "data": {
+            "factor": [0.85, 0.7]
+          }
+        }
+      ]
+    },
+    {
+      "id": "95fba512546e15036daf904399fe8229",
+      "name": "Near Hills",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [1408, 980],
+            "scale": [2, 2]
+          }
+        },
+        {
+          "type": "Sprite",
+          "data": {
+            "texture": "2e7b2dbe6cca48b0b42ef1fc1ffa4a1f",
+            "layer": 20,
+            "origin": [0.5, 1]
+          }
+        },
+        {
+          "type": "LanternGrove.Parallax",
+          "data": {
+            "factor": [0.6, 0.45]
+          }
+        }
+      ]
+    },
+    {
+      "id": "e43d11283defe5411e49f767faf738aa",
+      "name": "Moonlight",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [2560, -200],
+            "rotation": 1.9477875
+          }
+        },
+        {
+          "type": "Light2D",
+          "data": {
+            "type": "directional",
+            "color": "#8FA8FF",
+            "intensity": 0.32,
+            "castsShadows": true,
+            "shadowStrength": 0.8,
+            "shadowSoftness": 0.5,
+            "shadowLength": 420
+          }
+        }
+      ]
+    },
+    {
+      "id": "6245b5e343dcceb44c346f9d9ef3a009",
+      "name": "Grove",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [0, 0]
+          }
+        },
+        {
+          "type": "TileMapRenderer",
+          "data": {
+            "map": "04db1377d655481d9f995ad14bfa5edd",
+            "renderLayer": 100
+          }
+        }
+      ]
+    },
+    {
+      "id": "3fc5637f16bc2c45859b1690886a0069",
+      "name": "Fireflies",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [2560, 448]
+          }
+        },
+        {
+          "type": "ParticleEmitter",
+          "data": {
+            "preset": "2dbf8ce2335c4127b46e2b7286813c48"
+          }
+        }
+      ]
+    },
+    {
+      "id": "5d0c018f207618e8d558463ea510c48b",
+      "name": "Campfire",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [512, 672]
+          }
+        },
+        {
+          "type": "Sprite",
+          "data": {
+            "texture": "2f1e8a3f6a564f02a7edea8e8c9d739c",
+            "layer": 290,
+            "origin": [0.5, 0.85]
+          }
+        },
+        {
+          "type": "Light2D",
+          "data": {
+            "color": "#FF8A3C",
+            "intensity": 1.6,
+            "radius": 420,
+            "innerRadius": 0.05,
+            "falloff": 1.7,
+            "castsShadows": true,
+            "shadowSoftness": 0.6,
+            "animation": "flicker",
+            "animationSpeed": 9,
+            "animationAmount": 0.25
+          }
+        },
+        {
+          "type": "AudioSource",
+          "data": {
+            "clip": "e916faf8404f44d8b664fc6c0c5921da",
+            "volume": 0.7,
+            "loop": true,
+            "spatial": true,
+            "minDistance": 120,
+            "maxDistance": 900
+          }
+        }
+      ]
+    },
+    {
+      "id": "d9d862116a91eb7c265854bc11c73821",
+      "name": "Flames",
+      "parent": "5d0c018f207618e8d558463ea510c48b",
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [0, -12]
+          }
+        },
+        {
+          "type": "ParticleEmitter",
+          "data": {
+            "preset": "0bc97c948d6e484b9513f621244aeccd"
+          }
+        }
+      ]
+    },
+    {
+      "id": "c645d1aa99c00f2b0f4a76216b43005c",
+      "name": "Embers",
+      "parent": "5d0c018f207618e8d558463ea510c48b",
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [0, -24]
+          }
+        },
+        {
+          "type": "ParticleEmitter",
+          "data": {
+            "preset": "a320d5c5b31d46aeb88082b7a1c5fec0"
+          }
+        }
+      ]
+    },
+    {
+      "id": "4ea0064514d669908bdc097a478f6ddc",
+      "name": "Night Ambience",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [256, 672]
+          }
+        },
+        {
+          "type": "AudioSource",
+          "data": {
+            "clip": "c3b9387139d440d7a9f543a9ac7f56b1",
+            "volume": 0.55,
+            "loop": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "371c32b5f2c37b21ee0d4b546557d255",
+      "name": "Lanterns",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [0, 0]
+          }
+        }
+      ]
+    },
+    {
+      "id": "16f249354c59e5e9149fdab62a8402b3",
+      "name": "Lantern 1",
+      "parent": "371c32b5f2c37b21ee0d4b546557d255",
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": {
+        "asset": "b3678458367d4fcdb8d2e23cb30aab79",
+        "overrides": [],
+        "removedComponents": []
+      },
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [704, 620.8]
+          }
+        }
+      ]
+    },
+    {
+      "id": "b15b4b6af939a059a589cf862cfbd361",
+      "name": "Lantern 2",
+      "parent": "371c32b5f2c37b21ee0d4b546557d255",
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": {
+        "asset": "b3678458367d4fcdb8d2e23cb30aab79",
+        "overrides": [],
+        "removedComponents": []
+      },
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [1408, 422.4]
+          }
+        }
+      ]
+    },
+    {
+      "id": "fcf19dd32e0c27639c31fde045a8a228",
+      "name": "Lantern 3",
+      "parent": "371c32b5f2c37b21ee0d4b546557d255",
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": {
+        "asset": "b3678458367d4fcdb8d2e23cb30aab79",
+        "overrides": [],
+        "removedComponents": []
+      },
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [2112, 416]
+          }
+        }
+      ]
+    },
+    {
+      "id": "96a0d8acf3c52233f36df9adf0498c00",
+      "name": "Lantern 4",
+      "parent": "371c32b5f2c37b21ee0d4b546557d255",
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": {
+        "asset": "b3678458367d4fcdb8d2e23cb30aab79",
+        "overrides": [],
+        "removedComponents": []
+      },
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [2752, 352]
+          }
+        }
+      ]
+    },
+    {
+      "id": "533585acde6ac660ee40101e840becdb",
+      "name": "Lantern 5",
+      "parent": "371c32b5f2c37b21ee0d4b546557d255",
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": {
+        "asset": "b3678458367d4fcdb8d2e23cb30aab79",
+        "overrides": [],
+        "removedComponents": []
+      },
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [3008, 486.4]
+          }
+        }
+      ]
+    },
+    {
+      "id": "10ea813bfbcb63c9b47ac14e21f8a6de",
+      "name": "Lantern 6",
+      "parent": "371c32b5f2c37b21ee0d4b546557d255",
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": {
+        "asset": "b3678458367d4fcdb8d2e23cb30aab79",
+        "overrides": [],
+        "removedComponents": []
+      },
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [3840, 352]
+          }
+        }
+      ]
+    },
+    {
+      "id": "8b60541b484d30ae109429f603b51f7a",
+      "name": "Lantern 7",
+      "parent": "371c32b5f2c37b21ee0d4b546557d255",
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": {
+        "asset": "b3678458367d4fcdb8d2e23cb30aab79",
+        "overrides": [],
+        "removedComponents": []
+      },
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [4352, 499.2]
+          }
+        }
+      ]
+    },
+    {
+      "id": "8707b7dab1203f5b9db67741b517d6de",
+      "name": "Shrine",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [4800, 544]
+          }
+        },
+        {
+          "type": "Sprite",
+          "data": {
+            "texture": "ea36fe49fdb943b4b9a9a08a12940bab",
+            "layer": 290,
+            "origin": [0.5, 1]
+          }
+        },
+        {
+          "type": "Light2D",
+          "data": {
+            "color": "#FFC46B",
+            "intensity": 0.15,
+            "radius": 520,
+            "innerRadius": 0.05,
+            "falloff": 1.6,
+            "castsShadows": true,
+            "shadowSoftness": 0.5,
+            "animation": "pulse",
+            "animationSpeed": 0.6,
+            "animationAmount": 0.15
+          }
+        },
+        {
+          "type": "Collider2D",
+          "data": {
+            "shape": "box",
+            "size": [110, 200],
+            "offset": [0, -100],
+            "isTrigger": true
+          }
+        },
+        {
+          "type": "ParticleEmitter",
+          "data": {
+            "preset": "5a2090f7e1954f1783d0dab34f766ac6"
+          }
+        },
+        {
+          "type": "ShadowCaster2D",
+          "data": {
+            "shape": "box",
+            "size": [22, 60],
+            "offset": [0, -60]
+          }
+        },
+        {
+          "type": "ScriptComponent",
+          "data": {
+            "scripts": [
+              {
+                "type": "LanternGrove.Shrine",
+                "enabled": true,
+                "fields": {
+                  "litIntensity": 1.9
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,122 @@
+---
+title: "Materials and shaders"
+description: "Change how sprites are drawn with materials, custom shaders and post effects."
+---
+
+A material decides how a sprite is blended with what is behind it and, optionally, runs a custom shader on its pixels: a white flash when an enemy is hit, a dissolve, a color swap. Post effects run a shader over the whole finished frame, such as a vignette or a color grade. This page covers material and shader files, what you can set up in the editor and what needs code, and which renderer runs what.
+
+:::note
+Materials are assets you create in the editor, but there is no material editor yet: you edit the file's few lines in a text editor, and you assign materials and post effects from code. This page shows both.
+:::
+
+## Blend modes
+
+Every sprite is drawn with a blend mode. Without a material it is **Alpha**, the normal mode where transparent pixels let the background show through.
+
+| Blend | Effect | Use for |
+| --- | --- | --- |
+| **Alpha** | Normal transparency | Almost everything |
+| **Additive** | Adds the sprite's color to what is behind it, brightening it | Glows, fire, magic, light beams |
+| **Multiply** | Multiplies what is behind it by the sprite's color, darkening it | Shadows, tints, stains |
+| **Opaque** | Ignores transparency | Large backgrounds without transparent pixels |
+
+Particle emitters have their own **Blend** setting in their **Renderer** module, so effects do not need a material for this.
+
+## Create a material
+
+Choose **Create › Material** in the Assets panel, or **Assets › Create › Material**. The editor creates `New Material.tmaterial` in the open folder and lets you rename it.
+
+<Screenshot name="guide/assets-create" maxWidth={600} caption="The Create menu of the Assets panel, with Material under the rendering assets." />
+
+A new material uses alpha blending and no shader. Open the file in a text editor to change it:
+
+```json title="assets/materials/hit-flash.tmaterial"
+{
+  "version": 1,
+  "blend": "alpha",
+  "shader": "shaders/flash.tshader",
+  "parameters": [ [1, 1, 1, 0.8] ]
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `blend` | `alpha`, `additive`, `multiply` or `opaque` |
+| `shader` | A `.tshader` file, by path relative to the material or by guid. Leave it out to only change the blend mode. |
+| `parameters` | Up to four sets of four numbers the shader reads, such as a color and a strength |
+
+The editor notices the change and reloads the material.
+
+## Write a shader
+
+A `.tshader` file names the shader's source for each renderer:
+
+```json title="assets/shaders/flash.tshader"
+{
+  "version": 1,
+  "name": "flash",
+  "stage": "material",
+  "skSlFile": "flash.sksl",
+  "spirVFile": "flash.frag.spv"
+}
+```
+
+- `stage` is `material` for shaders on sprites, or `postEffect` for shaders over the whole frame.
+- **Skia** runs SkSL, Skia's shading language, from `skSlFile` or inline in `skSl`.
+- **Vulkan** runs SPIR-V, compiled ahead of time from GLSL.
+
+A material shader in SkSL reads the sprite's pixels from `image` and the material's parameters from `params`:
+
+```glsl title="assets/shaders/flash.sksl"
+uniform shader image;
+uniform float4 params[4];
+
+half4 main(float2 coord) {
+    half4 color = image.eval(coord);
+    return half4(mix(color.rgb, params[0].rgb * color.a, params[0].a), color.a);
+}
+```
+
+This shader mixes every pixel toward the color in the first parameter by its fourth number: `[1, 1, 1, 0.8]` turns the sprite 80% white, the classic hit flash.
+
+The editor checks a shader when it imports it: that the SkSL has a `main` function and declares the input its stage needs (`image` for materials, `scene` for post effects), and that the SPIR-V file is valid. Problems appear in the console. Talesmith does not ship ready-made shaders; [Materials and shaders](/developers/file-formats/materials-and-shaders) describes both languages' inputs in full.
+
+### Which renderer runs what
+
+Games render with Vulkan when a Vulkan device is available and with Skia otherwise, so a game you share may run on either. A shader without a source for the renderer in use is skipped: the sprite is drawn as if the material had no shader, with the material's blend mode. To be safe, give every shader both an SkSL and a SPIR-V source, and test with both renderers by switching **Renderer** in **Project Settings › Game**.
+
+## Use a material
+
+A sprite's material is set from code, usually by a script that swaps it for a moment, such as during a hit flash:
+
+```csharp title="assets/scripts/HitFlash.cs"
+using Talesmith.Rendering;
+
+namespace CoinRun;
+
+/// <summary>Flashes the sprite white for a moment when Flash is called.</summary>
+public sealed class HitFlash : Script
+{
+    private Material? _flash;
+
+    protected override void OnStart() => _flash = Assets.Load<Material>("materials/hit-flash.tmaterial");
+
+    public void Flash() => Run(async () =>
+    {
+        GetComponent<Sprite>().Material = _flash;
+        await Wait(0.1);
+        GetComponent<Sprite>().Material = null;
+    });
+}
+```
+
+The material is not saved with the scene, so a script sets it when it is needed; `null` returns to normal drawing. See [Rendering, cameras and materials](/scripting/concepts/rendering) in the scripting section.
+
+## Post effects
+
+A post effect is a shader with the `postEffect` stage, applied to the finished frame after everything else: a vignette, a color grade, a screen flash, a wobble underwater. Its SkSL reads the frame from `scene`, its size from `resolution`, the time from `time` and four parameters from `params`. Post effects are added each frame from code, so a game can switch them on and off and animate their parameters; see [Rendering, cameras and materials](/scripting/concepts/rendering). Both renderers run post effects.
+
+## Related
+
+- [Lighting](./lighting.mdx), which changes how sprites look without shaders.
+- [Materials and shaders](/developers/file-formats/materials-and-shaders), the file formats.

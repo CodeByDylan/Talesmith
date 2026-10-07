@@ -1,0 +1,115 @@
+---
+title: "Compiling and hot reload"
+description: "How the editor compiles scripts when you save, how hot reload swaps new code into a running game, what survives it, and how to work with your IDE."
+---
+
+The editor compiles your scripts with Roslyn every time you save a file in `assets/scripts`, in memory and in well under a second for most projects. When play mode is running, it swaps the new code into the game without restarting it, and every script keeps its state. This page covers when compilation runs, the IDE project, what hot reload keeps and what forces a restart, and how scripts get into an exported game.
+
+## Compile on save
+
+The editor watches `assets/scripts` and every folder below it. Compilation starts 250 ms after the last change, so saving several files at once, or a refactoring that touches ten files, compiles once. Files in folders named `bin` or `obj`, and in folders whose names start with a dot, are not compiled.
+
+The status bar shows where scripts stand:
+
+| Status bar | Meaning |
+| --- | --- |
+| **Compiling scripts…** | A compilation is running |
+| **Scripts compiled in 180 ms** | The last compilation succeeded; with warnings it adds "· 2 warnings" |
+| **3 script errors** | The last compilation failed; a running game keeps the last scripts that compiled, and play mode does not start until you fix them |
+| **No scripts** | The project has no script files |
+
+Click the item to open the console filtered to script messages. Errors and warnings are listed there with their file, line and column; see [Diagnostics and analyzers](./diagnostics.mdx).
+
+Compilation is incremental: files you did not change keep their parsed syntax trees and Roslyn reuses what it already worked out about them, so the time depends on what changed more than on the size of the project. The editor warms the compiler up in the background when a project opens, which makes the first compilation fast too. To compile without saving anything, choose **Assets › Recompile scripts**.
+
+The editor compiles in the Debug configuration: unoptimized, with `DEBUG` defined, and with the sources embedded in the symbols, so exception stack traces show script files and lines. Code inside `#if DEBUG` runs in the editor and in development builds only. `TALESMITH` is always defined.
+
+## Work in your IDE
+
+The editor writes a C# project next to the project folder's contents, `<project folder>/<project folder name>.Scripts.csproj`, when the project opens and again when its plugins change. It compiles the same files against the same engine and plugin assemblies with the same global usings as the editor, so Rider, Visual Studio and Visual Studio Code offer completion, navigation, refactoring and the compiler's warnings. The project also runs Talesmith's [game-loop analyzers](./diagnostics.mdx), so Rider, Visual Studio Code and `dotnet build` show the same TS warnings as the console. Open it with **Assets › Open C# project**, which starts your code editor, or open the file yourself.
+
+The project builds into `.talesmith/ide/`, which the editor and exports ignore, so building it in the IDE does no harm, but it is not needed: the editor compiles on its own when you save, and the game never uses the IDE's output. Do not edit the project file; the editor rewrites it whenever its content would change. Add it to your version control's ignore list or commit it, whichever your team prefers; it holds absolute paths to the engine.
+
+Which editor opens is set under **Settings**, on the **Editor** page, in **External code editor**: a command with `{file}`, `{line}` and `{column}` placeholders, such as `code -g {file}:{line}:{column}` or `rider --line {line} {file}`. Left empty, the editor uses Visual Studio Code or Rider when either is on the `PATH`, and otherwise the system's default program. The same command opens a file at the right line when you double-click a console message. See [Settings](/guide/workflow/settings).
+
+## Hot reload during play
+
+Save a script while play mode runs and, once it compiles, the editor swaps the new code into the running game. The game does not restart, the scene is not reloaded, and the player stays where they are.
+
+<Screenshot name="scripting/hot-reload" />
+
+A toast reports **Scripts reloaded** with how many scripts kept their state, and the console logs "Scripts reloaded while playing." Tweak a jump height, fix a bug in a door, add a log line, and see the result on the next frame.
+
+### What a reload keeps
+
+Each script in the scene is replaced by an instance of its new type:
+
+1. The script's saved fields, the ones the inspector shows, are captured and written into the new instance. Values you changed in the inspector during play mode carry over too.
+2. Private fields are copied when their type is an engine or framework type that did not change, such as `int`, `float`, `Vector2`, `Entity`, `List<Entity>`, `SoundHandle` or `ScriptTileMap`. A cached entity, a timer or a velocity survives.
+3. Fields that refer to other scripts are pointed at the new instances of those scripts.
+4. The old instance runs `OnDisable`. Its waits, routines, `Every` timers, tweens and event subscriptions stop, exactly as if it were destroyed.
+5. The new instance runs `OnEnable`, and is enabled or disabled as the old one was. It does not run `OnCreate` or `OnStart` again.
+
+The last two steps matter when you write scripts you want to reload well. Anything the old instance started in `OnCreate` or `OnStart`, such as an event subscription or a `Run` routine, is gone after a reload and not started again. Start such things in `OnEnable` and end them in `OnDisable`, and they come back with the new code:
+
+```csharp
+private IDisposable? _coins;
+
+protected override void OnEnable() => _coins = Events.Subscribe((ref CoinCollected coin) => _score += coin.Value);
+
+protected override void OnDisable() => _coins?.Dispose();
+```
+
+A routine that loops for the script's lifetime fits the same pattern: start it in `OnEnable` and let it end when it sees `IsActiveAndEnabled` turn false.
+
+Some state does not carry over and starts from the field's initial value:
+
+- Private fields whose type is declared in your scripts, such as a `private PlayerState _state` of your own class or struct, except references to scripts.
+- Fields holding delegates, and `readonly` fields.
+- Fields whose type changed in the edit.
+
+Missing scripts come back during a reload as well: a script that was missing, because its type did not compile or no longer existed, is created when its type exists again, with its saved fields.
+
+### What needs a restart
+
+Some changes cannot be applied to a running game. Then nothing changes, the game keeps running the old code, and the editor offers a restart:
+
+<Screenshot name="scripting/hot-reload-restart" />
+
+A **Restart play mode** toast appears, the status bar shows an item to restart, and the console explains why with "Restart play mode to use the changed scripts:" followed by the reasons. Press <Keys>Ctrl+Shift+F5</Keys> or click the status bar item to restart play mode with the new scripts.
+
+| Change | Why |
+| --- | --- |
+| A script type used in the scene was removed or renamed | There is no new type to move its state to |
+| A saved field changed to a type that cannot hold the saved value, such as `float` to `string` or `Vector2` to `float` | The saved value cannot be written into the new field. Between number types (`int`, `float`, `double`) is fine |
+| The scripts declare any ECS system, component or scene listener, before or after the change | The game registers them when it starts and cannot swap them while it runs |
+
+The last row covers whole projects, not just the edited file. Lantern Grove's scripts declare the `Parallax` and `LanternTally` components and two systems, so every script change in that sample asks for a restart. If you want hot reload while you tune gameplay scripts, keep systems and components in a [plugin](/plugins/runtime/systems-and-components), or accept the restart.
+
+The editor's own scene view uses the same mechanism to load the scripts while you are not playing. When the compiled scripts cannot be swapped in, because they declare systems, components or scene listeners, the scene view builds a new game with them in the background and switches to it once the scene has loaded there. The scene, its unsaved changes, the selection and the camera stay as they were, and the new script types and components appear in the inspector and under **Add component**. While tile maps have unsaved edits, the switch waits: the console notes "The scene view loads the changed scripts once the tile maps with unsaved edits are saved", and the switch happens when you save them.
+
+A failed compilation never reaches the game. Fix the error, save, and the reload happens then.
+
+## Scripts in exported games
+
+The editor compiles in memory and never writes your scripts to disk as an assembly. Exporting a game with **File › Build settings…** compiles them again, with the configuration of the build profile: Release (optimized) for the Release and Distribution profiles, Debug for the Development profile. The build writes the assembly to `scripts/bin/Game.Scripts.dll` in the exported game's asset folder, which the player loads when it starts, with its symbols when the profile includes debug symbols, as the Development profile does. The `.cs` files are not shipped. A build stops with an error when the scripts do not compile. See [Exporting a game](/guide/exporting).
+
+A player started on a project folder rather than an export also loads `assets/scripts/bin/Game.Scripts.dll` when it exists. The Lantern Grove sample builds that file with an ordinary C# project, `samples/Talesmith.Samples.LanternGrove`, so it runs from source with:
+
+```bash
+dotnet build samples/Talesmith.Samples.LanternGrove
+dotnet run --project src/Talesmith.Player -- samples/LanternGrove
+```
+
+## Limitations
+
+- Scripts are not sandboxed. Like plugins, they run with the full trust of the game and can read files, open sockets and call native code.
+- Each compilation loads into its own collectible load context, and an old one is released once no game uses it. Two cases keep an old compilation in memory longer: an assembly that declares ECS components stays until the editor closes, because the ECS keeps component types for the life of the process, and a play session whose scripts subscribed to event types declared in the scripts keeps them until it stops.
+- Hot reload carries private fields of engine and framework types only; see [What a reload keeps](#what-a-reload-keeps).
+- Hot reload replaces scripts, not systems, components or scene listeners.
+
+## Related
+
+- [Diagnostics and analyzers](./diagnostics.mdx): reading errors and the game-loop warnings
+- [The script lifecycle](./lifecycle.mdx): `OnEnable` and `OnDisable` in detail
+- [Play mode](/guide/play-and-test/play-mode): playing, pausing and stopping the game in the editor

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Exports games as standalone desktop builds: content bundling, script compilation and platform packaging.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Talesmith.Runtime\Talesmith.Runtime.csproj" />
+    <ProjectReference Include="..\Talesmith.Plugins\Talesmith.Plugins.csproj" />
+    <ProjectReference Include="..\Talesmith.VFX\Talesmith.VFX.csproj" />
+    <ProjectReference Include="..\Talesmith.Scripting.Compiler\Talesmith.Scripting.Compiler.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Talesmith.Build.Tests" />
+  </ItemGroup>
+</Project>

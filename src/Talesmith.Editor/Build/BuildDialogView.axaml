@@ -1,0 +1,516 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Build"
+             xmlns:build="using:Talesmith.Build"
+             x:Class="Talesmith.Editor.Build.BuildDialogView"
+             x:DataType="vm:BuildDialogViewModel">
+  <UserControl.Styles>
+    <Style Selector="TextBlock.heading">
+      <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+    <Style Selector="Button.target">
+      <Setter Property="Padding" Value="12,10" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Margin" Value="0,0,8,8" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusLarge}" />
+    </Style>
+    <Style Selector="Button.target.selected">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+    </Style>
+    <Style Selector="Button.target ui|SymbolIcon.platform">
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    </Style>
+    <Style Selector="Button.target.selected ui|SymbolIcon.platform">
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="Border.row">
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+      <Setter Property="Padding" Value="8,5" />
+      <Setter Property="Margin" Value="0,0,0,5" />
+    </Style>
+    <Style Selector="Border.row.pinned">
+      <Setter Property="Background" Value="{DynamicResource SurfaceSunkenBrush}" />
+    </Style>
+    <Style Selector="Border.row.dragging">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Opacity" Value="0.85" />
+    </Style>
+    <Style Selector="Border.grip">
+      <Setter Property="Cursor" Value="SizeNorthSouth" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="2,4" />
+    </Style>
+    <Style Selector="TextBlock.number">
+      <Setter Property="FontFamily" Value="{DynamicResource MonoFontFamily}" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+      <Setter Property="MinWidth" Value="16" />
+      <Setter Property="TextAlignment" Value="Right" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ListBox.log ListBoxItem">
+      <Setter Property="Padding" Value="10,1" />
+      <Setter Property="MinHeight" Value="0" />
+    </Style>
+    <Style Selector="TextBlock.log">
+      <Setter Property="FontFamily" Value="{DynamicResource MonoFontFamily}" />
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.log.debug">
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+    </Style>
+    <Style Selector="TextBlock.log.warning">
+      <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
+    </Style>
+    <Style Selector="TextBlock.log.error">
+      <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+    </Style>
+    <Style Selector="Border.stat">
+      <Setter Property="Background" Value="{DynamicResource SurfaceSunkenBrush}" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusLarge}" />
+      <Setter Property="Padding" Value="14,10" />
+    </Style>
+  </UserControl.Styles>
+
+  <ui:Dialog Header="Build" Description="Export a playable game for Windows or Linux." Width="1000" Height="690" Padding="0">
+    <Panel>
+      <!-- Settings -->
+      <Grid ColumnDefinitions="380,Auto,*" IsVisible="{Binding IsSettingsPage}">
+        <ScrollViewer Padding="20,6,16,16">
+          <StackPanel Spacing="20">
+            <StackPanel>
+              <TextBlock Classes="heading" Text="PLATFORM" />
+              <ItemsControl ItemsSource="{Binding Targets}" Margin="0,0,-8,-8">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <UniformGrid Columns="2" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:BuildTargetOption">
+                    <Button Classes="target" Classes.selected="{Binding IsSelected}"
+                            Command="{Binding $parent[ItemsControl].((vm:BuildDialogViewModel)DataContext).SelectTargetCommand}" CommandParameter="{Binding}">
+                      <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto">
+                        <ui:SymbolIcon Classes="platform" Data="{Binding Icon}" Size="22" HorizontalAlignment="Left" />
+                        <ui:SymbolIcon Grid.Column="1" Data="{x:Static ui:Icons.CheckCircle}" Size="14" Foreground="{DynamicResource AccentBrush}"
+                                       IsVisible="{Binding IsSelected}" VerticalAlignment="Top" />
+                        <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Title}" FontWeight="SemiBold" Margin="0,10,0,0" />
+                        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="6" Margin="0,2,0,0">
+                          <TextBlock Classes="caption muted" Text="{Binding Subtitle}" VerticalAlignment="Center" />
+                          <ui:Badge Classes="accent" Content="This PC" IsVisible="{Binding IsThisComputer}" FontSize="10" Padding="5,0,5,1" />
+                        </StackPanel>
+                      </Grid>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+
+            <StackPanel>
+              <TextBlock Classes="heading" Text="PROFILE" />
+              <ui:SegmentedControl SelectedIndex="{Binding ProfileIndex}" HorizontalAlignment="Stretch">
+                <ui:SegmentedControlItem Content="Development" HorizontalContentAlignment="Center" />
+                <ui:SegmentedControlItem Content="Release" HorizontalContentAlignment="Center" />
+                <ui:SegmentedControlItem Content="Distribution" HorizontalContentAlignment="Center" />
+              </ui:SegmentedControl>
+              <TextBlock Classes="caption muted" Text="{Binding ProfileDescription}" TextWrapping="Wrap" Margin="2,8,0,0" />
+            </StackPanel>
+
+            <StackPanel Spacing="10">
+              <TextBlock Classes="heading" Text="OUTPUT" Margin="0" />
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                <TextBox Text="{Binding OutputFolder}" Classes="mono" PlaceholderText="builds">
+                  <TextBox.InnerLeftContent>
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.Folder}" Size="14" Margin="10,0,0,0" Foreground="{DynamicResource TextMutedBrush}" />
+                  </TextBox.InnerLeftContent>
+                </TextBox>
+                <Button Grid.Column="1" Classes="icon" Command="{Binding BrowseOutputCommand}" ToolTip.Tip="Choose the output folder">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.FolderOpen}" Size="15" />
+                </Button>
+              </Grid>
+              <Grid ColumnDefinitions="*,120" ColumnSpacing="12">
+                <StackPanel VerticalAlignment="Center" Spacing="1">
+                  <TextBlock Text="Version" FontWeight="Medium" />
+                  <TextBlock Classes="caption muted" Text="In the executable's details and archive names." TextWrapping="Wrap" />
+                </StackPanel>
+                <TextBox Grid.Column="1" Text="{Binding Version}" Classes="mono" />
+              </Grid>
+              <Grid ColumnDefinitions="*,160" ColumnSpacing="12">
+                <StackPanel VerticalAlignment="Center" Spacing="1">
+                  <TextBlock Text="Icon" FontWeight="Medium" />
+                  <TextBlock Classes="caption muted" Text="A square PNG, ideally 512 px." TextWrapping="Wrap" />
+                </StackPanel>
+                <ComboBox Grid.Column="1" ItemsSource="{Binding IconChoices}" SelectedItem="{Binding Icon}" HorizontalAlignment="Stretch"
+                          ToolTip.Tip="{Binding Icon}" />
+              </Grid>
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <StackPanel VerticalAlignment="Center" Spacing="1">
+                  <TextBlock Text="Compress content" FontWeight="Medium" />
+                  <TextBlock Classes="caption muted" Text="Smaller packs; PNG and Ogg stay as they are." />
+                </StackPanel>
+                <ToggleSwitch Grid.Column="1" IsChecked="{Binding Compress}" OnContent="" OffContent="" />
+              </Grid>
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+        <Border Grid.Column="1" Classes="divider-v" Margin="0" />
+
+        <ScrollViewer Grid.Column="2" Padding="20,6,20,16">
+          <StackPanel Spacing="22">
+            <StackPanel>
+              <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6" Margin="0,0,0,8">
+                <TextBlock Classes="heading" Text="SCENES IN BUILD" Margin="0" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Classes="subtle small" Command="{Binding AddOpenSceneCommand}" IsEnabled="{Binding CanAddOpenScene}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.Plus}" Size="13" />
+                    <TextBlock Text="Add open scene" />
+                  </StackPanel>
+                </Button>
+                <Button Grid.Column="2" Classes="subtle small">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.Clapperboard}" Size="13" />
+                    <TextBlock Text="Add scene" />
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.ChevronDown}" Size="12" />
+                  </StackPanel>
+                  <Button.Flyout>
+                    <MenuFlyout Placement="BottomEdgeAlignedRight" ItemsSource="{Binding AvailableScenes}">
+                      <MenuFlyout.ItemContainerTheme>
+                        <ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}" x:DataType="x:String">
+                          <Setter Property="Header" Value="{Binding}" />
+                          <Setter Property="Command" Value="{Binding $parent[Button].((vm:BuildDialogViewModel)DataContext).AddSceneCommand}" />
+                          <Setter Property="CommandParameter" Value="{Binding}" />
+                        </ControlTheme>
+                      </MenuFlyout.ItemContainerTheme>
+                    </MenuFlyout>
+                  </Button.Flyout>
+                </Button>
+              </Grid>
+              <Border Classes="row pinned">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Lock}" Size="13" Foreground="{DynamicResource TextMutedBrush}" Margin="3,0" />
+                  <TextBlock Grid.Column="1" Classes="number" Text="0" />
+                  <StackPanel Grid.Column="2" Spacing="0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding StartScene}" FontWeight="Medium" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="caption muted" Text="Set in Project Settings › Game" />
+                  </StackPanel>
+                  <ui:Badge Grid.Column="3" Classes="accent" Content="Start scene" />
+                </Grid>
+              </Border>
+              <ItemsControl Name="SceneList" ItemsSource="{Binding Scenes}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:BuildSceneItem">
+                    <Border Classes="row">
+                      <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="10">
+                        <Border Classes="grip" ToolTip.Tip="Drag to reorder">
+                          <ui:SymbolIcon Data="{x:Static ui:Icons.GripVertical}" Size="14" Foreground="{DynamicResource TextMutedBrush}" />
+                        </Border>
+                        <TextBlock Grid.Column="1" Classes="number" Text="{Binding Number}" />
+                        <CheckBox Grid.Column="2" IsChecked="{Binding Enabled}" MinHeight="0" Padding="0" VerticalAlignment="Center"
+                                  ToolTip.Tip="Ship this scene" />
+                        <StackPanel Grid.Column="3" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding Name}" FontWeight="Medium" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Classes="caption muted mono" Text="{Binding Path}" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <Button Grid.Column="4" Classes="icon small" ToolTip.Tip="Remove from the build"
+                                Command="{Binding $parent[ItemsControl].((vm:BuildDialogViewModel)DataContext).RemoveSceneCommand}" CommandParameter="{Binding}">
+                          <ui:SymbolIcon Data="{x:Static ui:Icons.X}" Size="13" />
+                        </Button>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Classes="caption muted" TextWrapping="Wrap" Margin="2,4,0,0" IsVisible="{Binding !HasScenes}"
+                         Text="Add the scenes the game loads by name, such as levels. Scenes that other content refers to are found automatically." />
+            </StackPanel>
+
+            <StackPanel>
+              <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6" Margin="0,0,0,8">
+                <TextBlock Classes="heading" Text="ALWAYS INCLUDE" Margin="0" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Classes="subtle small">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.FolderPlus}" Size="13" />
+                    <TextBlock Text="Add folder" />
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.ChevronDown}" Size="12" />
+                  </StackPanel>
+                  <Button.Flyout>
+                    <MenuFlyout Placement="BottomEdgeAlignedRight" ItemsSource="{Binding AvailableFolders}">
+                      <MenuFlyout.ItemContainerTheme>
+                        <ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}" x:DataType="x:String">
+                          <Setter Property="Header" Value="{Binding}" />
+                          <Setter Property="Command" Value="{Binding $parent[Button].((vm:BuildDialogViewModel)DataContext).AddIncludeCommand}" />
+                          <Setter Property="CommandParameter" Value="{Binding}" />
+                        </ControlTheme>
+                      </MenuFlyout.ItemContainerTheme>
+                    </MenuFlyout>
+                  </Button.Flyout>
+                </Button>
+                <Button Grid.Column="2" Classes="subtle small" Command="{Binding AddLabelCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.Tag}" Size="13" />
+                    <TextBlock Text="Add label…" />
+                  </StackPanel>
+                </Button>
+              </Grid>
+              <ItemsControl ItemsSource="{Binding AlwaysInclude}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:BuildIncludeItem">
+                    <Border Classes="row">
+                      <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
+                        <ui:SymbolIcon Data="{Binding Icon}" Size="14" Foreground="{DynamicResource TextSecondaryBrush}" Margin="3,0" />
+                        <TextBlock Grid.Column="1" Text="{Binding Display}" Classes="mono" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <ui:Badge Grid.Column="2" Content="{Binding Kind}" />
+                        <Button Grid.Column="3" Classes="icon small" ToolTip.Tip="Remove"
+                                Command="{Binding $parent[ItemsControl].((vm:BuildDialogViewModel)DataContext).RemoveIncludeCommand}" CommandParameter="{Binding}">
+                          <ui:SymbolIcon Data="{x:Static ui:Icons.X}" Size="13" />
+                        </Button>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Border Classes="card" Padding="12,10" IsVisible="{Binding !HasAlwaysInclude}">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Info}" Size="14" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Top" Margin="0,1,0,0" />
+                  <TextBlock Grid.Column="1" Classes="caption secondary" TextWrapping="Wrap"
+                             Text="Builds ship what scenes, prefabs and other assets refer to, and assets that scripts and plugins name by path. Add folders or labels for content the game finds some other way." />
+                </Grid>
+              </Border>
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </Grid>
+
+      <!-- Building -->
+      <Grid ColumnDefinitions="300,Auto,*" IsVisible="{Binding IsBuildingPage}">
+        <StackPanel Margin="20,6,16,16" Spacing="4">
+          <TextBlock Text="{Binding BuildingTitle}" FontWeight="SemiBold" FontSize="14" TextWrapping="Wrap" />
+          <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,14">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.Activity}" Size="12" Foreground="{DynamicResource TextMutedBrush}" />
+            <TextBlock Classes="caption muted" Text="{Binding ElapsedText}" />
+          </StackPanel>
+          <ItemsControl ItemsSource="{Binding Steps}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:BuildStepItem">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="0,5">
+                  <Panel Width="16" Height="16">
+                    <Ellipse Width="12" Height="12" Stroke="{DynamicResource BorderStrongBrush}" StrokeThickness="1.5" IsVisible="{Binding IsPending}" />
+                    <ui:SymbolIcon Classes="spin" Data="{x:Static ui:Icons.Refresh}" Size="15" Foreground="{DynamicResource AccentBrush}" IsVisible="{Binding IsRunning}" />
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.CheckCircle}" Size="15" Foreground="{DynamicResource SuccessBrush}" IsVisible="{Binding IsDone}" />
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.AlertCircle}" Size="15" Foreground="{DynamicResource DangerBrush}" IsVisible="{Binding IsFailed}" />
+                  </Panel>
+                  <TextBlock Grid.Column="1" Text="{Binding Title}" VerticalAlignment="Center"
+                             Classes.muted="{Binding IsPending}" FontWeight="{Binding IsRunning, Converter={x:Static vm:BuildConverters.Emphasis}}" />
+                  <TextBlock Grid.Column="2" Classes="caption muted mono" Text="{Binding Duration}" VerticalAlignment="Center" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+        <Border Grid.Column="1" Classes="divider-v" Margin="0" />
+        <DockPanel Grid.Column="2" Margin="20,6,20,16">
+          <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,14">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="{Binding ProgressTitle}" FontWeight="Medium" />
+              <TextBlock Grid.Column="1" Classes="caption mono muted" Text="{Binding ProgressValue, StringFormat={}{0:0}%}" />
+            </Grid>
+            <ProgressBar Value="{Binding ProgressValue}" Maximum="100" Height="6" MinHeight="6" />
+            <TextBlock Classes="caption muted mono" Text="{Binding ProgressDetail}" TextTrimming="CharacterEllipsis" MinHeight="16" />
+          </StackPanel>
+          <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+            <TextBlock Classes="heading" Text="LOG" Margin="0" VerticalAlignment="Center" />
+            <CheckBox Grid.Column="1" Content="Show details" IsChecked="{Binding ShowDetails}" />
+          </Grid>
+          <Border Background="{DynamicResource SurfaceSunkenBrush}" CornerRadius="{DynamicResource CornerRadiusLarge}" Padding="0,6">
+            <ListBox Name="LogList" Classes="log" ItemsSource="{Binding VisibleLog}" Background="Transparent">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:BuildLogLine">
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <TextBlock Classes="log debug" Text="{Binding Time}" />
+                    <TextBlock Grid.Column="1" Classes="log" Classes.debug="{Binding IsDebug}" Classes.warning="{Binding IsWarning}" Classes.error="{Binding IsError}"
+                               Text="{Binding Message}" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </Border>
+        </DockPanel>
+      </Grid>
+
+      <!-- Report -->
+      <ScrollViewer IsVisible="{Binding IsReportPage}" Padding="24,6,24,16">
+        <StackPanel Spacing="20">
+          <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="14">
+            <Panel Width="44" Height="44" VerticalAlignment="Center">
+              <Ellipse Fill="{DynamicResource SuccessBrush}" Opacity="0.14" IsVisible="{Binding ReportSucceeded}" />
+              <Ellipse Fill="{DynamicResource DangerBrush}" Opacity="0.14" IsVisible="{Binding !ReportSucceeded}" />
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Check}" Size="22" Foreground="{DynamicResource SuccessBrush}" IsVisible="{Binding ReportSucceeded}" />
+              <ui:SymbolIcon Data="{x:Static ui:Icons.X}" Size="22" Foreground="{DynamicResource DangerBrush}" IsVisible="{Binding !ReportSucceeded}" />
+            </Panel>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+              <TextBlock Text="{Binding ReportTitle}" FontSize="18" FontWeight="SemiBold" />
+              <TextBlock Classes="caption muted" Text="{Binding ReportSubtitle}" />
+            </StackPanel>
+            <Border Grid.Column="2" Classes="stat" IsVisible="{Binding ReportSucceeded}">
+              <StackPanel>
+                <TextBlock Classes="caption muted" Text="Total size" />
+                <TextBlock Text="{Binding ReportTotalSize}" FontSize="17" FontWeight="SemiBold" />
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="3" Classes="stat" IsVisible="{Binding ReportSucceeded}">
+              <StackPanel>
+                <TextBlock Classes="caption muted" Text="Content" />
+                <TextBlock Text="{Binding ReportAssets}" FontSize="17" FontWeight="SemiBold" />
+                <TextBlock Classes="caption muted" Text="{Binding ReportContentSize}" />
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <StackPanel Spacing="10" IsVisible="{Binding ReportSucceeded}">
+            <vm:BuildSizeBar Slices="{Binding ReportSlices}" Height="12" />
+            <ItemsControl ItemsSource="{Binding ReportSlices}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <UniformGrid Columns="3" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:BuildSizeSlice">
+                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,3,24,3">
+                    <Border Width="10" Height="10" CornerRadius="3" Background="{Binding Brush}" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                      <TextBlock Text="{Binding Name}" FontWeight="Medium" />
+                      <TextBlock Classes="caption muted" Text="{Binding Files}" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                      <TextBlock Classes="mono" FontSize="12" Text="{Binding Size}" />
+                      <TextBlock Classes="caption muted mono" Text="{Binding Percent}" MinWidth="32" TextAlignment="Right" VerticalAlignment="Center" />
+                    </StackPanel>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+
+          <Grid ColumnDefinitions="*,24,*">
+            <StackPanel IsVisible="{Binding ReportSucceeded}">
+              <TextBlock Classes="heading" Text="LARGEST ASSETS" />
+              <ItemsControl ItemsSource="{Binding ReportLargest}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="build:BuildAssetSize">
+                    <Grid ColumnDefinitions="*,Auto,70" ColumnSpacing="10" Margin="0,3">
+                      <TextBlock Classes="mono" FontSize="12" Text="{Binding Path}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="1" Classes="caption muted" Text="{Binding Kind}" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="2" Classes="mono" FontSize="12" TextAlignment="Right"
+                                 Text="{Binding StoredSize, Converter={x:Static vm:BuildConverters.Size}}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+            <StackPanel Grid.Column="2" IsVisible="{Binding ShowReportSteps}">
+              <TextBlock Classes="heading" Text="STEPS" />
+              <ItemsControl ItemsSource="{Binding ReportSteps}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:BuildStepRow">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,3">
+                      <ui:SymbolIcon Data="{x:Static ui:Icons.CheckCircle}" Size="13" Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="12" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="2" Classes="mono muted" FontSize="12" Text="{Binding Duration}" VerticalAlignment="Center" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+            <StackPanel Grid.Column="2" IsVisible="{Binding HasReportProblems}">
+              <TextBlock Classes="heading" Text="{Binding ProblemsTitle}" />
+              <ItemsControl ItemsSource="{Binding ReportProblems}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:BuildLogLine">
+                    <Button Classes="subtle" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="6,4" Margin="-6,0"
+                            Command="{Binding $parent[ItemsControl].((vm:BuildDialogViewModel)DataContext).OpenProblemCommand}" CommandParameter="{Binding}"
+                            IsHitTestVisible="{Binding HasFile}">
+                      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <ui:SymbolIcon Data="{x:Static ui:Icons.AlertCircle}" Size="13" Foreground="{DynamicResource DangerBrush}" IsVisible="{Binding IsError}"
+                                       VerticalAlignment="Top" Margin="0,2,0,0" />
+                        <ui:SymbolIcon Data="{x:Static ui:Icons.AlertTriangle}" Size="13" Foreground="{DynamicResource WarningBrush}" IsVisible="{Binding IsWarning}"
+                                       VerticalAlignment="Top" Margin="0,2,0,0" />
+                        <TextBlock Grid.Column="1" Text="{Binding Message}" TextWrapping="Wrap" FontSize="12" FontWeight="Normal" />
+                      </Grid>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Grid>
+
+          <Border Classes="card" Padding="12,8" IsVisible="{Binding ReportSucceeded}">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.PackageExport}" Size="14" Foreground="{DynamicResource TextMutedBrush}" />
+              <SelectableTextBlock Grid.Column="1" Text="{Binding ReportOutput}" FontFamily="{DynamicResource MonoFontFamily}" FontSize="12"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+            </Grid>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+    </Panel>
+
+    <ui:Dialog.Footer>
+      <Panel>
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" IsVisible="{Binding IsSettingsPage}">
+          <Button Content="Close" MinWidth="84" IsCancel="True" Command="{Binding CloseCommand}" />
+          <Button MinWidth="96" Command="{Binding BuildCommand}" ToolTip.Tip="Build (Ctrl+Shift+B)">
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Hammer}" Size="14" />
+              <TextBlock Text="Build" />
+            </StackPanel>
+          </Button>
+          <Button Classes="accent" MinWidth="120" IsDefault="True" Command="{Binding BuildAndRunCommand}" ToolTip.Tip="Build and start the game on this computer">
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Play}" Size="14" />
+              <TextBlock Text="Build and Run" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" IsVisible="{Binding IsBuildingPage}">
+          <Button Content="Hide" MinWidth="84" Command="{Binding CloseCommand}" ToolTip.Tip="Keep building in the background" />
+          <Button Classes="danger" Content="Cancel build" MinWidth="110" Command="{Binding CancelBuildCommand}" IsEnabled="{Binding IsBuilding}" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" IsVisible="{Binding IsReportPage}">
+          <Button MinWidth="84" Command="{Binding BackToSettingsCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.ArrowLeft}" Size="14" />
+              <TextBlock Text="Settings" />
+            </StackPanel>
+          </Button>
+          <Button MinWidth="110" Command="{Binding OpenOutputCommand}" IsVisible="{Binding ReportSucceeded}">
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.FolderOpen}" Size="14" />
+              <TextBlock Text="Open folder" />
+            </StackPanel>
+          </Button>
+          <Button MinWidth="84" Command="{Binding RunBuildCommand}" IsVisible="{Binding CanRunReport}">
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.Play}" Size="14" />
+              <TextBlock Text="Run" />
+            </StackPanel>
+          </Button>
+          <Button Classes="accent" Content="Done" MinWidth="84" IsDefault="True" IsCancel="True" Command="{Binding CloseCommand}" />
+        </StackPanel>
+      </Panel>
+    </ui:Dialog.Footer>
+  </ui:Dialog>
+</UserControl>

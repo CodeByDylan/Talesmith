@@ -1,0 +1,31 @@
+<Project>
+  <!-- Linux builds carry the ICU library that .NET needs for culture data, so the editor and exported games start without libicu installed. -->
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'linux-x64' and ('$(OutputType)' == 'Exe' or '$(OutputType)' == 'WinExe')">
+    <PackageReference Include="Microsoft.ICU.ICU4C.Runtime.linux-x64" />
+    <RuntimeHostConfigurationOption Include="System.Globalization.AppLocalIcu" Value="$(IcuVersion)" />
+  </ItemGroup>
+
+  <!-- Published applications carry the licenses of what they ship in a licenses folder: Talesmith's own, and the license and notices
+       files of every NuGet package that contributes files. Exported games copy the published player, so they carry them too. -->
+  <Target Name="PublishLicenses" AfterTargets="ComputeResolvedFilesToPublishList" Condition="'$(OutputType)' == 'Exe' or '$(OutputType)' == 'WinExe'">
+    <ItemGroup>
+      <_ShippedPackage Include="%(ResolvedFileToPublish.NuGetPackageId)" Version="%(ResolvedFileToPublish.NuGetPackageVersion)"
+                       Condition="'%(ResolvedFileToPublish.NuGetPackageId)' != ''" />
+    </ItemGroup>
+    <RemoveDuplicates Inputs="@(_ShippedPackage)">
+      <Output TaskParameter="Filtered" ItemName="_ShippedPackageOnce" />
+    </RemoveDuplicates>
+    <ItemGroup>
+      <_ShippedPackageOnce Folder="$(NuGetPackageRoot)$([System.String]::Copy('%(Identity)').ToLowerInvariant())/%(Version)/" />
+      <_PackageLicense Include="%(_ShippedPackageOnce.Folder)LICENSE*;%(_ShippedPackageOnce.Folder)License*;%(_ShippedPackageOnce.Folder)license*;%(_ShippedPackageOnce.Folder)THIRD-PARTY-NOTICES*;%(_ShippedPackageOnce.Folder)ThirdPartyNotices*;%(_ShippedPackageOnce.Folder)NOTICE*"
+                       PackageId="%(_ShippedPackageOnce.Identity)" />
+      <_TalesmithLicense Include="$(MSBuildThisFileDirectory)LICENSE;$(MSBuildThisFileDirectory)NOTICE" />
+      <ResolvedFileToPublish Include="@(_PackageLicense)" RelativePath="licenses/%(_PackageLicense.PackageId)/%(_PackageLicense.Filename)%(_PackageLicense.Extension)"
+                             CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+      <ResolvedFileToPublish Include="@(_TalesmithLicense)" RelativePath="licenses/Talesmith/%(_TalesmithLicense.Filename)%(_TalesmithLicense.Extension)"
+                             CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+      <ResolvedFileToPublish Include="$(MSBuildThisFileDirectory)THIRD-PARTY-NOTICES.md" RelativePath="licenses/THIRD-PARTY-NOTICES.md" CopyToPublishDirectory="PreserveNewest"
+                             ExcludeFromSingleFile="true" />
+    </ItemGroup>
+  </Target>
+</Project>

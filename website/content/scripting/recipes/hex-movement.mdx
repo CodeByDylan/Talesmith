@@ -1,0 +1,205 @@
+---
+title: "Top-down movement on hex grids"
+description: "Move a character from hex to hex with the keyboard or by clicking, with pathfinding around blocked tiles and smooth steps between cells."
+---
+
+A recipe for top-down movement on a hex map: stepping to a neighbor in the direction of the Move action, clicking a hex to walk there along the shortest path, and tweening the character from cell center to cell center. It is a script version of the movement system in the Hex Quest sample and fits the top-down hex adventure template as it is.
+
+## The script
+
+```csharp title="assets/scripts/HexWalker.cs"
+using Talesmith.Grids;
+using Talesmith.Runtime.Tweens;
+
+namespace MyGame;
+
+/// <summary>Walks from hex to hex: one step per press of Move, or along a path to a clicked hex.</summary>
+public sealed class HexWalker : Script
+{
+    [Range(0.05, 1)]
+    [Tooltip("Seconds one step from cell to cell takes.")]
+    public float StepSeconds = 0.22f;
+
+    [Tooltip("Tiles whose tileset entry sets this bool property to true cannot be entered.")]
+    public string BlockedProperty = "blocked";
+
+    [Tooltip("Where the entity stands relative to the center of its cell, such as a little below it for a sprite whose origin is its feet.")]
+    public Vector2 Offset = new(0, 10);
+
+    [Range(100, 100000)]
+    [Tooltip("The most cells a path search visits before it gives up.")]
+    public int SearchLimit = 4000;
+
+    private readonly List<GridCoord> _path = [];
+    private ScriptTileMap _map;
+    private GridPathfinder? _pathfinder;
+    private CellCost? _cost;
+    private GridCoord _cell;
+    private int _nextOnPath;
+    private bool _stepping;
+
+    /// <summary>The cell the entity stands on, or is leaving while it steps.</summary>
+    public GridCoord Cell => _cell;
+
+    protected override void OnStart()
+    {
+        if (!TryFindTileMap(out _map))
+        {
+            Log.Warning("No tile map in the scene; nothing to walk on.");
+            Enabled = false;
+            return;
+        }
+
+        _pathfinder = new GridPathfinder(_map.Map.Layout);
+        _cost = CostOf;
+        _cell = _map.WorldToCell(Position - Offset);
+        Position = _map.CellToWorld(_cell) + Offset;
+    }
+
+    protected override void Update()
+    {
+        if (_stepping)
+            return;
+
+        var move = Input.Vector("Move");
+        if (move != Vector2.Zero)
+        {
+            _path.Clear();
+            var next = NeighborToward(move);
+            if (CanEnter(next))
+                Run(() => StepAsync(next));
+            return;
+        }
+
+        if (Input.WasPressed(MouseButton.Left) && Input.IsMouseOverView)
+            PlanPath(_map.WorldToCell(Input.MouseWorldPosition));
+
+        if (_nextOnPath < _path.Count)
+        {
+            var next = _path[_nextOnPath++];
+            Run(() => StepAsync(next));
+        }
+    }
+
+    private async Task StepAsync(GridCoord next)
+    {
+        _stepping = true;
+        var from = Position;
+        var to = _map.CellToWorld(next) + Offset;
+        if (MathF.Abs(to.X - from.X) > 1)
+            GetComponent<Sprite>().FlipX = to.X < from.X;
+        await Tweens.To(from, to, StepSeconds, SetPosition, Easing.QuadInOut);
+        _cell = next;
+        _stepping = false;
+    }
+
+    private void SetPosition(Vector2 position) => Position = position;
+
+    private void PlanPath(GridCoord goal)
+    {
+        _path.Clear();
+        _nextOnPath = 1;
+        if (goal == _cell || !_pathfinder!.TryFindPath(_cell, goal, _cost!, _path, SearchLimit))
+            _path.Clear();
+    }
+
+    private GridCoord NeighborToward(Vector2 direction)
+    {
+        var layout = _map.Map.Layout;
+        var origin = layout.CellToWorld(_cell);
+        var wanted = Vector2.Normalize(direction);
+        var best = _cell;
+        var bestDot = float.MinValue;
+        foreach (var offset in layout.NeighborOffsets)
+        {
+            var neighbor = _cell + offset;
+            var dot = Vector2.Dot(Vector2.Normalize(layout.CellToWorld(neighbor) - origin), wanted);
+            if (dot > bestDot)
+            {
+                bestDot = dot;
+                best = neighbor;
+            }
+        }
+
+        return best;
+    }
+
+    private bool CanEnter(GridCoord cell)
+    {
+        var tile = _map.TopTileAt(cell);
+        if (tile.IsEmpty)
+            return false;
+        var info = _map.Map.FindTileset(tile.TilesetId)?.Find(tile.TileId);
+        return info?.Properties.GetBool(BlockedProperty) != true;
+    }
+
+    private float CostOf(GridCoord cell) => CanEnter(cell) ? 1 : float.PositiveInfinity;
+}
+```
+
+## Set up the scene
+
+<Steps>
+
+1. Create a project from the **Top-down hex adventure** template. Its scene has an **Island** entity showing a hex map, a **Hero** with a sprite and an animator, and a **Move** action bound to WASD and the arrow keys.
+2. Open the map's tileset and add a bool property named `blocked`, set to true, to the tiles the hero may not enter: the two water tiles and the mountain. See [Tilesets](/guide/tile-maps/tilesets).
+3. Select the **Hero** and add the **Hex Walker** script.
+4. Press <Keys>Ctrl+P</Keys>. Hold a direction key to walk, or click a hex to walk there around the water and mountains.
+
+</Steps>
+
+In another project, the walker needs a scene with an entity that shows a tile map (a **Tile Map Renderer**) and a **Move** vector action in the input profile. It walks on any grid, square maps included.
+
+## How it works
+
+### World positions and cells
+
+`TryFindTileMap` finds the first entity showing a tile map and returns a `ScriptTileMap` for it. Its `WorldToCell` and `CellToWorld` take the map entity's position into account, so the walker keeps working when the map is placed somewhere other than the origin. The `Map.Layout` methods work in map coordinates, where cell (0, 0) is centered on (0, 0); the walker uses them only for directions between cells, where the map's position cancels out. See [Tile maps from scripts](../scripts/tile-maps.mdx).
+
+`Offset` puts the character's feet a little below the cell center, which suits a sprite whose origin is at its feet. `OnStart` snaps the character to the center of the cell it was placed in, so it never starts between cells.
+
+### Blocked cells
+
+A cell can be entered when it has a tile and that tile's entry in its tileset does not set `blocked`. `TopTileAt` looks at every tile layer from the top down, so a mountain painted on a layer above grass blocks the cell. The same check feeds the pathfinder as a `CellCost`: 1 for a cell that can be entered, infinity for one that cannot. Return higher costs for slow ground, such as 3 for forest, and paths go around it when a detour is cheaper.
+
+Tile properties belong to the tileset, so marking a tile blocked once applies everywhere it is painted. Hex Quest uses exactly this property. For per-cell data that differs between cells with the same tile, use a separate tile layer as a mask, or map objects.
+
+### Stepping with the keyboard
+
+`Input.Vector("Move")` is a direction with Y pointing down. `NeighborToward` compares it with the direction to each neighbor, from `Layout.NeighborOffsets`, and picks the closest match. Hex grids have six neighbors and square grids four, and the same loop handles both. Holding a key keeps walking, because the next step starts in the first `Update` after the previous one ends.
+
+### Clicking a hex
+
+`Input.MouseWorldPosition` is the pointer in world units, seen through the camera of the last frame, and `WorldToCell` turns it into the clicked cell. `Input.IsMouseOverView` ignores clicks on the bars around a `fit` view, which would otherwise send the hero toward a cell the player cannot see. `GridPathfinder.TryFindPath` runs A* from the current cell to the goal and fills `_path` with the cells to walk, start included, which is why walking begins at index 1. It returns false when the goal is blocked or cannot be reached within `SearchLimit` visited cells, which bounds the cost of a click on an unreachable island. The pathfinder reuses its buffers between searches, so keep one instance per walker rather than creating one per click.
+
+A key press while a path is being walked clears the path, so the keyboard always wins.
+
+### Tweening between cells
+
+`StepAsync` runs as a routine: it turns the sprite toward the step, then awaits `Tweens.To`, which calls `SetPosition` every frame with a position eased from one cell center to the next. `Easing.QuadInOut` starts and ends each step gently. While `_stepping` is true, `Update` ignores input, and when the tween ends the routine records the new cell. If the hero is destroyed mid-step, the tween stops and the routine never resumes. See [Waiting, routines and tweens](../scripts/waiting.mdx).
+
+The tween runs on game time, so it follows the time scale and stops while the game is paused. A lambda and a routine are created per step, not per frame, which costs nothing noticeable; the game-loop analyzer does not warn about it.
+
+### Animation
+
+The template's hero only has an idle animation. Add a `walk` animation to the hero texture's import settings, then set `GetComponent<SpriteAnimator>().Animation` to `"walk"` at the start of `StepAsync` and back to `"idle"` when no step follows, as the [platformer controller](./platformer.mdx) does by state.
+
+## Compared with Hex Quest
+
+The Hex Quest sample moves its hero with `HeroMovementSystem`, an ECS system in its gameplay plugin (`samples/Talesmith.Samples.HexQuest`). The rules are the same: the same best-neighbor choice, the same `blocked` property through `Walkability.CanEnter`, A* with `GridPathfinder` limited to 4000 visited cells. The differences are where state lives and how time passes:
+
+| | Hex Walker script | Hex Quest's system |
+| --- | --- | --- |
+| State | Private fields of the script | `Hero` and `HeroPath` components on the hero entity |
+| Stepping | A tween awaited in a routine | `StepProgress` advanced by delta time each frame, eased with `Easing.QuadInOut` |
+| Map position | `ScriptTileMap` conversions, so the map may be anywhere | The map's layout directly, assuming the map is at the origin |
+| Extras | None | A step sound, walk and idle animations, the HUD's cell and terrain name, and `PlayerControl.IsSuspended` so cutscenes can take control |
+
+A script is quicker to write and to change while the game runs. A system pays off when many entities move this way, or when other plugin code, such as Hex Quest's cutscenes, needs to suspend or drive the movement.
+
+## Related
+
+- [Tile maps from scripts](../scripts/tile-maps.mdx)
+- [Input](../scripts/input.mdx)
+- [Waiting, routines and tweens](../scripts/waiting.mdx)
+- [Systems](../concepts/systems.mdx)

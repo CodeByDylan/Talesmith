@@ -1,0 +1,109 @@
+---
+title: "The interface"
+sidebar_label: "The interface"
+description: "A tour of the editor window: the app bar, tool options, dock workspace, panels and status bar."
+---
+
+This page names every part of the editor window, so the rest of the guide can refer to them. It goes from the app bar at the top to the status bar at the bottom, lists the panels and what each is for, and covers the basics of moving around the scene.
+
+<Screenshot
+  name="guide/editor-window"
+  caption="The Default layout: the hierarchy on the left, the Scene panel in the middle with the bottom panels below it, and the Inspector on the right."
+  priority
+/>
+
+## The app bar
+
+The row at the top of the window, from left to right:
+
+| Part | What it does |
+| --- | --- |
+| **Main menu** | **File**, **Edit**, **Scene**, **Assets**, **GameObject**, **Component**, **Tools**, **Window** and **Help**. Plugins can add menus of their own. |
+| **Project and scene** | The project's name and the open scene's file. An **Unsaved** badge appears when the scene has changes you have not saved. |
+| **Play controls** | **Play** (<Keys>Ctrl+P</Keys>), **Pause** (<Keys>Ctrl+Shift+P</Keys>), **Step one frame** (<Keys>F10</Keys>) and **Stop** (<Keys>Shift+F5</Keys>). See [Play mode](../play-and-test/play-mode.mdx). |
+| **Undo and Redo** | <Keys>Ctrl+Z</Keys> and <Keys>Ctrl+Shift+Z</Keys>. See [Undo and history](../workflow/history.mdx). |
+| **Commands** | Opens the [command palette](../workflow/command-palette.mdx) (<Keys>Ctrl+K</Keys>), which searches commands, entities and assets. |
+| **Build settings** | The package button opens the [Build dialog](../exporting.mdx). |
+| **Theme** | Switches between the light and dark theme (<Keys>Ctrl+Shift+T</Keys>). |
+| **Settings** | Opens the [editor settings](../workflow/settings.mdx) (<Keys>Ctrl+,</Keys>). |
+
+While the game plays, the app bar takes on a tint of the accent color and a strip in the accent color runs along its bottom edge. While the game is paused, the strip turns amber. You can always tell at a glance whether you are editing or playing.
+
+In a narrow window, the app bar leaves out what it can do without, so that every button stays in reach: first the **Commands** label and its keys, then the name beside the logo, then the project and scene name. If the menus still do not fit, they move under one menu button.
+
+## The tool options bar
+
+The row below the app bar starts with the active tool's icon and name, followed by that tool's options: a tile brush's tile, size and shape, for example. The right side holds settings for the scene view:
+
+| Control | What it does |
+| --- | --- |
+| **Center** | Puts the transform handles at the selection's center instead of the pivot of the last selected entity (<Keys>Z</Keys>). |
+| **Local** | Turns the handles with the entity's rotation instead of the world axes (<Keys>X</Keys>). |
+| **Snap** | Snaps moves to the grid (<Keys>Ctrl+Shift+G</Keys>). Holding <Keys>Ctrl</Keys> while you drag snaps without turning it on. |
+| Grid size | The grid spacing in world units, 32 by default. |
+| Grid | Shows or hides the grid (<Keys>Ctrl+G</Keys>). While a tile tool is active, this is the [tile grid](../tile-maps/painting.mdx#tile-grid). |
+| **Preview** | Animates sprites, particles and lights in the scene view without running gameplay (<Keys>Ctrl+Alt+P</Keys>). |
+| Layout | Switches between [layouts](../workflow/layouts.mdx): Default, Tile Mapping, Effects, Minimal and your own. |
+| Scene | Switches to another scene of the project. |
+
+When the tool's options and the scene view's settings do not fit side by side, **Center**, **Local**, **Snap** and **Preview** show only their icons. If that is still too wide, the scene view's settings move to a second row.
+
+## The dock workspace
+
+The area between the tool options bar and the status bar holds the panels. Panels sit in tab groups that you can rearrange: drag a tab to another group, to an edge of the workspace or out of the window into a window of its own, double-click a tab to maximize its group, and drag the splitters between groups to resize them. **Window › Panels** shows any panel, and **Window › Layout** switches between layout presets. The layout is saved per project. See [Panels and layouts](../workflow/layouts.mdx).
+
+## The panels
+
+| Panel | Shortcut | What it is for |
+| --- | --- | --- |
+| **Scene** | | The open scene, where you select, move and paint. See [The scene viewport](../scenes/viewport.mdx). |
+| **Game** | | The running game during [play mode](../play-and-test/play-mode.mdx). |
+| **Hierarchy** | | The scene's entities as a tree. See [The hierarchy](../scenes/hierarchy.mdx). |
+| **Inspector** | <Keys>Ctrl+Shift+I</Keys> | The components of the selected entities, the settings of the selected asset, or the scene's settings. See [The inspector](../scenes/inspector.mdx). |
+| **History** | <Keys>Ctrl+Shift+H</Keys> | Every undo step, to jump back and forward. See [Undo and history](../workflow/history.mdx). |
+| **Assets** | <Keys>Ctrl+Shift+A</Keys> | The files of the project. See [The Assets panel](../assets/assets-panel.mdx). |
+| **Console** | <Keys>Ctrl+Shift+C</Keys> | Messages, warnings and errors. See [Debugging and the console](../play-and-test/console.mdx). |
+| **Tile Map** | <Keys>Ctrl+Shift+M</Keys> | Layers, tilesets, terrains and properties of the edited map. See [Maps and grids](../tile-maps/maps-and-grids.mdx). |
+| **Particles** | | The particle editor with its live preview and presets. See [Particles](../effects/particles.mdx). |
+| **Lighting** | | The scene's ambient light, quality and every light at a glance. See [Lighting](../effects/lighting.mdx). |
+| **Sprite Editor** | | Slices a texture into sprites and builds animations. See [Sprites and the sprite editor](../assets/sprites.mdx). |
+| **Plugins** | | The game's plugins, with a switch for each. See [Plugins](/plugins). |
+
+The Scene and Hierarchy panels cannot be closed. Plugins can add panels; they appear in **Window › Panels** like the built-in ones.
+
+## The status bar
+
+The row at the bottom of the window reports, from left to right:
+
+| Item | Shows |
+| --- | --- |
+| Activity | What the editor is doing: *Scanning assets 40%*, *Loading scene…*, *Playing*, *Paused* or *Ready*. |
+| Scene | The open scene's file. |
+| Entities | How many entities the scene has. |
+| Map cell | While you edit a tile map, the cell under the pointer: *col 12 row 5* on rectangular maps, *q 3 r -2* on hex maps. |
+| Build | During and after a build: *Building 60%*, *Built in 48 s* or *Build failed*. Click it to see the build report. |
+| Scripts | *Compiling scripts…*, *Scripts compiled in 412 ms*, *2 script errors* or *No scripts*. Click it to see the script messages in the console. |
+| Tool hint | What the active tool does with each mouse button and modifier. |
+| Pointer | The world position under the pointer, such as *x 128 y 176*. |
+| Zoom | The scene view's zoom. |
+| Frame rate | The scene view's frames per second while it animates, or *Idle*. |
+
+The scene view only redraws when something changes, so the frame rate reads *Idle* most of the time. That saves power and leaves the processor to the game while you play. It counts frames when you navigate, drag or turn on **Preview**, and shows the game's frame rate during play mode.
+
+## Moving around the scene
+
+| Do | How |
+| --- | --- |
+| Pan | Drag with the middle or right mouse button, hold <Keys>Space</Keys> and drag, or use the Hand tool (<Keys>H</Keys>) |
+| Zoom around the pointer | Mouse wheel; <Keys>Ctrl+=</Keys> and <Keys>Ctrl+-</Keys> step through zoom levels; <Keys>Ctrl+1</Keys> shows 100% |
+| Pan sideways | <Keys>Shift</Keys> and the wheel, or a touchpad's horizontal scroll |
+| Frame the selection | <Keys>F</Keys> |
+| Frame the whole scene | <Keys>Shift+F</Keys> |
+| Go to the origin | <Keys>Home</Keys> |
+
+The zoom bar in the bottom right corner of the Scene panel has the same zoom steps and frame buttons. See [The scene viewport](../scenes/viewport.mdx) for selecting and transforming entities.
+
+## Related
+
+- [Your first game](./first-game.mdx): put the interface to work.
+- [Keyboard shortcuts](../reference/keyboard-shortcuts.mdx): every shortcut in one place.

@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "id": "391f52f3e8874d5988275a4f1ca43e34",
+  "environment": {
+    "clearColor": "#8ED0F0",
+    "ambientLight": "#FFFFFF",
+    "ambientIntensity": 1,
+    "gravity": [0, 980],
+    "renderLayers": [
+      {
+        "name": "Background",
+        "layer": 0,
+        "lit": true
+      },
+      {
+        "name": "Terrain",
+        "layer": 100,
+        "lit": true
+      },
+      {
+        "name": "Decals",
+        "layer": 200,
+        "lit": true
+      },
+      {
+        "name": "Entities",
+        "layer": 300,
+        "lit": true
+      },
+      {
+        "name": "Effects",
+        "layer": 400,
+        "lit": true
+      },
+      {
+        "name": "Overlay",
+        "layer": 500,
+        "lit": false
+      }
+    ]
+  },
+  "entities": [
+    {
+      "id": "9a4b955c2c3444ba803f594f7a3712e8",
+      "name": "Main Camera",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [320, 704]
+          }
+        },
+        {
+          "type": "Camera",
+          "data": {
+            "zoom": 1,
+            "pixelSnap": true,
+            "bounds": [-1152, -384, 10720, 1792]
+          }
+        }
+      ]
+    },
+    {
+      "id": "2f55c90f9e5c4ba78cee9b9d2dffad6e",
+      "name": "far-isles",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [0, 0]
+          }
+        },
+        {
+          "type": "TileMapRenderer",
+          "data": {
+            "map": "2f848e30940742ec86eed30841c4564f",
+            "renderLayer": 100
+          }
+        }
+      ]
+    },
+    {
+      "id": "595fe7850ec945fc99a2b4edb5b540ba",
+      "name": "emerald-coast",
+      "parent": null,
+      "active": true,
+      "editor": {
+        "hidden": false,
+        "locked": false
+      },
+      "prefab": null,
+      "components": [
+        {
+          "type": "Transform",
+          "data": {
+            "position": [0, 0]
+          }
+        },
+        {
+          "type": "TileMapRenderer",
+          "data": {
+            "map": "f158e3d05daa41ceb01f59e3aa74f844",
+            "renderLayer": 104
+          }
+        }
+      ]
+    }
+  ]
+}

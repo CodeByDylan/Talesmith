@@ -1,0 +1,19 @@
+{
+  // Default key bindings of Hex Quest. Players can rebind these; the game saves its own copy.
+  "actions": {
+    "Move": {
+      "kind": "vector",
+      "bindings": [
+        { "type": "vector", "up": "W", "down": "S", "left": "A", "right": "D" },
+        { "type": "vector", "up": "Up", "down": "Down", "left": "Left", "right": "Right" }
+      ]
+    },
+    "Interact": {
+      "kind": "button",
+      "bindings": [ { "type": "key", "key": "E" }, { "type": "key", "key": "Space" }, { "type": "key", "key": "Enter" } ]
+    },
+    "ZoomIn": { "kind": "button", "bindings": [ { "type": "key", "key": "Plus" }, { "type": "key", "key": "Add" } ] },
+    "ZoomOut": { "kind": "button", "bindings": [ { "type": "key", "key": "Minus" }, { "type": "key", "key": "Subtract" } ] },
+    "Menu": { "kind": "button", "bindings": [ { "type": "key", "key": "Escape" } ] }
+  }
+}

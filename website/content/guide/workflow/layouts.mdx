@@ -1,0 +1,91 @@
+---
+title: "Panels and layouts"
+description: "Arrange panels by dragging tabs, open them in windows of their own, switch between layout presets and save your own layouts."
+---
+
+The editor's workspace is made of panels in tab groups that you can rearrange to suit the work: a tall Tile Map panel for painting, the Particles and Lighting panels side by side for effects, or just the scene and the Inspector on a small screen. This page covers moving and docking panels, floating windows, maximizing and closing panels, showing hidden panels, the layout presets, and saving your own layouts.
+
+<Screenshot name="guide/layout-effects" caption="The Effects layout: the Particles and Lighting panels above the Inspector, next to the scene." priority />
+
+## Move and dock panels
+
+Drag a panel's tab to move it. While you drag, guides appear: one in the middle of each edge of the workspace, and over the group under the pointer, one for each of its sides with one for its tabs in the middle. The guide under the pointer lights up, the area the panel would take fills with the accent color, and the tab you drag says where the panel goes, such as **Left of Inspector**. Drop the tab:
+
+- **Onto another group's tabs** to add it as a tab there, where the line between the tabs shows.
+- **Onto the middle guide of a group**, or the middle of the group, to add it as a tab.
+- **Onto a side guide of a group**, or near that side of the group, to split the group and dock the panel on that side.
+- **Onto a guide at the edge of the workspace**, or close to that edge, to give the panel a full-height or full-width column or row.
+- **Outside the editor window** to open the panel in a window of its own. See [Floating windows](#floating-windows).
+
+The group the panel lands in flashes. Press <Keys>Escape</Keys> to cancel. Drag the splitters between groups to resize them; double-click a splitter to make both sides equal. A group keeps at least 140 × 80 pixels while the workspace has room for it.
+
+## Floating windows
+
+A panel can have a window of its own, for a second screen or to keep it in view next to the scene.
+
+<Steps>
+
+1. Drag the panel's tab outside the editor window. An outline shows the window that opens there.
+2. Release the tab.
+
+</Steps>
+
+Or right-click the tab and choose **Move to new window**: the window opens over the panel, at the same size.
+
+A floating window works like the workspace. Drag more tabs into it and dock them beside each other, and move and resize it. To bring a panel back, drag its tab onto the editor window, or right-click the tab and choose **Move to main window** to return it to where it was. Closing a floating window returns all of its panels to where they were. The editor's keyboard shortcuts work in floating windows too.
+
+The layout saves floating windows with their place and size, so they open again with the project. A window whose screen is no longer connected opens on the editor's screen. The last panel of the workspace cannot float. **Window › Layout › Reset layout** returns every panel to the workspace.
+
+## Maximize, close and reopen
+
+| Do | How |
+| --- | --- |
+| Maximize a group to fill the workspace | Double-click its tab, or click the maximize button that appears in the group's header when you hover it |
+| Restore the layout | Double-click the tab again, or click **Restore layout** |
+| Close a panel | Click the × on its tab, or middle-click the tab |
+| Close the other tabs of a group | Right-click a tab and choose **Close other tabs** |
+| Reopen a panel | **Window › Panels**, or the panel's shortcut |
+| Switch between tabs that do not fit | The chevron at the end of the tab strip lists every tab of the group |
+
+A closed panel reopens where it was. The **Scene** and **Hierarchy** panels cannot be closed.
+
+| Panel | Shortcut |
+| --- | --- |
+| **Inspector** | <Keys>Ctrl+Shift+I</Keys> |
+| **History** | <Keys>Ctrl+Shift+H</Keys> |
+| **Assets** | <Keys>Ctrl+Shift+A</Keys> |
+| **Console** | <Keys>Ctrl+Shift+C</Keys> |
+| **Tile Map** | <Keys>Ctrl+Shift+M</Keys> |
+
+The **Game**, **Sprite Editor**, **Plugins**, **Particles** and **Lighting** panels have no shortcut; open them from **Window › Panels**. Some open by themselves when you need them: the Game panel when you press Play, the Sprite Editor when you open a texture's sprites.
+
+## Layout presets
+
+Switch layouts with the layout picker on the right of the tool options bar, or **Window › Layout**:
+
+| Preset | Arrangement | For |
+| --- | --- | --- |
+| **Default** | The hierarchy on the left, the Scene and Game panels in the middle with Assets, Console, Tile Map, Particles and Lighting below them, the Inspector and History on the right | General editing |
+| **Tile Mapping** | As Default, with a tall Tile Map panel at the top of the right column and the Inspector below it | Painting maps |
+| **Effects** | As Default, with the Particles and Lighting panels at the top of the right column | Particles and lights |
+| **Minimal** | The Scene and Game panels with the Inspector beside them | Small screens, or focusing on the scene |
+
+## Save your own layouts
+
+<Steps>
+
+1. Arrange the panels the way you want.
+2. Choose **Window › Layout › Save layout as…**.
+3. Type a **Layout name** and click **Save**.
+
+</Steps>
+
+Saved layouts appear after the presets in the layout picker and in **Window › Layout**. **Window › Layout › Reset layout** returns to the Default layout.
+
+Layouts are saved per project, in `.talesmith/layout.json`, so each project opens the way you left it, floating windows included. The file is saved a moment after every change.
+
+## Related
+
+- [The interface](../getting-started/interface.mdx)
+- [Editor settings](./settings.mdx)
+- [Panels](/plugins/editor/panels), for plugins that add panels of their own

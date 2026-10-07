@@ -1,0 +1,78 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <CornerRadius x:Key="CornerRadiusSmall">4</CornerRadius>
+  <CornerRadius x:Key="CornerRadiusMedium">6</CornerRadius>
+  <CornerRadius x:Key="CornerRadiusLarge">10</CornerRadius>
+
+  <x:Double x:Key="FontSizeCaption">11</x:Double>
+  <x:Double x:Key="FontSizeBody">13</x:Double>
+  <x:Double x:Key="FontSizeSubtitle">15</x:Double>
+  <x:Double x:Key="FontSizeTitle">20</x:Double>
+  <x:Double x:Key="ControlHeight">30</x:Double>
+
+  <SolidColorBrush x:Key="AxisXBrush" Color="#E5534B" />
+  <SolidColorBrush x:Key="AxisYBrush" Color="#4FAE5C" />
+  <SolidColorBrush x:Key="AxisZBrush" Color="#4A8FEA" />
+
+  <FontFamily x:Key="MonoFontFamily">Cascadia Mono, JetBrains Mono, Consolas, Menlo, DejaVu Sans Mono, monospace</FontFamily>
+  <FontFamily x:Key="UiFontFamily">fonts:Inter#Inter, $Default</FontFamily>
+
+  <!-- Fluent metric overrides -->
+  <CornerRadius x:Key="ControlCornerRadius">6</CornerRadius>
+  <CornerRadius x:Key="OverlayCornerRadius">8</CornerRadius>
+  <x:Double x:Key="ControlContentThemeFontSize">13</x:Double>
+  <FontFamily x:Key="ContentControlThemeFontFamily">fonts:Inter#Inter, $Default</FontFamily>
+
+  <Thickness x:Key="TextControlThemePadding">9,5,9,5</Thickness>
+  <x:Double x:Key="TextControlThemeMinHeight">30</x:Double>
+  <x:Double x:Key="TextControlThemeMinWidth">48</x:Double>
+  <Thickness x:Key="TextControlBorderThemeThickness">1</Thickness>
+  <Thickness x:Key="TextControlBorderThemeThicknessFocused">1</Thickness>
+
+  <x:Double x:Key="ComboBoxMinHeight">30</x:Double>
+  <Thickness x:Key="ComboBoxPadding">9,4,6,4</Thickness>
+  <Thickness x:Key="ComboBoxItemThemePadding">8,5,8,5</Thickness>
+  <Thickness x:Key="ComboBoxDropdownBorderPadding">4</Thickness>
+  <Thickness x:Key="ComboBoxDropdownContentMargin">0</Thickness>
+
+  <Thickness x:Key="MenuFlyoutPresenterThemePadding">4</Thickness>
+  <Thickness x:Key="MenuFlyoutItemThemePadding">8,5,8,5</Thickness>
+  <Thickness x:Key="MenuFlyoutItemThemePaddingNarrow">8,4,8,4</Thickness>
+  <Thickness x:Key="MenuFlyoutSeparatorThemePadding">-4,4,-4,4</Thickness>
+  <x:Double x:Key="MenuFlyoutThemeMinHeight">28</x:Double>
+  <Thickness x:Key="MenuBarItemPadding">9,4,9,4</Thickness>
+  <x:Double x:Key="MenuBarHeight">32</x:Double>
+  <Thickness x:Key="MenuInputGestureTextMargin">24,0,0,0</Thickness>
+
+  <Thickness x:Key="FlyoutContentThemePadding">12</Thickness>
+  <Thickness x:Key="FlyoutBorderThemePadding">0</Thickness>
+  <Thickness x:Key="FlyoutBorderThemeThickness">1</Thickness>
+
+  <x:Double x:Key="ToolTipContentThemeFontSize">12</x:Double>
+  <Thickness x:Key="ToolTipBorderThemePadding">8,5,8,6</Thickness>
+  <x:Double x:Key="ToolTipContentMaxWidth">320</x:Double>
+
+  <x:Double x:Key="ScrollBarSize">10</x:Double>
+
+  <x:Double x:Key="SliderTrackThemeHeight">4</x:Double>
+  <x:Double x:Key="SliderHorizontalThumbWidth">14</x:Double>
+  <x:Double x:Key="SliderHorizontalThumbHeight">14</x:Double>
+  <x:Double x:Key="SliderVerticalThumbWidth">14</x:Double>
+  <x:Double x:Key="SliderVerticalThumbHeight">14</x:Double>
+  <CornerRadius x:Key="SliderThumbCornerRadius">7</CornerRadius>
+  <x:Double x:Key="SliderHorizontalHeight">28</x:Double>
+  <x:Double x:Key="SliderVerticalWidth">28</x:Double>
+  <GridLength x:Key="SliderPreContentMargin">0</GridLength>
+  <GridLength x:Key="SliderPostContentMargin">0</GridLength>
+
+  <x:Double x:Key="CheckBoxMinHeight">26</x:Double>
+  <x:Double x:Key="RadioButtonMinHeight">26</x:Double>
+  <x:Double x:Key="ToggleSwitchThemeMinWidth">0</x:Double>
+
+  <x:Double x:Key="ExpanderMinHeight">36</x:Double>
+  <Thickness x:Key="ExpanderHeaderPadding">12,0,8,0</Thickness>
+  <Thickness x:Key="ExpanderContentPadding">12</Thickness>
+
+  <x:Double x:Key="ProgressBarThemeMinHeight">4</x:Double>
+
+</ResourceDictionary>

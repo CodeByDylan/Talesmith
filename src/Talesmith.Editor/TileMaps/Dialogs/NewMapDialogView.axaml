@@ -1,0 +1,98 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.TileMaps.Dialogs"
+             xmlns:controls="using:Talesmith.Editor.TileMaps.Controls"
+             x:Class="Talesmith.Editor.TileMaps.Dialogs.NewMapDialogView"
+             x:DataType="vm:NewMapDialogViewModel">
+  <ui:Dialog Header="New tile map" Description="Choose the grid. Maps are unbounded and grow as you paint; the map is saved as a .hexy file and shown in the scene." Width="600">
+    <Grid ColumnDefinitions="*,16,184">
+      <StackPanel Spacing="16">
+        <StackPanel Spacing="6">
+          <TextBlock Classes="section" Text="Grid" />
+          <ui:SegmentedControl SelectedIndex="{Binding GridIndex}" HorizontalAlignment="Stretch">
+            <ui:SegmentedControlItem Padding="8,10">
+              <StackPanel Spacing="6">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Hexagon}" Size="20" HorizontalAlignment="Center" />
+                <TextBlock Text="Pointy hex" HorizontalAlignment="Center" />
+              </StackPanel>
+            </ui:SegmentedControlItem>
+            <ui:SegmentedControlItem Padding="8,10">
+              <StackPanel Spacing="6">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Hexagon}" Size="20" HorizontalAlignment="Center" RenderTransform="rotate(90deg)" />
+                <TextBlock Text="Flat hex" HorizontalAlignment="Center" />
+              </StackPanel>
+            </ui:SegmentedControlItem>
+            <ui:SegmentedControlItem Padding="8,10">
+              <StackPanel Spacing="6">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Square}" Size="20" HorizontalAlignment="Center" />
+                <TextBlock Text="Rectangle" HorizontalAlignment="Center" />
+              </StackPanel>
+            </ui:SegmentedControlItem>
+          </ui:SegmentedControl>
+        </StackPanel>
+
+        <StackPanel Spacing="6">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="section" Text="{Binding SizeLabel}" VerticalAlignment="Center" />
+            <CheckBox Grid.Column="1" Content="{Binding RegularLabel}" IsChecked="{Binding IsRegular}" />
+          </Grid>
+          <Grid ColumnDefinitions="*,8,*" RowDefinitions="Auto,4,Auto">
+            <TextBlock Classes="caption muted" Text="Width" />
+            <TextBlock Grid.Column="2" Classes="caption muted" Text="Height" />
+            <ui:NumberField Grid.Row="2" Value="{Binding CellWidth}" Minimum="4" Maximum="1024" Step="1" Suffix="px" />
+            <ui:NumberField Grid.Row="2" Grid.Column="2" Value="{Binding CellHeight}" Minimum="4" Maximum="1024" Step="1" Suffix="px" IsEnabled="{Binding !IsRegular}" />
+          </Grid>
+        </StackPanel>
+
+        <StackPanel Spacing="6">
+          <TextBlock Classes="section" Text="File" />
+          <Grid ColumnDefinitions="*,8,2*" RowDefinitions="Auto,4,Auto">
+            <TextBlock Classes="caption muted" Text="Folder" />
+            <TextBlock Grid.Column="2" Classes="caption muted" Text="Name" />
+            <TextBox Grid.Row="2" Text="{Binding Folder}" Classes="mono" FontSize="12" />
+            <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding Name}" Classes="mono" FontSize="12">
+              <TextBox.InnerRightContent>
+                <TextBlock Text=".hexy" Classes="caption muted mono" VerticalAlignment="Center" Margin="0,0,8,0" />
+              </TextBox.InnerRightContent>
+            </TextBox>
+          </Grid>
+        </StackPanel>
+
+        <StackPanel Spacing="6">
+          <TextBlock Classes="section" Text="Storage" />
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center" Spacing="2">
+              <TextBlock Text="Chunk size" />
+              <TextBlock Classes="caption muted" Text="Cells per chunk side. Larger chunks suit dense maps." TextWrapping="Wrap" />
+            </StackPanel>
+            <ComboBox Grid.Column="1" MinWidth="96" ItemsSource="{Binding ChunkSizes}" SelectedItem="{Binding ChunkSize}" VerticalAlignment="Center" />
+          </Grid>
+          <CheckBox Content="Start with the terrain color palette" IsChecked="{Binding IncludePalette}" Margin="0,4,0,0" />
+        </StackPanel>
+      </StackPanel>
+
+      <Border Grid.Column="2" Classes="card" Padding="12" VerticalAlignment="Stretch">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Classes="section" Text="Preview" />
+          <TextBlock DockPanel.Dock="Bottom" Classes="caption mono muted" Text="{Binding SizeSummary}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+          <controls:GridPreview Margin="4,12" Kind="{Binding Kind}" CellWidth="{Binding CellWidth}" CellHeight="{Binding CellHeight}" />
+        </DockPanel>
+      </Border>
+    </Grid>
+
+    <ui:Dialog.Footer>
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                    IsVisible="{Binding ValidationMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <ui:SymbolIcon Data="{x:Static ui:Icons.AlertCircle}" Size="14" Foreground="{DynamicResource WarningBrush}" />
+          <TextBlock Classes="caption" Text="{Binding ValidationMessage}" Foreground="{DynamicResource TextSecondaryBrush}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+          <Button Content="Cancel" MinWidth="84" IsCancel="True" Command="{Binding CancelCommand}" />
+          <Button Classes="accent" Content="Create map" MinWidth="96" IsDefault="True" Command="{Binding CreateCommand}" />
+        </StackPanel>
+      </Grid>
+    </ui:Dialog.Footer>
+  </ui:Dialog>
+</UserControl>

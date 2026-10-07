@@ -1,0 +1,55 @@
+---
+title: "Frequently asked questions"
+sidebar_label: "FAQ"
+description: "Answers to common questions about Talesmith, its requirements and how it relates to Hexy."
+---
+
+Short answers to the questions people ask most, each with a link to the page that has the details.
+
+## Which platforms can I make games for?
+
+Windows x64 and Linux x64, and you can build for both from either. See [Exporting a game](../exporting.mdx).
+
+## Do players need .NET installed?
+
+No. Exported games are self-contained: the player is published for the platform with the .NET runtime inside it. You need the .NET 10 SDK only on the machine that builds the game.
+
+## Do I need Vulkan?
+
+No. Games and the editor use Vulkan when a Vulkan device is available and render with Skia otherwise. You can force either one with the renderer setting in [Project Settings › Game](../workflow/project-settings.mdx).
+
+## Can I use maps made in Hexy?
+
+Yes. Talesmith reads and writes Hexy's `.hexy` format, hexagonal and rectangular, without losing anything. Drop a `.hexy` file into the Assets panel and then into the scene. See [Maps and grids](../tile-maps/maps-and-grids.mdx).
+
+## Can Hexy open maps I edited in Talesmith?
+
+Yes. Talesmith saves maps the way Hexy does. The two things Hexy has no field for, layer roles and tile collision shapes, are stored as custom properties, which Hexy keeps and saves unchanged. See [Layers and roles](../tile-maps/layers.mdx).
+
+## Should I write scripts or plugins?
+
+Start with scripts. A script is a C# class you attach to entities, compiled by the editor as you save, with its fields in the inspector: right for a player, a pickup or a door. Scripts can also declare components and systems. Write a plugin when you add something to the engine or the editor itself, such as an importer, a panel or a tool, or when code is shared between games. See [Scripting](/scripting) and [Plugins](/plugins).
+
+## Can game UI use any Avalonia control?
+
+Yes. Game menus and HUDs are ordinary Avalonia controls, stacked above the game. They run on the UI thread and talk to the game through snapshots and posted commands. See [Game UI](/scripting/concepts/game-ui).
+
+## Does Talesmith do 3D?
+
+No. Talesmith is a 2D engine: sprites, tile maps, 2D lights and shadows, 2D physics and particles.
+
+## Is there an isometric grid?
+
+No. Maps use Hexy's grids: pointy-top hexagons, flat-top hexagons and rectangles.
+
+## Where are my settings stored?
+
+Editor settings that apply to every project, such as the theme and shortcuts, are in your user settings folder (`~/.config/Talesmith/settings.json` on Linux). Each project's layout and editor state are in its `.talesmith` folder. See [Editor settings](../workflow/settings.mdx) and [Project folder layout](./project-layout.mdx).
+
+## I deleted an asset by mistake. Can I get it back?
+
+Press <Keys>Ctrl+Z</Keys>: deleting is undoable and brings the asset back with its guid, so references to it keep working. Deleted files are also kept in `.talesmith/trash` in the project.
+
+## How do I report a bug or contribute?
+
+Open an issue on [GitHub](https://github.com/CodeByDylan/Talesmith/issues) with the steps to reproduce it, and attach the console output and, if the game is slow, an F9 profiler report. To work on Talesmith itself, start with the [Developers](/developers) section.

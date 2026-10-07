@@ -1,0 +1,373 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.Lighting"
+             xmlns:pt="using:Talesmith.Editor.Particles"
+             x:Class="Talesmith.Editor.Lighting.LightingView"
+             x:DataType="vm:LightingPanelViewModel">
+  <UserControl.Styles>
+    <Style Selector="Border.section">
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusLarge}" />
+      <Setter Property="Padding" Value="12,10" />
+    </Style>
+    <Style Selector="TextBlock.heading">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontSize" Value="12.5" />
+    </Style>
+    <Style Selector="Button.row">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Padding" Value="6,3" />
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+    </Style>
+    <Style Selector="Button.row /template/ Border#PART_Root">
+      <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
+    </Style>
+    <Style Selector="Button.row.selected">
+      <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+    </Style>
+    <Style Selector="Button.row.off TextBlock.name, Button.row.off Border.type">
+      <Setter Property="Opacity" Value="0.45" />
+    </Style>
+    <Style Selector="Border.type">
+      <Setter Property="Width" Value="26" />
+      <Setter Property="Height" Value="26" />
+      <Setter Property="CornerRadius" Value="13" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.solo">
+      <Setter Property="Width" Value="26" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.solo:checked">
+      <Setter Property="Background" Value="{DynamicResource WarningBrush}" />
+      <Setter Property="Foreground" Value="Black" />
+    </Style>
+    <Style Selector="ToggleButton.shadow:checked">
+      <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.cell">
+      <Setter Property="Width" Value="30" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceSunkenBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.cell:checked">
+      <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="Button.preset-swatch">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="MinHeight" Value="0" />
+    </Style>
+    <Style Selector="Button.preset-swatch /template/ Border#PART_Root">
+      <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
+    </Style>
+    <Style Selector="Button.preset-swatch Border.swatch">
+      <Setter Property="Width" Value="54" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="CornerRadius" Value="7" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}" />
+    </Style>
+    <Style Selector="Button.preset-swatch:pointerover Border.swatch">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="ToggleSwitch.compact">
+      <Setter Property="OnContent" Value="{x:Null}" />
+      <Setter Property="OffContent" Value="{x:Null}" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0,0,-6,0" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*">
+    <Border Classes="toolbar" Padding="10,6" MinHeight="0">
+      <ui:SplitBar Spacing="12">
+        <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
+          <Border Width="28" Height="28" CornerRadius="7" Background="#22F59E0B">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.Lightbulb}" Size="15" Foreground="{DynamicResource WarningBrush}" />
+          </Border>
+          <StackPanel>
+            <TextBlock Text="Scene lighting" FontWeight="SemiBold" FontSize="13" />
+            <TextBlock Text="{Binding LightsSummary}" Classes="caption muted" />
+          </StackPanel>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" HorizontalAlignment="Right">
+          <Button Classes="small" Command="{Binding ClearSoloCommand}" IsVisible="{Binding IsSoloing}" ToolTip.Tip="Show every light again">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.X}" Size="12" />
+              <TextBlock Text="Clear solo" />
+            </StackPanel>
+          </Button>
+          <ToggleButton Classes="chip" IsChecked="{Binding IsLightingOff}" ToolTip.Tip="Show the viewport without lighting; the scene does not change">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+              <ui:SymbolIcon Data="{x:Static ui:Icons.EyeOff}" Size="12" />
+              <TextBlock Text="Lighting off" />
+            </StackPanel>
+          </ToggleButton>
+        </StackPanel>
+      </ui:SplitBar>
+    </Border>
+
+    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+      <Grid x:Name="Columns" ColumnDefinitions="4*,5*,4*" Margin="10" ColumnSpacing="10" RowSpacing="10">
+        <!-- Scene-wide settings -->
+        <StackPanel x:Name="SceneColumn" Spacing="10">
+          <Border Classes="section">
+            <StackPanel Spacing="8">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Ambient light" Classes="heading" />
+                <Border Grid.Column="1" Width="56" Height="14" CornerRadius="4" BorderThickness="1" BorderBrush="{DynamicResource BorderStrongBrush}"
+                        ToolTip.Tip="The light everywhere before lights add to it">
+                  <Border.Background>
+                    <SolidColorBrush Color="{Binding AmbientResult}" />
+                  </Border.Background>
+                </Border>
+              </Grid>
+              <ui:PropertyRow Label="Color">
+                <ui:ColorPickerButton Color="{Binding AmbientColor}" IsAlphaEnabled="False" />
+              </ui:PropertyRow>
+              <ui:PropertyRow Label="Intensity" Description="1 shows colors as drawn; 0 is complete darkness.">
+                <ui:NumberField Value="{Binding AmbientIntensity}" Minimum="0" Maximum="4" Step="0.01" FormatString="0.##" />
+              </ui:PropertyRow>
+              <TextBlock Text="Presets" Classes="caption muted" Margin="0,4,0,0" />
+              <ItemsControl ItemsSource="{Binding Presets}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel ItemSpacing="6" LineSpacing="6" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:LightingPresetItem">
+                    <Button Classes="preset-swatch" Command="{Binding ApplyCommand}" ToolTip.Tip="{Binding ToolTipText}">
+                      <StackPanel Spacing="3">
+                        <Border Classes="swatch" Background="{Binding Swatch}" />
+                        <TextBlock Text="{Binding Name}" FontSize="10.5" HorizontalAlignment="Center" MaxWidth="58" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Button Classes="subtle small" HorizontalAlignment="Left" Command="{Binding SavePresetCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="5">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.FilePlus}" Size="12" />
+                  <TextBlock Text="Save current as preset…" />
+                </StackPanel>
+              </Button>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="section">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Quality" Classes="heading" />
+              <ui:SegmentedControl SelectedIndex="{Binding QualityIndex}" HorizontalAlignment="Stretch">
+                <ui:SegmentedControlItem Content="Low" HorizontalContentAlignment="Center" />
+                <ui:SegmentedControlItem Content="Medium" HorizontalContentAlignment="Center" />
+                <ui:SegmentedControlItem Content="High" HorizontalContentAlignment="Center" />
+                <ui:SegmentedControlItem Content="Custom" HorizontalContentAlignment="Center" />
+              </ui:SegmentedControl>
+              <StackPanel IsVisible="{Binding IsCustomQuality}" Spacing="2">
+                <ui:PropertyRow Label="Light map" Description="The light map's size relative to the screen.">
+                  <ui:NumberField Value="{Binding ResolutionScale}" Minimum="0.1" Maximum="1" Step="0.05" FormatString="0.##" />
+                </ui:PropertyRow>
+                <ui:PropertyRow Label="Lights" Description="Visible lights drawn per frame.">
+                  <ui:NumberField Value="{Binding MaxLights}" Minimum="1" Maximum="1024" IsInteger="True" />
+                </ui:PropertyRow>
+                <ui:PropertyRow Label="Shadowed" Description="Lights that cast shadows per frame.">
+                  <ui:NumberField Value="{Binding MaxShadowedLights}" Minimum="0" Maximum="256" IsInteger="True" />
+                </ui:PropertyRow>
+                <ui:PropertyRow Label="Shadow map" Description="Directions per light in its shadow map.">
+                  <ui:NumberField Value="{Binding ShadowResolution}" Minimum="32" Maximum="4096" Step="32" IsInteger="True" />
+                </ui:PropertyRow>
+                <ui:PropertyRow Label="Samples" Description="Shadow samples per pixel; 1 gives hard shadows.">
+                  <ui:NumberField Value="{Binding ShadowSamples}" Minimum="1" Maximum="16" IsInteger="True" />
+                </ui:PropertyRow>
+                <ui:PropertyRow Label="Casters" Description="Shadow casters considered per frame.">
+                  <ui:NumberField Value="{Binding MaxShadowCasters}" Minimum="0" Maximum="65536" IsInteger="True" />
+                </ui:PropertyRow>
+              </StackPanel>
+              <ui:PropertyRow Label="Lit below" Description="Layers below this one are lit; it and the layers above, such as overlays, stay as drawn.">
+                <ComboBox ItemsSource="{Binding LitLayers}" SelectedItem="{Binding LitLayer}" HorizontalAlignment="Stretch" MinHeight="26" />
+              </ui:PropertyRow>
+              <ui:PropertyRow Label="Tile shadows" Description="Collision layers of tile maps cast shadows.">
+                <CheckBox IsChecked="{Binding TileMapShadows}" MinHeight="0" Padding="0" />
+              </ui:PropertyRow>
+              <ui:PropertyRow Label="Tile layer" Description="The shadow caster layer tile map shadows are on." IsVisible="{Binding TileMapShadows}">
+                <ui:NumberField Value="{Binding TileMapShadowLayer}" Minimum="0" Maximum="31" IsInteger="True" />
+              </ui:PropertyRow>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- Lights -->
+        <Border x:Name="LightsColumn" Grid.Column="1" Classes="section" VerticalAlignment="Top">
+          <StackPanel Spacing="8">
+            <ui:SplitBar>
+              <TextBlock Text="Lights" Classes="heading" VerticalAlignment="Center" />
+              <WrapPanel ItemsAlignment="End" ItemSpacing="8" LineSpacing="6">
+                <ui:SearchBox Text="{Binding Search}" PlaceholderText="Filter lights" Width="160" />
+                <ui:SegmentedControl SelectedIndex="{Binding TypeFilterIndex}">
+                  <ui:SegmentedControlItem Content="All" />
+                  <ui:SegmentedControlItem ToolTip.Tip="Point lights"><ui:SymbolIcon Data="{x:Static ui:Icons.Lightbulb}" Size="13" /></ui:SegmentedControlItem>
+                  <ui:SegmentedControlItem ToolTip.Tip="Spot lights"><ui:SymbolIcon Data="{x:Static ui:Icons.Flashlight}" Size="13" /></ui:SegmentedControlItem>
+                  <ui:SegmentedControlItem ToolTip.Tip="Directional lights"><ui:SymbolIcon Data="{x:Static ui:Icons.Sun}" Size="13" /></ui:SegmentedControlItem>
+                </ui:SegmentedControl>
+              </WrapPanel>
+            </ui:SplitBar>
+            <TextBlock Text="The scene has no lights. Add a Light 2D component to an entity to light it." Classes="caption muted"
+                       TextWrapping="Wrap" IsVisible="{Binding HasNoLights}" />
+            <ItemsControl ItemsSource="{Binding Lights}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:LightRow">
+                  <Button Classes="row" Classes.selected="{Binding IsSelected}" Classes.off="{Binding !Enabled}"
+                          Command="{Binding $parent[UserControl].((vm:LightingPanelViewModel)DataContext).SelectCommand}" CommandParameter="{Binding}"
+                          ToolTip.Tip="Click to select and frame">
+                    <ui:SplitBar FirstGrows="True" RowSpacing="6">
+                      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" MinWidth="120">
+                        <Border Classes="type" Background="{Binding ColorBrush}">
+                          <ui:SymbolIcon Data="{Binding Icon}" Size="13" Foreground="#E6000000" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                          <TextBlock Classes="name" Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Text="{Binding Details}" Classes="caption muted" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                      </Grid>
+                      <WrapPanel ItemsAlignment="End" ItemSpacing="8" LineSpacing="6" VerticalAlignment="Center">
+                        <ui:ColorPickerButton Color="{Binding Color}" IsAlphaEnabled="False" Width="120" VerticalAlignment="Center" />
+                        <ui:NumberField Value="{Binding Intensity}" Minimum="0" Maximum="8" Step="0.05" FormatString="0.##" Width="74"
+                                        VerticalAlignment="Center" ToolTip.Tip="Intensity" />
+                        <ToggleButton Classes="icon small shadow" IsChecked="{Binding CastsShadows}" VerticalAlignment="Center" ToolTip.Tip="Casts shadows">
+                          <ui:SymbolIcon Data="{x:Static pt:ParticleIcons.Contrast}" Size="14" />
+                        </ToggleButton>
+                        <ToggleButton Classes="solo" IsChecked="{Binding IsSolo}" Content="S" VerticalAlignment="Center"
+                                      ToolTip.Tip="Solo: show only this light in the viewport (preview only)" />
+                        <ToggleSwitch Classes="compact" IsChecked="{Binding Enabled}" VerticalAlignment="Center" ToolTip.Tip="Enabled" />
+                      </WrapPanel>
+                    </ui:SplitBar>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+
+        <!-- Shadows and glow -->
+        <StackPanel x:Name="ShadowColumn" Grid.Column="2" Spacing="10">
+          <Border Classes="section">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Light layers" Classes="heading" />
+              <TextBlock Text="Which shadow caster layers block each shadow-casting light. Click a cell to change it." Classes="caption muted" TextWrapping="Wrap" />
+              <TextBlock Text="No light casts shadows yet." Classes="caption muted" IsVisible="{Binding !HasLayerRows}" />
+              <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasLayerRows}">
+                <TextBlock Text="Light" Classes="caption muted" />
+                <ItemsControl Grid.Column="1" ItemsSource="{Binding CasterLayers}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Orientation="Horizontal" Spacing="4" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="x:Int32">
+                      <TextBlock Text="{Binding StringFormat=L{0}}" Width="30" TextAlignment="Center" Classes="caption muted" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </Grid>
+              <ItemsControl ItemsSource="{Binding LayerRows}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Spacing="4" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:LayerMatrixRow">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                      <Ellipse Width="10" Height="10" Fill="{Binding Light.ColorBrush}" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="1" Text="{Binding Light.Name}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                      <ItemsControl Grid.Column="2" ItemsSource="{Binding Cells}">
+                        <ItemsControl.ItemsPanel>
+                          <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="4" />
+                          </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="vm:LayerCell">
+                            <ToggleButton Classes="cell" IsChecked="{Binding IsBlocked, Mode=OneWay}" Command="{Binding ToggleCommand}" ToolTip.Tip="{Binding ToolTipText}">
+                              <ui:SymbolIcon Data="{x:Static ui:Icons.Check}" Size="12" IsVisible="{Binding IsBlocked}" />
+                            </ToggleButton>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="section">
+            <StackPanel Spacing="6">
+              <TextBlock Text="Shadow casters" Classes="heading" />
+              <TextBlock Text="None. Add a Shadow Caster 2D to block shadow-casting lights." Classes="caption muted" TextWrapping="Wrap" IsVisible="{Binding !HasCasters}" />
+              <ItemsControl ItemsSource="{Binding Casters}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:CasterRow">
+                    <Button Classes="row" Classes.selected="{Binding IsSelected}" Classes.off="{Binding !Enabled}" MinHeight="30"
+                            Command="{Binding $parent[UserControl].((vm:LightingPanelViewModel)DataContext).SelectCommand}" CommandParameter="{Binding}">
+                      <Grid ColumnDefinitions="Auto,*,Auto,64,Auto" ColumnSpacing="8">
+                        <ui:SymbolIcon Data="{x:Static pt:ParticleIcons.Contrast}" Size="14" Foreground="{DynamicResource TextSecondaryBrush}" />
+                        <TextBlock Grid.Column="1" Classes="name" Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="{Binding Shape}" Classes="caption muted" VerticalAlignment="Center" />
+                        <ui:NumberField Grid.Column="3" Value="{Binding Layer}" Minimum="0" Maximum="31" IsInteger="True" Label="L" ToolTip.Tip="Caster layer" />
+                        <ToggleSwitch Grid.Column="4" Classes="compact" IsChecked="{Binding Enabled}" />
+                      </Grid>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="section">
+            <StackPanel Spacing="6">
+              <TextBlock Text="Glowing sprites" Classes="heading" />
+              <TextBlock Text="None. Add Emissive to a sprite to keep it bright in the dark." Classes="caption muted" TextWrapping="Wrap" IsVisible="{Binding !HasEmissives}" />
+              <ItemsControl ItemsSource="{Binding Emissives}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:EmissiveRow">
+                    <Button Classes="row" Classes.selected="{Binding IsSelected}" Classes.off="{Binding !Enabled}" MinHeight="30"
+                            Command="{Binding $parent[UserControl].((vm:LightingPanelViewModel)DataContext).SelectCommand}" CommandParameter="{Binding}">
+                      <Grid ColumnDefinitions="Auto,*,Auto,64,Auto" ColumnSpacing="8">
+                        <ui:SymbolIcon Data="{x:Static pt:ParticleIcons.Glow}" Size="14" Foreground="{DynamicResource WarningBrush}" />
+                        <TextBlock Grid.Column="1" Classes="name" Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        <ui:ColorPickerButton Grid.Column="2" Color="{Binding Color}" IsAlphaEnabled="False" Width="120" />
+                        <ui:NumberField Grid.Column="3" Value="{Binding Intensity}" Minimum="0" Maximum="2" Step="0.05" FormatString="0.##" />
+                        <ToggleSwitch Grid.Column="4" Classes="compact" IsChecked="{Binding Enabled}" />
+                      </Grid>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Grid>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

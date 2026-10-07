@@ -1,0 +1,160 @@
+---
+title: "Particle modules"
+description: "Add your own particle modules and collision providers."
+---
+
+Particle effects are built from modules: emission, forces, color over lifetime and so on. A plugin can add modules of its own, which the particle editor offers next to the built-in ones and which presets and scenes save, and collision providers that let particles hit the plugin's own geometry. This page covers writing a module, registering it, the particle data it works on, collision providers and the performance rules modules follow. Reference `Talesmith.VFX.dll`.
+
+## Write a module
+
+A module is a class implementing `IParticleModule`, with public fields for its settings. Fields work like component fields: they are saved and shown in the particle editor, with the same [attributes](./systems-and-components.mdx#components).
+
+```csharp title="WindModule.cs"
+using System.Numerics;
+using Talesmith.Authoring;
+using Talesmith.VFX;
+
+namespace Weather;
+
+/// <summary>Pushes particles with a constant wind.</summary>
+public sealed class WindModule : IParticleModule
+{
+    public bool Enabled { get; set; } = true;
+
+    [Tooltip("Push in world units per second squared.")]
+    public Vector2 Force = new(60, 0);
+
+    public void Update(ParticleModuleContext context)
+    {
+        var push = Force * context.DeltaTime;
+        foreach (ref var vx in context.Particles.VelocityX)
+            vx += push.X;
+        foreach (ref var vy in context.Particles.VelocityY)
+            vy += push.Y;
+    }
+}
+```
+
+`Update` runs once per simulation step for each emitter that has the module, after the built-in forces and before particles move. `OnEmit` is optional and runs right after particles are emitted, to set up the new ones:
+
+```csharp title="SpinModule.cs"
+using Talesmith.Authoring;
+using Talesmith.VFX;
+
+namespace Weather;
+
+/// <summary>Gives each new particle a random spin.</summary>
+public sealed class SpinModule : IParticleModule
+{
+    public bool Enabled { get; set; } = true;
+
+    [Range(0, 20)]
+    public float MaxSpin = 6;
+
+    public void OnEmit(ParticleModuleContext context, int first, int count)
+    {
+        var spin = context.Particles.AngularVelocity;
+        for (var i = first; i < first + count; i++)
+            spin[i] = context.Random.Range(-MaxSpin, MaxSpin);
+    }
+
+    public void Update(ParticleModuleContext context)
+    {
+    }
+}
+```
+
+The module needs a public parameterless constructor; new modules start with its field values. `Enabled` lets users switch the module off in the editor without removing it.
+
+## Register a module
+
+```csharp
+builder.Services.AddParticleModule<WindModule>("weather.wind", "Wind");
+builder.Services.AddParticleModule<SpinModule>("weather.spin", "Random spin");
+```
+
+The first argument is the stable type name that presets and scenes save. Prefix it with your plugin's id or name and never change it; a renamed module loads as an unknown one. The second is the name the editor shows, by default the class name. Registering the same type or type name twice keeps the first.
+
+In the particle editor, **Add plugin module** lists the registered modules. A plugin module's card shows its fields, a **Plugin module** subtitle and **Remove module** in its menu. Modules are stored in `ParticleSettings.CustomModules`, so code that builds effects can add them too.
+
+When the plugin is switched off, effects that use its modules still load: each such module becomes an `UnknownParticleModule` that does nothing, keeps its saved data and is written back unchanged.
+
+## The particle data
+
+`ParticleModuleContext` gives a module the emitter's alive particles and the step's timing:
+
+| Member | What it is |
+| --- | --- |
+| `Particles` | The particles, as spans of each attribute (below). |
+| `DeltaTime` | Seconds covered by this step, already scaled by the effect's simulation speed. |
+| `Time` | Seconds since the emitter started playing. |
+| `EmitterPosition` | The emitter's world position. |
+| `Space` | Whether particle positions are in world space or relative to the emitter. |
+| `Settings` | The effect's settings. |
+| `Emitter`, `World` | The emitter's entity and world; `Entity.Null` and null when simulated outside a world, such as in the editor's preview. |
+| `Random` | The emitter's seeded random numbers, by reference. |
+
+The particles are stored as one array per attribute, so a module loops over plain spans:
+
+| Span | Values |
+| --- | --- |
+| `PositionX`, `PositionY` | Position, in world units, in the emitter's space. |
+| `VelocityX`, `VelocityY` | Velocity, in world units per second. |
+| `Age` | How far through its life each particle is, from 0 at birth to 1 at death. |
+| `AgeRate` | Age gained per second: one over the lifetime. |
+| `Size` | Starting size in world units, before size over lifetime. |
+| `Rotation`, `AngularVelocity` | Rotation in radians, clockwise, and its speed. |
+| `Seed` | A random number from 0 to 1, fixed for each particle's life. |
+| `Color` | Starting color as a `Vector4`, straight alpha, components 0 to 1. |
+
+`Particles.Kill(i)` removes a particle at the end of the step. `Particles.Count` is the number of alive particles; in `OnEmit`, `first` to `first + count - 1` are the new ones.
+
+## Collision providers
+
+The built-in collision module bounces particles off a ground line and, with **World colliders** on, asks every `IParticleCollisionProvider` to collide the emitter's particles with the world. The physics module provides one for colliders and collision tiles. Add your own for geometry the physics engine does not know about:
+
+```csharp title="WaterSurfaceCollision.cs"
+using System.Numerics;
+using Talesmith.VFX;
+
+namespace Weather;
+
+/// <summary>Bounces particles off a flat water surface at y = 0.</summary>
+public sealed class WaterSurfaceCollision : IParticleCollisionProvider
+{
+    public void Collide(ParticleCollisionContext context)
+    {
+        for (var i = 0; i < context.Count; i++)
+        {
+            if (!context.IsAlive(i))
+                continue;
+            var position = context.Position(i);
+            if (position.Y + context.Radius(i) > 0 && context.PreviousPosition(i).Y + context.Radius(i) <= 0)
+                context.Hit(i, position with { Y = 0 }, new Vector2(0, -1));
+        }
+    }
+}
+```
+
+```csharp
+builder.Services.AddSingleton<IParticleCollisionProvider, WaterSurfaceCollision>();
+```
+
+Register a provider as a singleton, or with `AddScoped` to use a scene's services, such as its world. Each step, it receives all particles of one emitter in world space: `Position`, `PreviousPosition` (where the particle moved from in a straight line), `Velocity`, `Radius` and `IsAlive`, and the emitter's `LayerMask` (**Collides with**). Report each hit with `Hit(index, point, normal)`, where the normal points toward the side the particle came from. `Hit` applies the emitter's bounce, friction, lifetime loss, kill and collision events, so providers only find contacts. In world space y grows downward, so "up" is negative y.
+
+## Performance rules
+
+Modules run on the game thread, for every emitter that has them, every simulation step. Effects can have thousands of particles and scenes many emitters, so:
+
+- Do not allocate. No LINQ, no `new` arrays or lists, no closures, no boxing in `Update`, `OnEmit` or `Collide`.
+- Loop over the spans, one attribute at a time where you can, as `WindModule` does; that is what the structure-of-arrays layout is for.
+- Use `context.Random` for randomness, never `Random.Shared`, so an effect with a fixed seed plays the same every time.
+- Keep per-particle state in the existing attributes (`Seed` is free for variation). A module instance is shared by every particle of the emitter, so fields are settings, not per-particle data.
+- Modules are created without dependency injection, from their parameterless constructor. Collision providers are created by the container, so they get services through their constructor once, not per step.
+
+The particle editor's statistics and the game's profiler (`Particles/Simulate`) show what an effect costs; see [Particles](/scripting/concepts/particles).
+
+## Related
+
+- [Particles in the editor](/guide/effects/particles)
+- [Systems and components](./systems-and-components.mdx)

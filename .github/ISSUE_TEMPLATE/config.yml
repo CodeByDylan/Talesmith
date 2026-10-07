@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://talesmith.dev
+    about: The guide, scripting, plugins and developer documentation.
+  - name: Report a vulnerability
+    url: https://github.com/CodeByDylan/Talesmith/security/advisories/new
+    about: Report security problems privately instead of in an issue.

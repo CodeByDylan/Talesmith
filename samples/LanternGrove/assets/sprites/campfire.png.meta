@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "guid": "2f1e8a3f6a564f02a7edea8e8c9d739c",
+  "importer": "texture",
+  "importerVersion": 1,
+  "settings": {
+    "filter": "nearest",
+    "wrap": "clamp",
+    "mipmaps": false,
+    "premultipliedAlpha": false,
+    "maxSize": 0,
+    "compression": "none",
+    "spriteMode": "single",
+    "slices": [],
+    "animations": []
+  }
+}

@@ -1,0 +1,365 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="https://talesmith.dev/ui"
+             xmlns:vm="using:Talesmith.Editor.TileMaps.Panel"
+             xmlns:tm="using:Talesmith.Editor.TileMaps"
+             xmlns:maps="using:Talesmith.Assets.Maps"
+             xmlns:controls="using:Talesmith.Editor.TileMaps.Controls"
+             x:Class="Talesmith.Editor.TileMaps.Panel.TileMapPanelView"
+             x:DataType="vm:TileMapPanelViewModel"
+             controls:CellSwatch.Kind="{Binding GridKind}">
+  <UserControl.Styles>
+    <Style Selector="ListBox.layers ListBoxItem">
+      <Setter Property="Padding" Value="6,4" />
+      <Setter Property="MinHeight" Value="40" />
+    </Style>
+    <Style Selector="ListBox.layers ListBoxItem Button.icon">
+      <Setter Property="Opacity" Value="0.5" />
+    </Style>
+    <Style Selector="ListBox.layers ListBoxItem:pointerover Button.icon, ListBox.layers ListBoxItem:selected Button.icon, ListBox.layers ListBoxItem Button.icon.off">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="StackPanel.hidden-layer">
+      <Setter Property="Opacity" Value="0.45" />
+    </Style>
+    <Style Selector="Border.grip">
+      <Setter Property="Cursor" Value="SizeNorthSouth" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Opacity" Value="0.35" />
+    </Style>
+    <Style Selector="ListBoxItem:pointerover Border.grip">
+      <Setter Property="Opacity" Value="0.8" />
+    </Style>
+    <Style Selector="Border.role">
+      <Setter Property="Width" Value="26" />
+      <Setter Property="Height" Value="26" />
+      <Setter Property="CornerRadius" Value="{DynamicResource CornerRadiusMedium}" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceSunkenBrush}" />
+    </Style>
+    <Style Selector="ListBoxItem:selected Border.role">
+      <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+    </Style>
+    <Style Selector="ListBoxItem:selected Border.role ui|SymbolIcon">
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="TabControl.compact TabItem">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="Padding" Value="10,0" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+    <!-- Map header -->
+    <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="10,6">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <Border Classes="role" Width="28" Height="28" Background="{DynamicResource AccentSubtleBrush}" IsVisible="{Binding HasMap}">
+          <ui:SymbolIcon Data="{Binding GridIcon}" Size="15" Foreground="{DynamicResource AccentBrush}" />
+        </Border>
+        <DockPanel Grid.Column="1" Margin="8,0" VerticalAlignment="Center">
+          <ui:Badge DockPanel.Dock="Right" Classes="warning" Content="Unsaved" IsVisible="{Binding IsDirty}" VerticalAlignment="Center" Margin="8,0,0,0" />
+          <ComboBox DockPanel.Dock="Left" ItemsSource="{Binding Targets}" SelectedItem="{Binding SelectedTarget}" PlaceholderText="Pick a map of the scene"
+                    MinWidth="90" MaxWidth="220" IsEnabled="{Binding HasTargets}" ToolTip.Tip="The map being edited">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="tm:MapTarget">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Map}" Size="13" Foreground="{DynamicResource TextMutedBrush}" />
+                  <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <StackPanel Spacing="0" Margin="8,0,0,0" VerticalAlignment="Center" IsVisible="{Binding HasMap}" ToolTip.Tip="{Binding FileText}">
+            <TextBlock Text="{Binding GridText}" FontSize="12" TextTrimming="CharacterEllipsis" />
+            <TextBlock Text="{Binding FileText}" Classes="caption mono muted" TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+        </DockPanel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+          <Button Classes="icon small" Command="{Binding SaveCommand}" IsVisible="{Binding HasMap}" IsEnabled="{Binding IsDirty}" ToolTip.Tip="Save the map (saving the scene saves it too)">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.Save}" />
+          </Button>
+          <Button Classes="icon small" Command="{Binding NewMapCommand}" ToolTip.Tip="New tile map">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.FilePlus}" />
+          </Button>
+          <Button Classes="icon small" Command="{Binding CloseMapCommand}" IsVisible="{Binding HasMap}" ToolTip.Tip="Stop editing this map">
+            <ui:SymbolIcon Data="{x:Static ui:Icons.X}" />
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Panel>
+      <ui:EmptyState Icon="{x:Static ui:Icons.Map}" Title="No tile map selected" Hint="{Binding EmptyHint}" ActionText="New tile map"
+                     ActionCommand="{Binding NewMapCommand}" IsVisible="{Binding !HasMap}" />
+
+      <ScrollViewer x:Name="BodyScroll" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasMap}">
+        <Grid x:Name="Body" VerticalAlignment="Top">
+          <!-- Layers -->
+          <ui:SectionPanel x:Name="LayersPart" Header="Layers" Icon="{x:Static ui:Icons.Layers}" DataContext="{Binding Layers}" x:DataType="vm:LayersViewModel">
+            <ui:SectionPanel.HeaderActions>
+              <StackPanel Orientation="Horizontal" Spacing="2">
+                <Button Classes="icon small" Command="{Binding AddTileLayerCommand}" ToolTip.Tip="New tile layer">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Plus}" />
+                </Button>
+                <Button Classes="icon small" Command="{Binding AddObjectLayerCommand}" ToolTip.Tip="New object layer">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.MapPin}" />
+                </Button>
+                <Button Classes="icon small" ToolTip.Tip="More">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.MoreHorizontal}" />
+                  <Button.Flyout>
+                    <MenuFlyout Placement="BottomEdgeAlignedRight">
+                      <MenuItem Header="Duplicate" Command="{Binding DuplicateCommand}" />
+                      <MenuItem Header="Rename" Command="{Binding BeginRenameCommand}" CommandParameter="{Binding SelectedItem}" InputGesture="F2" />
+                      <MenuItem Header="-" />
+                      <MenuItem Header="Move up" Command="{Binding MoveUpCommand}" />
+                      <MenuItem Header="Move down" Command="{Binding MoveDownCommand}" />
+                      <MenuItem Header="-" />
+                      <MenuItem Header="Delete" Command="{Binding DeleteCommand}" />
+                    </MenuFlyout>
+                  </Button.Flyout>
+                </Button>
+              </StackPanel>
+            </ui:SectionPanel.HeaderActions>
+
+            <Grid RowDefinitions="Auto,Auto">
+              <ListBox x:Name="LayerList" Classes="sidebar layers" ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" Margin="4,0" MaxHeight="230">
+                <ListBox.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel />
+                  </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:LayerItemViewModel">
+                    <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" Background="Transparent" DoubleTapped="OnLayerDoubleTapped">
+                      <Border Classes="grip" Width="12" Margin="0,0,4,0" PointerPressed="OnGripPressed" PointerMoved="OnGripMoved" PointerReleased="OnGripReleased"
+                              ToolTip.Tip="Drag to reorder">
+                        <ui:SymbolIcon Data="{x:Static ui:Icons.GripVertical}" Size="13" />
+                      </Border>
+                      <Button Grid.Column="1" Classes="subtle" Padding="0" Margin="0,0,8,0" Focusable="False" ToolTip.Tip="{Binding Role.Description}">
+                        <Border Classes="role">
+                          <Panel>
+                            <ui:SymbolIcon Data="{Binding Role.Icon}" Size="14" Foreground="{DynamicResource TextSecondaryBrush}" />
+                          </Panel>
+                        </Border>
+                        <Button.Flyout>
+                          <Flyout Placement="BottomEdgeAlignedLeft">
+                            <StackPanel Spacing="2" MinWidth="230">
+                              <TextBlock Classes="section" Text="Role" Margin="6,2,6,6" />
+                              <ItemsControl ItemsSource="{x:Static vm:LayerRoleOption.All}">
+                                <ItemsControl.ItemTemplate>
+                                  <DataTemplate x:DataType="vm:LayerRoleOption">
+                                    <Button Classes="subtle" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="6,5"
+                                            Command="{Binding $parent[ListBoxItem].((vm:LayerItemViewModel)DataContext).SetRoleCommand}" CommandParameter="{Binding}">
+                                      <Grid ColumnDefinitions="Auto,10,*">
+                                        <ui:SymbolIcon Data="{Binding Icon}" Size="15" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}" />
+                                        <StackPanel Grid.Column="2" Spacing="1">
+                                          <TextBlock Text="{Binding Name}" FontWeight="Medium" />
+                                          <TextBlock Text="{Binding Description}" Classes="caption muted" />
+                                        </StackPanel>
+                                      </Grid>
+                                    </Button>
+                                  </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                              </ItemsControl>
+                            </StackPanel>
+                          </Flyout>
+                        </Button.Flyout>
+                      </Button>
+                      <StackPanel Grid.Column="2" VerticalAlignment="Center" Classes.hidden-layer="{Binding !IsVisible}">
+                        <TextBlock Text="{Binding Name}" IsVisible="{Binding !IsRenaming}" TextTrimming="CharacterEllipsis" />
+                        <TextBox Text="{Binding Name, Mode=OneTime}" IsVisible="{Binding IsRenaming}" Padding="4,1" MinHeight="22"
+                                 KeyDown="OnRenameKeyDown" LostFocus="OnRenameLostFocus" PropertyChanged="OnRenameBoxPropertyChanged" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <TextBlock Text="{Binding Role.Name}" Classes="caption muted" />
+                          <TextBlock Text="·" Classes="caption muted" />
+                          <TextBlock Text="{Binding Summary}" Classes="caption muted" />
+                        </StackPanel>
+                      </StackPanel>
+                      <Button Grid.Column="3" Classes="icon small" Classes.off="{Binding !IsVisible}" Command="{Binding ToggleVisibilityCommand}" Focusable="False"
+                              ToolTip.Tip="Show or hide">
+                        <Panel>
+                          <ui:SymbolIcon Data="{x:Static ui:Icons.Eye}" IsVisible="{Binding IsVisible}" />
+                          <ui:SymbolIcon Data="{x:Static ui:Icons.EyeOff}" IsVisible="{Binding !IsVisible}" />
+                        </Panel>
+                      </Button>
+                      <Button Grid.Column="4" Classes="icon small" Classes.off="{Binding IsLocked}" Command="{Binding ToggleLockCommand}" Focusable="False"
+                              ToolTip.Tip="Lock or unlock">
+                        <Panel>
+                          <ui:SymbolIcon Data="{x:Static ui:Icons.Unlock}" IsVisible="{Binding !IsLocked}" />
+                          <ui:SymbolIcon Data="{x:Static ui:Icons.Lock}" IsVisible="{Binding IsLocked}" />
+                        </Panel>
+                      </Button>
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+
+              <Border Grid.Row="1" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,1,0,0" Padding="12,4,8,4"
+                      IsVisible="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
+                  <TextBlock Text="Opacity" Classes="caption muted" VerticalAlignment="Center" Margin="0,0,10,0" />
+                  <Slider x:Name="OpacitySlider" Grid.Column="1" Minimum="0" Maximum="100" Value="{Binding SelectedItem.OpacityPercent}" VerticalAlignment="Center" Focusable="False" />
+                  <TextBlock Grid.Column="2" Text="{Binding SelectedItem.OpacityPercent, StringFormat='{}{0:0}%'}" Classes="caption mono" Width="36" TextAlignment="Right"
+                             VerticalAlignment="Center" Margin="6,0" />
+                  <Button Grid.Column="3" Classes="icon small" Command="{Binding MoveUpCommand}" ToolTip.Tip="Move up">
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.ArrowUp}" />
+                  </Button>
+                  <Button Grid.Column="4" Classes="icon small" Command="{Binding MoveDownCommand}" ToolTip.Tip="Move down">
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.ArrowDown}" />
+                  </Button>
+                  <Button Grid.Column="5" Classes="icon small" Command="{Binding DeleteCommand}" ToolTip.Tip="Delete layer">
+                    <ui:SymbolIcon Data="{x:Static ui:Icons.Trash}" />
+                  </Button>
+                </Grid>
+              </Border>
+            </Grid>
+          </ui:SectionPanel>
+
+          <!-- Tilesets, terrains and properties -->
+          <ui:SectionPanel x:Name="TilesetsPart" Header="Tilesets" Icon="{x:Static ui:Icons.Palette}" DataContext="{Binding Tilesets}" x:DataType="vm:TilesetsViewModel">
+            <ui:SectionPanel.HeaderActions>
+              <StackPanel Orientation="Horizontal" Spacing="2">
+                <Button Classes="icon small" Command="{Binding ImportTilesetCommand}" ToolTip.Tip="Import tileset image">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Image}" />
+                </Button>
+                <Button Classes="icon small" Command="{Binding AddColorTilesetCommand}" ToolTip.Tip="New color tileset">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.Plus}" />
+                </Button>
+                <Button Classes="icon small" ToolTip.Tip="More">
+                  <ui:SymbolIcon Data="{x:Static ui:Icons.MoreHorizontal}" />
+                  <Button.Flyout>
+                    <MenuFlyout Placement="BottomEdgeAlignedRight">
+                      <MenuItem Header="Tile properties…" Command="{Binding EditTileCommand}" />
+                      <MenuItem Header="Add color tile" Command="{Binding AddColorTileCommand}" />
+                      <MenuItem Header="-" />
+                      <MenuItem Header="Remove tileset" Command="{Binding RemoveTilesetCommand}" />
+                    </MenuFlyout>
+                  </Button.Flyout>
+                </Button>
+              </StackPanel>
+            </ui:SectionPanel.HeaderActions>
+
+            <Panel>
+              <StackPanel Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasTilesets}" Margin="16">
+                <ui:SymbolIcon Data="{x:Static ui:Icons.Palette}" Size="28" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center" />
+                <TextBlock Text="No tilesets yet" HorizontalAlignment="Center" FontWeight="SemiBold" />
+                <TextBlock Text="Import an image of tiles or start with flat colors." Classes="caption muted" HorizontalAlignment="Center" TextWrapping="Wrap"
+                           TextAlignment="Center" />
+                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                  <Button Classes="accent small" Command="{Binding ImportTilesetCommand}" Content="Import image" />
+                  <Button Classes="small" Command="{Binding AddColorTilesetCommand}" Content="Color tileset" />
+                </StackPanel>
+              </StackPanel>
+
+              <Grid RowDefinitions="Auto,*" IsVisible="{Binding HasTilesets}">
+                <Grid ColumnDefinitions="*,Auto" Margin="10,2,10,4">
+                  <ComboBox ItemsSource="{Binding Tilesets}" SelectedItem="{Binding SelectedTileset}" HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:TilesetItem">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <TextBlock Text="{Binding Name}" />
+                          <TextBlock Text="{Binding Summary}" Classes="caption muted" VerticalAlignment="Center" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </Grid>
+
+                <TabControl Grid.Row="1" Classes="compact" Padding="0" SelectedIndex="{Binding TabIndex}">
+                  <TabItem Header="Tiles">
+                    <Grid RowDefinitions="Auto,*">
+                      <Grid ColumnDefinitions="*,Auto,Auto" Margin="10,6,10,4">
+                        <ui:SearchBox Text="{Binding Filter}" PlaceholderText="Filter by name, id or property" />
+                        <Slider Grid.Column="1" Minimum="24" Maximum="96" Value="{Binding TileSize}" Width="72" Margin="8,0,4,0" VerticalAlignment="Center"
+                                ToolTip.Tip="Tile size" Focusable="False" />
+                        <Button Grid.Column="2" Classes="icon small" Command="{Binding AddColorTileCommand}" IsVisible="{Binding IsColorTileset}" ToolTip.Tip="Add color tile">
+                          <ui:SymbolIcon Data="{x:Static ui:Icons.Plus}" />
+                        </Button>
+                      </Grid>
+                      <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                        <controls:TilePalette x:Name="Palette" Tileset="{Binding Tileset}" TileSize="{Binding TileSize}" Filter="{Binding Filter}"
+                                              SelectedIds="{Binding SelectedIds}" Revision="{Binding Revision}" HorizontalAlignment="Left" VerticalAlignment="Top" />
+                      </ScrollViewer>
+                    </Grid>
+                  </TabItem>
+
+                  <TabItem Header="Terrains">
+                    <Grid RowDefinitions="*,Auto">
+                      <ListBox Classes="sidebar" ItemsSource="{Binding Terrains}" SelectedItem="{Binding SelectedTerrain}" Margin="4,6,4,0"
+                               DoubleTapped="OnTerrainDoubleTapped">
+                        <ListBox.ItemTemplate>
+                          <DataTemplate x:DataType="maps:Terrain">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                              <ui:SymbolIcon Data="{x:Static ui:Icons.Wand}" Size="14" Foreground="{DynamicResource AccentBrush}" />
+                              <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                              <TextBlock Text="{Binding Rules.Count, StringFormat='{}{0} rules'}" Classes="caption muted" VerticalAlignment="Center" />
+                            </StackPanel>
+                          </DataTemplate>
+                        </ListBox.ItemTemplate>
+                      </ListBox>
+                      <TextBlock Text="Terrains paint with automatic transitions. Pick a base tile and add neighbor rules; select one to paint it."
+                                 Classes="caption muted" TextWrapping="Wrap" Margin="14,10" VerticalAlignment="Top" IsVisible="{Binding !HasTerrains}" />
+                      <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="10,6">
+                        <Button Classes="small" Command="{Binding AddTerrainCommand}">
+                          <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ui:SymbolIcon Data="{x:Static ui:Icons.Plus}" Size="13" />
+                            <TextBlock Text="New terrain" />
+                          </StackPanel>
+                        </Button>
+                        <Button Classes="small subtle" Command="{Binding EditTerrainCommand}" Content="Edit" />
+                        <Button Classes="small subtle" Command="{Binding RemoveTerrainCommand}" Content="Remove" />
+                      </StackPanel>
+                    </Grid>
+                  </TabItem>
+
+                  <TabItem Header="Properties">
+                    <ScrollViewer>
+                      <StackPanel Spacing="16" Margin="12,10" DataContext="{Binding $parent[UserControl].((vm:TileMapPanelViewModel)DataContext)}"
+                                  x:DataType="vm:TileMapPanelViewModel">
+                        <StackPanel Spacing="10" DataContext="{Binding ObjectProperties}" x:DataType="vm:ObjectPropertiesViewModel" IsVisible="{Binding HasObject}">
+                          <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="role" Background="{DynamicResource AccentSubtleBrush}">
+                              <ui:SymbolIcon Data="{Binding Icon}" Size="14" Foreground="{DynamicResource AccentBrush}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
+                              <TextBlock Text="Selected object" FontWeight="SemiBold" />
+                              <TextBlock Text="{Binding Summary}" Classes="caption muted" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <Button Grid.Column="2" Classes="icon small" Command="{Binding DeleteCommand}" ToolTip.Tip="Delete object (Delete)">
+                              <ui:SymbolIcon Data="{x:Static ui:Icons.Trash}" />
+                            </Button>
+                          </Grid>
+                          <Grid ColumnDefinitions="*,8,*" RowDefinitions="Auto,4,Auto,10,Auto,4,Auto">
+                            <TextBlock Classes="caption muted" Text="Name" />
+                            <TextBlock Grid.Column="2" Classes="caption muted" Text="Type" />
+                            <TextBox Grid.Row="2" Text="{Binding Name, UpdateSourceTrigger=LostFocus}" />
+                            <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding Type, UpdateSourceTrigger=LostFocus}" PlaceholderText="Such as spawn" />
+                            <TextBlock Grid.Row="4" Classes="caption muted" Text="X" />
+                            <TextBlock Grid.Row="4" Grid.Column="2" Classes="caption muted" Text="Y" />
+                            <ui:NumberField Grid.Row="6" Value="{Binding X}" Step="1" Label="X" />
+                            <ui:NumberField Grid.Row="6" Grid.Column="2" Value="{Binding Y}" Step="1" Label="Y" />
+                          </Grid>
+                          <vm:PropertyListView DataContext="{Binding Properties}" />
+                          <Border Classes="divider-h" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="10" DataContext="{Binding MapProperties}" x:DataType="vm:MapPropertiesViewModel">
+                          <TextBlock Text="Map" FontWeight="SemiBold" />
+                          <Grid ColumnDefinitions="*,Auto">
+                            <CheckBox IsChecked="{Binding HasBackground}" Content="Background color" />
+                            <ui:ColorPickerButton Grid.Column="1" Color="{Binding BackgroundColor}" IsEnabled="{Binding HasBackground}" Width="120" />
+                          </Grid>
+                          <vm:PropertyListView DataContext="{Binding Properties}" />
+                        </StackPanel>
+                      </StackPanel>
+                    </ScrollViewer>
+                  </TabItem>
+                </TabControl>
+              </Grid>
+            </Panel>
+          </ui:SectionPanel>
+        </Grid>
+      </ScrollViewer>
+    </Panel>
+  </DockPanel>
+</UserControl>

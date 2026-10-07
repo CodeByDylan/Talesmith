@@ -1,0 +1,260 @@
+---
+title: "Physics from scripts"
+description: "Move characters and rigid bodies, apply forces and impulses, cast rays and shapes, and react to collisions and triggers in scripts."
+---
+
+The `Physics` property is the scene's physics world, an `IPhysicsWorld`. Through it a script moves characters with `MoveCharacter`, pushes rigid bodies with forces and impulses, and asks questions with ray casts, shape casts and overlap queries. Contacts come back to the script through the collision and trigger callbacks. This page shows each from a script's point of view; [Physics](../concepts/physics.mdx) explains bodies, layers and the step itself.
+
+## Physics code goes in FixedUpdate
+
+The physics world steps in the fixed update, 60 times per second by default, right after every script's `FixedUpdate`. Code that moves bodies or characters belongs in `FixedUpdate`, where `Time.DeltaTime` is the length of one step, so movement is the same at any frame rate and in step with the simulation.
+
+Input is the exception. `Input.WasPressed` is true for one frame, and a frame can run zero, one or several fixed steps, so a press read in `FixedUpdate` can be missed or seen twice. Read presses in `Update`, remember them in a field, and act on them in the next `FixedUpdate`, as the examples below do. Held state, such as `Input.Vector("Move")`, is safe to read in either.
+
+## Move a character
+
+A **Character Controller 2D** moves its entity's collider by sliding along whatever it touches, which is what platformer and top-down heroes need. Give the entity a **Collider 2D** and a **Character Controller 2D**, then call `Physics.MoveCharacter` with the distance to move this step:
+
+```csharp title="assets/scripts/Walker.cs"
+namespace MyGame;
+
+/// <summary>Runs with the Move action, jumps with Jump and falls with gravity.</summary>
+public sealed class Walker : Script
+{
+    [Range(0, 1000)]
+    public float Speed = 240;
+
+    [Range(0, 5000)]
+    public float Gravity = 2000;
+
+    [Range(0, 2000)]
+    public float JumpSpeed = 700;
+
+    private Vector2 _velocity;
+    private bool _jump;
+
+    protected override void Update()
+    {
+        if (Input.WasPressed("Jump"))
+            _jump = true;
+    }
+
+    protected override void FixedUpdate()
+    {
+        var dt = Time.DeltaTime;
+        _velocity.X = Input.Vector("Move").X * Speed;
+        _velocity.Y += Gravity * dt;
+
+        ref var controller = ref GetComponent<CharacterController2D>();
+        if (_jump && controller.IsGrounded)
+            _velocity.Y = -JumpSpeed;
+        _jump = false;
+
+        var hits = Physics.MoveCharacter(Entity, _velocity * dt);
+        if ((hits & CharacterCollisions.Below) != 0 && _velocity.Y > 0)
+            _velocity.Y = 0;
+        if ((hits & CharacterCollisions.Above) != 0 && _velocity.Y < 0)
+            _velocity.Y = 0;
+    }
+}
+```
+
+Y points down in Talesmith, so gravity is positive and a jump sets a negative vertical speed. The character keeps its own velocity in a field; the controller only resolves the move.
+
+`MoveCharacter` returns the sides the character touched, as `CharacterCollisions` flags (`Below`, `Sides`, `Above`), and stores the result in the component:
+
+| `CharacterController2D` member | After a move |
+| --- | --- |
+| `IsGrounded` | Standing on ground no steeper than **Slope Limit** |
+| `Collisions` | The same flags `MoveCharacter` returned |
+| `GroundNormal` | The normal of the ground stood on, pointing up out of it |
+| `Ground` | The entity stood on, such as a moving platform or the tile map |
+| `LastMotion` | The distance actually moved |
+
+Clear the vertical velocity when the character lands or bumps its head, as above, or gravity keeps accumulating while it stands still. `IsGrounded` describes the last move, so check it before moving, as the jump does, to use the result of the previous step. The [platformer recipe](../recipes/platformer.mdx) builds coyote time, jump buffering and variable jump height on top of this.
+
+## Push rigid bodies
+
+An entity with a **Rigidbody 2D** is moved by the simulation. A script steers it in three ways:
+
+```csharp title="assets/scripts/Ball.cs"
+namespace MyGame;
+
+/// <summary>A ball with a speed limit and a slight lift, that can be kicked.</summary>
+public sealed class Ball : Script
+{
+    [Range(0, 2000)]
+    public float KickStrength = 400;
+
+    protected override void FixedUpdate()
+    {
+        ref var body = ref GetComponent<Rigidbody2D>();
+        if (body.Velocity.Length() > 900)
+            body.Velocity = Vector2.Normalize(body.Velocity) * 900;
+        Physics.AddForce(Entity, new Vector2(0, -200));
+    }
+
+    public void Kick(Vector2 direction) => Physics.AddImpulse(Entity, Vector2.Normalize(direction) * KickStrength);
+}
+```
+
+| Approach | Use it for |
+| --- | --- |
+| Set `Rigidbody2D.Velocity` or `AngularVelocity` | Taking direct control: a speed limit, a knockback, stopping dead. The simulation reads the velocity before each step and writes it back after. |
+| `Physics.AddForce`, `AddForceAtPosition`, `AddTorque` | Continuous pushes, such as wind, thrusters or buoyancy. The force acts during the next step, so apply it every `FixedUpdate` it should last. |
+| `Physics.AddImpulse`, `AddImpulseAtPosition`, `AddAngularImpulse` | Instant kicks: an explosion, a bat swing, a jump. The velocity changes at once by the impulse divided by the mass. |
+
+The `AtPosition` variants push at a world point, which also spins the body. Kinematic bodies, such as moving platforms, ignore forces; move them with `Physics.MovePosition(entity, position)` and `MoveRotation`, which move them during the next step at the speed that takes, pushing what stands in the way. Setting `Transform.Position` instead teleports the body, which is right for respawning but not for motion. A resting body falls asleep to save time; `Physics.WakeUp(entity)` wakes it, and forces and impulses wake it too.
+
+## Ask questions with queries
+
+Queries look at the colliders as of the last fixed step and never allocate, so they are fine to run every step.
+
+### Ground check with a ray cast
+
+```csharp title="assets/scripts/GroundProbe.cs"
+namespace MyGame;
+
+/// <summary>Casts a short ray down from the entity's feet each step to tell whether it stands on something.</summary>
+public sealed class GroundProbe : Script
+{
+    [Range(0, 64)]
+    public float Reach = 6;
+
+    [LayerMask]
+    public int GroundLayers = PhysicsLayers.All;
+
+    public bool IsGrounded { get; private set; }
+
+    public Vector2 GroundNormal { get; private set; }
+
+    protected override void FixedUpdate()
+    {
+        var filter = new QueryFilter(GroundLayers, Ignore: Entity);
+        IsGrounded = Physics.RayCast(Position, Vector2.UnitY, Reach, filter, out var hit);
+        GroundNormal = IsGrounded ? hit.Normal : Vector2.Zero;
+    }
+}
+```
+
+`RayCast(origin, direction, maxDistance, filter, out hit)` returns the closest collider along the ray. The direction does not need to be normalized. A ray that starts inside a collider does not hit that collider, but the entity's own collider is usually where the ray starts, so `Ignore: Entity` keeps it out regardless. The `[LayerMask]` attribute shows the field as a checkbox per collision layer in the inspector.
+
+`RaycastHit` holds the `Entity` hit (for a tile map, the map's entity), the `Point`, the surface `Normal` pointing back toward the ray, the `Distance`, the `Fraction` of `maxDistance`, and `IsTrigger`.
+
+### Every query
+
+| Query | Finds |
+| --- | --- |
+| `RayCast(origin, direction, maxDistance, filter, out hit)` | The closest hit along a ray |
+| `RayCastAll(origin, direction, maxDistance, filter, hits)` | Every hit along a ray, nearest first, into a span; returns the count |
+| `ShapeCast(shape, position, rotation, direction, maxDistance, filter, out hit)` | The first collider a box, circle, capsule or polygon would touch when swept along a line |
+| `OverlapPoint(point, filter, results)` | Entities whose colliders contain a point |
+| `OverlapCircle(center, radius, filter, results)`, `OverlapBox(center, size, rotation, filter, results)` | Entities whose colliders overlap the shape |
+| `OverlapShape(shape, position, rotation, filter, results)` | The same for any `QueryShape` |
+| `GetContacts(entity, contacts)` | What an entity touches now, as `ContactInfo`s |
+| `TryGetHitCell(hit, out cell)` | The tile map cell a hit landed in |
+
+Queries that return many results write them into a `Span` you provide and return how many they wrote. Allocate the span on the stack with `stackalloc`, which costs nothing:
+
+```csharp title="assets/scripts/Explosion.cs"
+namespace MyGame;
+
+/// <summary>Throws every rigid body on one layer away from the entity when it explodes.</summary>
+public sealed class Explosion : Script
+{
+    [Range(0, 500)]
+    public float Radius = 120;
+
+    [Range(0, 5000)]
+    public float Force = 900;
+
+    [Layer]
+    public int Layer;
+
+    public void Explode()
+    {
+        Span<Entity> found = stackalloc Entity[32];
+        var count = Physics.OverlapCircle(Position, Radius, new QueryFilter(PhysicsLayers.Mask(Layer)), found);
+        for (var i = 0; i < count; i++)
+        {
+            if (!HasComponent<Rigidbody2D>(found[i]))
+                continue;
+            var away = GetComponent<Transform>(found[i]).Position - Position;
+            if (away == Vector2.Zero)
+                away = -Vector2.UnitY;
+            Physics.AddImpulse(found[i], Vector2.Normalize(away) * Force);
+        }
+    }
+}
+```
+
+A shape cast checks whether a whole body fits somewhere before it moves, such as a dash that should stop at walls:
+
+```csharp
+var box = QueryShape.Box(new Vector2(20, 40));
+if (Physics.ShapeCast(box, Position, 0, Vector2.UnitX, 100, QueryFilter.Default with { Ignore = Entity }, out var wall))
+    _dashDistance = wall.Distance;
+```
+
+### Filters and layers
+
+Every query takes a `QueryFilter`:
+
+| Field | |
+| --- | --- |
+| `LayerMask` | The collision layers to include. `PhysicsLayers.All` (-1) is every layer; `PhysicsLayers.Mask(2, 5)` builds a mask of layers 2 and 5. |
+| `IncludeTriggers` | Whether trigger colliders are reported; false by default |
+| `Ignore` | One entity to skip, usually the script's own |
+
+`QueryFilter.Default` is every solid collider on every layer, and `with` changes one field of it: `QueryFilter.Default with { Ignore = Entity }`. Layers are numbered 0 to 31 and named in the project's physics settings; see [Project settings](/guide/workflow/project-settings). Mark an `int` field `[Layer]` to choose one layer by name in the inspector, or `[LayerMask]` to choose several.
+
+## React to collisions and triggers
+
+Override these methods to hear about contacts of the script's entity:
+
+| Method | Called when |
+| --- | --- |
+| `OnCollisionEnter(in ContactInfo contact)` | The entity's collider starts touching another solid collider |
+| `OnCollisionStay(in ContactInfo contact)` | Every fixed step while they keep touching and either body is awake |
+| `OnCollisionExit(in ContactInfo contact)` | They stop touching, including when either collider is removed or destroyed |
+| `OnTriggerEnter(in ContactInfo contact)` | The entity's collider starts overlapping a trigger collider, or another collider enters the entity's trigger |
+| `OnTriggerStay(in ContactInfo contact)` | Every fixed step while the overlap continues and either body is awake |
+| `OnTriggerExit(in ContactInfo contact)` | The overlap ends, including when either collider is removed or destroyed |
+
+The callbacks run during the physics step, after every script's `FixedUpdate` for that step, so `Time` reports the fixed step. Both entities hear about a contact, each from its own side:
+
+| `ContactInfo` | |
+| --- | --- |
+| `Self` | The script's entity |
+| `Other` | What it touched; for a tile map, the map's entity |
+| `Point` | A world point where they touch |
+| `Normal` | Points from `Other` toward `Self`: up for a character standing on the ground |
+| `NormalImpulse` | How hard the step pushed them apart; 0 for triggers. Good for impact sounds and damage. |
+| `RelativeVelocity` | The velocity of `Other` relative to `Self` |
+| `IsTrigger` | Whether either collider is a trigger |
+
+```csharp title="assets/scripts/Spikes.cs"
+namespace MyGame;
+
+/// <summary>Sends any walker that touches the spikes back to where it started.</summary>
+public sealed class Spikes : Script
+{
+    protected override void OnTriggerEnter(in ContactInfo contact)
+    {
+        if (GetScript<Walker>(contact.Other) is not null)
+            GetComponent<Transform>(contact.Other).Position = Vector2.Zero;
+    }
+}
+```
+
+Identify what was touched by its scripts or components, as above, by a tag with `GetComponent<Tags>(contact.Other).Has("enemy")`, or by its collision layer. In an exit callback the other entity may already be destroyed; check `World.IsAlive(contact.Other)` before reading its components.
+
+A contact is only reported when at least one side can move: a rigid body or a character. Two static colliders, including a static trigger overlapping a wall, never report each other. Characters are kinematic bodies, so they enter triggers and push dynamic bodies resting on them, but walking into a dynamic body stops them like a wall; apply an impulse from `OnCollisionEnter` to push crates.
+
+For contacts of every entity, such as a system that plays a sound for any hard impact, subscribe to the `CollisionEntered` or `PhysicsTriggerEntered` [events](./events.mdx) instead.
+
+## Related
+
+- [Physics](../concepts/physics.mdx): bodies, colliders, the step, layers and tile map collision
+- [Platformer controller](../recipes/platformer.mdx): a complete character built on `MoveCharacter`
+- [Tile maps from scripts](./tile-maps.mdx): finding the cell a ray hit and changing it

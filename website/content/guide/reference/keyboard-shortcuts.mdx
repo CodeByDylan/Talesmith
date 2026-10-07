@@ -1,0 +1,89 @@
+---
+title: "Keyboard shortcuts"
+description: "Every keyboard and mouse shortcut in the editor, generated from the editor's own commands."
+---
+
+Every shortcut in the editor, grouped the way the editor's own shortcut sheet groups them. The tables are generated from the commands the editor registers, so they always match the editor. Press <Keys>F1</Keys>, or choose **Help › Keyboard shortcuts**, to see the same list in the editor, including any shortcuts you changed.
+
+<Screenshot name="guide/shortcuts-dialog" maxWidth={560} caption="The shortcut sheet in the editor, with a search box." />
+
+:::tip[Change a shortcut]
+Open **Edit › Settings…** (<Keys>Ctrl+,</Keys>), go to the **Keyboard** page, click a shortcut and press the new keys. The editor points out conflicts with other commands. See [Editor settings](../workflow/settings.mdx).
+:::
+
+## File
+
+<ShortcutTable group="file" />
+
+## Edit
+
+<ShortcutTable group="edit" />
+
+## Assets
+
+<ShortcutTable group="assets" />
+
+The [Assets panel](../assets/assets-panel.mdx) has its own keys while it has focus: <Keys>F2</Keys> renames, <Keys>Ctrl+D</Keys> duplicates, <Keys>Delete</Keys> deletes, <Keys>Enter</Keys> opens and <Keys>Backspace</Keys> goes up a folder.
+
+## Window
+
+<ShortcutTable group="window" />
+
+## Help
+
+<ShortcutTable group="help" />
+
+## GameObject
+
+<ShortcutTable group="gameobject" />
+
+## Tools
+
+<ShortcutTable group="tools" />
+
+### Transform tools
+
+<ShortcutTable group="tools-transform" />
+
+### Tile map tools
+
+<ShortcutTable group="tools-tile-map" />
+
+Some tools share a key, such as <Keys>E</Keys> for Rotate and for the tile Eraser. A key picks the tool of the group you are working in: after <Keys>W</Keys>, <Keys>E</Keys> rotates; after <Keys>B</Keys>, <Keys>E</Keys> erases. The tile tools only respond while a map is being edited.
+
+While a tile tool is active, <Keys>Z</Keys> and <Keys>Shift+Z</Keys> rotate the brush or stamp, <Keys>X</Keys> and <Keys>Y</Keys> flip it, and <Keys>Ctrl+C</Keys>, <Keys>Ctrl+X</Keys>, <Keys>Ctrl+V</Keys> and <Keys>Delete</Keys> copy, cut, paste and delete selected tiles. See [Painting tools](../tile-maps/painting.mdx).
+
+## View
+
+<ShortcutTable group="view" />
+
+## Play
+
+<ShortcutTable group="play" />
+
+## Tile map
+
+<ShortcutTable group="tile-map" />
+
+## Build
+
+<ShortcutTable group="build" />
+
+## Mouse
+
+<ShortcutTable group="mouse" />
+
+## In a running game
+
+These keys belong to the game, not the editor. They work in the Game panel during [play mode](../play-and-test/play-mode.mdx), in the player and in development builds of an exported game.
+
+| Key | Action |
+| --- | --- |
+| <Keys>F3</Keys> | Show or hide the performance overlay |
+| <Keys>F4</Keys> | Cycle the debug views: grid, chunks, objects |
+| <Keys>F9</Keys> | Save a profiler report of the last 600 frames, as JSON and CSV |
+| <Keys>F12</Keys> | Save a screenshot |
+
+## Keys and text fields
+
+Keys without <Keys>Ctrl</Keys> or <Keys>Alt</Keys> never reach the editor while a text field has focus, so typing a name never switches tools. Neither do <Keys>Ctrl</Keys> shortcuts that act on the selection, such as <Keys>Ctrl+D</Keys>.

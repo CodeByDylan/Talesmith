@@ -1,0 +1,143 @@
+---
+title: "Installing and managing plugins"
+description: "Add plugins to a game, switch them on and off in the Plugins panel, and understand where plugins are loaded from."
+---
+
+This page is for anyone who uses plugins rather than writes them. It covers where plugin folders go, the Plugins panel, switching plugins on and off per project, the `plugins.json` file that stores those choices, what load errors mean, and what happens to scenes that use a plugin you switched off.
+
+<Screenshot name="plugins/plugins-panel" />
+
+## Install a plugin
+
+A plugin is a folder. To install one, copy its folder into the game's plugins folder, `assets/plugins`:
+
+```text
+Hex Quest/
+  assets/
+    config/
+      game.json
+      plugins.json
+    plugins/
+      cutscenes/
+        plugin.json
+        Talesmith.Samples.Cutscenes.dll
+        Talesmith.Samples.Cutscenes.deps.json
+      hexquest/
+        plugin.json
+        Talesmith.Samples.HexQuest.dll
+        Talesmith.Samples.HexQuest.deps.json
+```
+
+Each plugin needs its own folder with a `plugin.json` directly inside it. The folder's name is up to you; the engine identifies plugins by the `id` in their manifest, and loads them in an order that only depends on their ids and dependencies. A different plugins folder can be set with `pluginsFolder` in `config/game.json`, relative to `assets`.
+
+Then open the Plugins panel (**Window › Panels › Plugins**) and click **Rescan the plugins folder**, or reopen the project. Plugins load when the project opens, so a newly installed plugin shows **Not loaded** and the panel shows **Restart required** with a **Reload now** button.
+
+:::warning
+Plugins run with the same rights as the editor and the game: they can read and write files, use the network and start programs. The [permissions](./package/permissions.mdx) a plugin declares are shown on its card, and the editor warns when its code uses more than it declares, but nothing stops it at run time. Install plugins from people you trust.
+:::
+
+## The Plugins panel
+
+The panel lists every folder in the plugins folder, problems first and then by name, with a filter box that matches names, ids and descriptions. Under the toolbar a summary counts the plugins: **3 installed · 2 loaded · 1 off · 1 with problems**. Plugins that failed, were skipped or have editor errors count as problems.
+
+| Toolbar button | What it does |
+| --- | --- |
+| **+** (**New plugin project…**) | Creates a plugin project in `plugins-src`; see [Your first plugin](./first-plugin.mdx) |
+| **Rescan the plugins folder** | Reads the plugin folders and `plugins.json` again |
+| **Open the plugins folder** | Opens `assets/plugins` in your file manager |
+
+Each plugin has a card:
+
+- The plugin's icon, or the first letter of its name on a colored tile, its name and a state badge.
+- A line with the version, the authors and the id, such as **v1.0.0 · Talesmith · samples.cutscenes**.
+- The switch that turns the plugin on or off for this game.
+- The description, then the reason the plugin did not load or what its editor code failed to do, in red, and any warnings, with an amber triangle.
+- **Permissions**: one chip per declared permission. A red chip with a warning sign is a permission the plugin's code uses without declaring it. Hover a chip for what the permission allows.
+- **Details** expands the rest: **Extends** (the extension points the manifest lists), **Dependencies** with whether each is met, **Settings** as saved in `plugins.json`, the full **Error** text when loading or the plugin's editor code threw an exception, **Open folder**, the homepage and the license.
+
+### States
+
+| Badge | Meaning |
+| --- | --- |
+| **Loaded** | The plugin loaded and registered its services. |
+| **Not loaded** | The plugin is installed and switched on, and loads the next time the project opens. |
+| **Disabled** | The plugin is switched off, by you, by its manifest (`"enabled": false`) or by the host. |
+| **Skipped** | A requirement is not met: a required dependency, the engine version or the contract version. The reason says which. |
+| **Failed** | The plugin is broken: its `plugin.json` is invalid, its id is used by another folder, its assembly is missing or could not be loaded, or its `Configure` threw. |
+| **Editor errors** | The plugin loaded, but some of its editor code threw. The card lists what failed, such as **Failed to add its commands: …**, and the editor skips those parts until the project reloads. See [Errors in editor code](./debugging.mdx#errors-in-editor-code). |
+
+<Screenshot name="plugins/plugin-problems" maxWidth={440} caption="A plugin with a broken manifest, one whose editor part failed, one with a missing dependency, one that is switched off and one that uses an undeclared permission." />
+
+## Switch plugins on and off
+
+Turn a card's switch off or on. The editor saves the choice at once and, when the change affects the loaded plugins, asks **Reload the project now?** with **Later** and **Reload now**. Until the project reloads, the card says **Unloads after the project reloads** or **Loads after the project reloads**, and the panel shows **Restart required**.
+
+Switching off a plugin also stops every plugin that requires it: they show **Skipped** with a reason such as **it requires samples.hexquest, which is disabled.** Plugins that only use it optionally keep loading, with a warning.
+
+The switches are per project. Two projects can share a plugin and have it on in one and off in the other.
+
+## plugins.json
+
+Switches and [plugin settings](./package/settings.mdx) are stored in `assets/config/plugins.json`. The file is created the first time you switch a plugin or save settings:
+
+```json title="assets/config/plugins.json"
+{
+  "disabled": [
+    "samples.cutscenes"
+  ],
+  "enabled": [
+    "tools.debug-console"
+  ],
+  "settings": {
+    "samples.hexquest": {
+      "difficulty": "hard"
+    }
+  }
+}
+```
+
+| Property | Type | Meaning |
+| --- | --- | --- |
+| `disabled` | list of ids | Plugins that do not load in this game. |
+| `enabled` | list of ids | Plugins that load even though their manifest says `"enabled": false`. A plugin you switch on in the panel is added here. |
+| `settings` | object | One JSON object of settings per plugin id. |
+
+An id may not be in both lists. Any other property, or a value of the wrong type, makes the whole file invalid: the editor then loads no plugins and the console shows **The project's plugins could not be loaded** with the problem. Ids of plugins that are not installed are allowed, so the file can switch off plugins before they arrive.
+
+The file is part of the game. Exported games include it, so a plugin you switch off in the editor is also off in the exported game, and builds leave switched-off plugins out entirely.
+
+## Load errors and missing dependencies
+
+The reason on a card is written to be read as it is. The most common ones:
+
+| Reason | What to do |
+| --- | --- |
+| `the folder has no plugin.json.` | The folder is not a plugin; move its files into a folder of their own, or remove it. |
+| `…plugin.json is invalid:` followed by a list | Fix every listed problem; see [The manifest](./package/manifest.mdx#validation). |
+| `the id "x" is used by more than one plugin folder (a, b); remove or rename all but one.` | Two folders hold the same plugin, often an old and a new version. Remove one. |
+| `it was built for engine contract version 2, but this engine uses version 1; install a matching build of the plugin.` | The plugin was built for a different engine. Get a build for yours. |
+| `it needs engine version 0.3.0 or newer, but this engine is version 0.1.0.` | Update the engine, or use an older version of the plugin. |
+| `it requires tools.dialogue ^2.0, which is not installed.` | Install the dependency. Other variants say it is disabled, skipped, failed, or that the installed version is out of range. |
+| `its dependencies form a cycle: a -> b -> a.` | Two plugins require each other; neither can load. |
+| `its assembly X.dll was not found in …` | The build did not copy the assembly, or `assembly` in `plugin.json` names the wrong file. |
+| `X.Configure threw FileNotFoundException: Could not load file or assembly 'Y…'` | The plugin uses a library it did not ship; see [Packaging](./package/packaging.mdx#private-dependencies). |
+
+When a plugin fails or is skipped, the game starts without it and without everything that requires it; the other plugins are not affected. In the editor, failures are also written to the console. Exported games and the player write every plugin's state to their log.
+
+## Scenes that use a switched-off plugin
+
+Switching a plugin off never deletes data:
+
+- Components of the plugin stay in scenes and prefabs. The inspector shows them as **Unknown component** with their saved values and a **Remove component** item in the section's menu; saving the scene keeps them unchanged. Games skip them and log a warning naming the entity.
+- Particle modules of the plugin stay in their effects, do nothing, and are saved back unchanged.
+- Panels of the plugin's editor part disappear from the layout and come back when it is on again.
+- Scripts that use the plugin's types no longer compile, because scripts compile only against plugins that load. The console shows the errors and play mode does not start until they are fixed or the plugin is back.
+
+Switch the plugin on again and everything returns as it was.
+
+## Related
+
+- [Your first plugin](./first-plugin.mdx)
+- [The manifest](./package/manifest.mdx)
+- [Dependencies and versions](./package/dependencies.mdx)
+- [Packaging and distribution](./package/packaging.mdx)

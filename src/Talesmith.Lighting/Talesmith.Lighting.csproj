@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>2D lighting: ambient, point, spot and directional lights, shadow casters, light layers and quality presets.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Talesmith.Runtime\Talesmith.Runtime.csproj" />
+  </ItemGroup>
+</Project>
