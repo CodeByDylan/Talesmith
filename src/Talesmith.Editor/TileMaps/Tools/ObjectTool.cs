@@ -15,7 +15,7 @@ namespace Talesmith.Editor.TileMaps.Tools;
 
 /// <summary>Places, selects, moves and deletes objects of object layers: points, polygons and tile images. Placing snaps to cell centers; Alt
 /// places freely, and Ctrl snaps polygon vertices to cell corners.</summary>
-/// <remarks>The selected object's name, type, position and properties are edited in the Tile Map panel; Delete removes it.</remarks>
+/// <remarks>Activating it with a tile in the brush switches from selecting to placing that tile. The selected object's name, type, position and properties are edited in the Tile Map panel; Delete removes it.</remarks>
 public sealed class ObjectTool(TileMapEditor editor, TileOverlay overlay) : TileTool(editor, overlay)
 {
     private const double PointRadius = 6;
@@ -48,6 +48,13 @@ public sealed class ObjectTool(TileMapEditor editor, TileOverlay overlay) : Tile
 
     protected override bool PicksWithAlt => false;
 
+    public override void Activate(ViewportToolContext context)
+    {
+        base.Activate(context);
+        if (Editor.Brush.ObjectMode == ObjectToolMode.Select && !Editor.Brush.PrimaryTile.IsEmpty)
+            Editor.Brush.ObjectMode = ObjectToolMode.Tile;
+    }
+
     public override void Cancel(ViewportToolContext context)
     {
         if (_dragging is { } dragging && _original is not null && dragging.Layer.Find(dragging.Id) is not null)
@@ -68,6 +75,9 @@ public sealed class ObjectTool(TileMapEditor editor, TileOverlay overlay) : Tile
                 break;
             case ObjectToolMode.Point when Editor.TryGetEditableObjectLayer(out var layer):
                 Place(layer, "Point", MapObjectShape.Point, Snap(map, position, e.Modifiers), [], TileCell.Empty);
+                break;
+            case ObjectToolMode.Tile when HitTest(map, position) is not null:
+                BeginDrag(position);
                 break;
             case ObjectToolMode.Tile when Editor.TryGetEditableObjectLayer(out var layer):
                 var tile = Editor.Brush.PrimaryTileFor(Editor.RotationSteps);

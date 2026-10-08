@@ -94,7 +94,8 @@ public sealed partial class TilesetsViewModel : ObservableObject
 
     public GridKind GridKind => _editor.Map?.Layout.Kind ?? GridKind.HexPointyTop;
 
-    /// <summary>Applies tiles picked in the palette to the brush and chooses a tool that paints them.</summary>
+    /// <summary>Applies tiles picked in the palette to the brush and chooses a tool that paints them; the object tool keeps placing a picked tile as
+    /// an image object.</summary>
     public void Pick(TilesPickedEventArgs e)
     {
         ArgumentNullException.ThrowIfNull(e);
@@ -124,7 +125,9 @@ public sealed partial class TilesetsViewModel : ObservableObject
         {
             brush.Select([new TileChoice(new TileCell(tileset.Id, e.Ids[0]))]);
             brush.Stamp = null;
-            if (_tools.ActiveTool is not TileTool { Options: var options } || (options & (TileToolOptions.Tile | TileToolOptions.Weights)) == 0)
+            if (_tools.ActiveTool is ObjectTool)
+                brush.ObjectMode = ObjectToolMode.Tile;
+            else if (_tools.ActiveTool is not TileTool { Options: var options } || (options & (TileToolOptions.Tile | TileToolOptions.Weights)) == 0)
                 SelectTool("tile.brush");
         }
 
