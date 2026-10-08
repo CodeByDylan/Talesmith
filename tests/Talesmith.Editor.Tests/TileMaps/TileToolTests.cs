@@ -2,6 +2,8 @@ using Avalonia.Input;
 using Talesmith.Assets.Maps;
 using Talesmith.Assets.Maps.Editing;
 using Talesmith.Editor.TileMaps;
+using Talesmith.Editor.TileMaps.Controls;
+using Talesmith.Editor.TileMaps.Panel;
 using Talesmith.Editor.TileMaps.Tools;
 using Talesmith.Grids;
 
@@ -313,5 +315,86 @@ public sealed class TileToolTests
         Assert.Equal(point.Id, harness.Editor.SelectedObject?.Id);
         Assert.True(harness.Key(Key.Delete));
         Assert.DoesNotContain(objects.Objects, o => o.Id == point.Id);
+    });
+
+    [Theory]
+    [MemberData(nameof(Templates))]
+    public void TheObjectToolPlacesATilePickedInThePaletteAsAnImageObject(string template) => Headless.Run(async () =>
+    {
+        await using var harness = await TileMapHarness.OpenAsync(template);
+        var map = harness.Map;
+        harness.Editor.Execute("Add objects", MapEdits.InsertLayer(new ObjectLayer("Props"), map.Layers.Count));
+        harness.Editor.ActiveLayer = map.ObjectLayers[^1];
+        var objects = map.ObjectLayers[^1];
+        var tool = harness.Tool<ObjectTool>();
+        var tilesets = harness.Fixture.Get<TileMapPanel>().ViewModel.Tilesets;
+        tilesets.SelectedTileset = tilesets.Tilesets[0];
+
+        harness.Tools.ActiveTool = tool;
+        tilesets.Pick(new TilesPickedEventArgs([1], isToggle: false, isRectangle: false, columns: 1));
+        Assert.Same(tool, harness.Tools.ActiveTool);
+        Assert.Equal(ObjectToolMode.Tile, harness.Editor.Brush.ObjectMode);
+
+        harness.Click(tool, new GridCoord(4, 3));
+        var image = Assert.Single(objects.Objects);
+        Assert.Equal(MapObjectShape.Tile, image.Shape);
+        Assert.Equal(harness.Tile(1), image.Tile);
+        Assert.Equal(new GridCoord(4, 3), image.Cell);
+    });
+
+    [Theory]
+    [MemberData(nameof(Templates))]
+    public void TheObjectToolPlacesTheBrushTileWhenActivatedAfterPickingIt(string template) => Headless.Run(async () =>
+    {
+        await using var harness = await TileMapHarness.OpenAsync(template);
+        var map = harness.Map;
+        harness.Editor.Execute("Add objects", MapEdits.InsertLayer(new ObjectLayer("Props"), map.Layers.Count));
+        var objects = map.ObjectLayers[^1];
+        harness.Tools.ActiveTool = harness.Tool<BrushTool>();
+        harness.Editor.Brush.Pick(harness.Tile(2));
+        harness.Editor.ActiveLayer = objects;
+
+        harness.Click(harness.Tool<ObjectTool>(), new GridCoord(4, 3));
+
+        var image = Assert.Single(objects.Objects);
+        Assert.Equal(MapObjectShape.Tile, image.Shape);
+        Assert.Equal(harness.Tile(2), image.Tile);
+    });
+
+    [Fact]
+    public void TheObjectToolKeepsAChosenModeWhenActivatedAgain() => Headless.Run(async () =>
+    {
+        await using var harness = await TileMapHarness.OpenAsync("platformer");
+        harness.Editor.Brush.Pick(harness.Tile(2));
+        harness.Editor.Brush.ObjectMode = ObjectToolMode.Point;
+
+        harness.Tools.ActiveTool = harness.Tool<BrushTool>();
+        harness.Tools.ActiveTool = harness.Tool<ObjectTool>();
+
+        Assert.Equal(ObjectToolMode.Point, harness.Editor.Brush.ObjectMode);
+    });
+
+    [Theory]
+    [MemberData(nameof(Templates))]
+    public void PlacingTilesSelectsAndMovesAnObjectClickedInsteadOfStackingAnother(string template) => Headless.Run(async () =>
+    {
+        await using var harness = await TileMapHarness.OpenAsync(template);
+        var map = harness.Map;
+        harness.Editor.Execute("Add objects", MapEdits.InsertLayer(new ObjectLayer("Props"), map.Layers.Count));
+        harness.Editor.ActiveLayer = map.ObjectLayers[^1];
+        var objects = map.ObjectLayers[^1];
+        var tool = harness.Tool<ObjectTool>();
+        harness.Editor.Brush.Pick(harness.Tile(1));
+        harness.Editor.Brush.ObjectMode = ObjectToolMode.Tile;
+        harness.Click(tool, new GridCoord(2, 2));
+        var placed = Assert.Single(objects.Objects);
+        harness.Editor.SelectedObject = null;
+
+        harness.Drag(tool, [new GridCoord(2, 2), new GridCoord(3, 2), new GridCoord(5, 4)]);
+
+        var moved = Assert.Single(objects.Objects);
+        Assert.Equal(placed.Id, moved.Id);
+        Assert.Equal(new GridCoord(5, 4), moved.Cell);
+        Assert.Equal(placed.Id, harness.Editor.SelectedObject?.Id);
     });
 }

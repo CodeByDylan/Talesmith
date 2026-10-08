@@ -23,7 +23,7 @@ public enum ObjectToolMode
     Point,
     Polygon,
 
-    /// <summary>Places the brush tile as an image object.</summary>
+    /// <summary>Places the brush tile as an image object; clicking an existing object selects it instead.</summary>
     Tile
 }
 
